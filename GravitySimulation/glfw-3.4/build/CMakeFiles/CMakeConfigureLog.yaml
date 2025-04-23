@@ -1,0 +1,325 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineSystem.cmake:205 (message)"
+      - "CMakeLists.txt:3 (project)"
+    message: |
+      The system is: Windows - 10.0.19045 - AMD64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:3 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler:  
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      Wersja programu MSBuild 17.9.5+33de0b227 dla .NET Framework
+      Kompilacja rozpocz©\xc2\x88a si© 03.04.2025 16:50:01.
+      
+      Projekt "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\4.0.0\\CompilerIdC\\CompilerIdC.vcxproj" w w©«le 1 (domy\xc2\x98lne elementy docelowe).
+      PrepareForBuild:
+        Tworzenie katalogu "Debug\\".
+        Dane wyj\xc2\x98ciowe ze strukturĄ sĄ w\xc2\x88Ączone. Formatowanie diagnostyki kompilatora b©dzie odzwierciedla† hierarchi© b\xc2\x88©d˘w. Aby uzyska† wi©cej informacji, zobacz https://aka.ms/cpp/structured-output.
+        Tworzenie katalogu "Debug\\CompilerIdC.tlog\\".
+      InitializeBuildStatus:
+        Trwa tworzenie "Debug\\CompilerIdC.tlog\\unsuccessfulbuild", poniewaľ okre\xc2\x98lono "AlwaysCreate".
+        Modyfikowanie "Debug\\CompilerIdC.tlog\\unsuccessfulbuild".
+      ClCompile:
+        C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\CL.exe /c /nologo /W0 /WX- /diagnostics:column /Od /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\\\" /Fd"Debug\\vc143.pdb" /external:W0 /Gd /TC /FC /errorReport:queue CMakeCCompilerId.c
+        CMakeCCompilerId.c
+      Link:
+        C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdC.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdC.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdC.lib" /MACHINE:X64 Debug\\CMakeCCompilerId.obj
+        CompilerIdC.vcxproj -> C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\4.0.0\\CompilerIdC\\CompilerIdC.exe
+      PostBuildEvent:
+        for %%i in (cl.exe) do @echo CMAKE_C_COMPILER=%%~$PATH:i
+        :VCEnd
+        CMAKE_C_COMPILER=C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\Hostx64\\x64\\cl.exe
+      FinalizeBuildStatus:
+        Usuwanie pliku "Debug\\CompilerIdC.tlog\\unsuccessfulbuild".
+        Modyfikowanie "Debug\\CompilerIdC.tlog\\CompilerIdC.lastbuildstate".
+      Kompilowanie projektu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\4.0.0\\CompilerIdC\\CompilerIdC.vcxproj" wykonane (domy\xc2\x98lne elementy docelowe).
+      
+      Kompilacja powiod\xc2\x88a si©.
+          Ostrzeľenia: 0
+          Liczba b\xc2\x88©d˘w: 0
+      
+      Czas, kt˘ry up\xc2\x88ynĄ\xc2\x88: 00:00:01.06
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.exe"
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.vcxproj"
+      
+      The C compiler identification is MSVC, found in:
+        C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/4.0.0/CompilerIdC/CompilerIdC.exe
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCompilerABI.cmake:83 (try_compile)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:3 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-iauccz"
+      binary: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-iauccz"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
+      CMAKE_C_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-iauccz'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_674de.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Wersja programu MSBuild 17.9.5+33de0b227 dla .NET Framework
+        Kompilacja rozpocz©\xc2\x88a si© 03.04.2025 16:50:03.
+        
+        Projekt "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-iauccz\\cmTC_674de.vcxproj" w w©«le 1 (domy\xc2\x98lne elementy docelowe).
+        PrepareForBuild:
+          Tworzenie katalogu "cmTC_674de.dir\\Debug\\".
+          Dane wyj\xc2\x98ciowe ze strukturĄ sĄ w\xc2\x88Ączone. Formatowanie diagnostyki kompilatora b©dzie odzwierciedla† hierarchi© b\xc2\x88©d˘w. Aby uzyska† wi©cej informacji, zobacz https://aka.ms/cpp/structured-output.
+          Tworzenie katalogu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-iauccz\\Debug\\".
+          Tworzenie katalogu "cmTC_674de.dir\\Debug\\cmTC_674de.tlog\\".
+        InitializeBuildStatus:
+          Trwa tworzenie "cmTC_674de.dir\\Debug\\cmTC_674de.tlog\\unsuccessfulbuild", poniewaľ okre\xc2\x98lono "AlwaysCreate".
+          Modyfikowanie "cmTC_674de.dir\\Debug\\cmTC_674de.tlog\\unsuccessfulbuild".
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_674de.dir\\Debug\\\\" /Fd"cmTC_674de.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"
+          Microsoft (R) C/C++ wersja kompilatora optymalizujĄcego 19.39.33522 dla x64
+          Copyright (C) Microsoft Corporation. Wszystkie prawa zastrzeľone.
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_674de.dir\\Debug\\\\" /Fd"cmTC_674de.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.0\\Modules\\CMakeCCompilerABI.c"
+          CMakeCCompilerABI.c
+        Link:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-iauccz\\Debug\\cmTC_674de.exe" /INCREMENTAL /ILK:"cmTC_674de.dir\\Debug\\cmTC_674de.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-iauccz/Debug/cmTC_674de.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-iauccz/Debug/cmTC_674de.lib" /MACHINE:X64  /machine:x64 cmTC_674de.dir\\Debug\\CMakeCCompilerABI.obj
+          cmTC_674de.vcxproj -> C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-iauccz\\Debug\\cmTC_674de.exe
+        FinalizeBuildStatus:
+          Usuwanie pliku "cmTC_674de.dir\\Debug\\cmTC_674de.tlog\\unsuccessfulbuild".
+          Modyfikowanie "cmTC_674de.dir\\Debug\\cmTC_674de.tlog\\cmTC_674de.lastbuildstate".
+        Kompilowanie projektu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-iauccz\\cmTC_674de.vcxproj" wykonane (domy\xc2\x98lne elementy docelowe).
+        
+        Kompilacja powiod\xc2\x88a si©.
+            Ostrzeľenia: 0
+            Liczba b\xc2\x88©d˘w: 0
+        
+        Czas, kt˘ry up\xc2\x88ynĄ\xc2\x88: 00:00:00.70
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCompilerABI.cmake:227 (message)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:3 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?))("|,| |$)]
+        linker tool for 'C': C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/bin/HostX64/x64/link.exe
+        implicit libs: []
+        implicit objs: []
+        implicit dirs: []
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/Internal/CMakeDetermineLinkerId.cmake:36 (message)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeDetermineCompilerABI.cmake:264 (cmake_determine_linker_id)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:3 (project)"
+    message: |
+      Running the C compiler's linker: "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/bin/HostX64/x64/link.exe" "-v"
+      Microsoft (R) Incremental Linker Version 14.39.33522.0
+      Copyright (C) Microsoft Corporation.  All rights reserved.
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CheckCSourceCompiles.cmake:58 (cmake_check_source_compiles)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:97 (check_c_source_compiles)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "CMakeLists.txt:60 (find_package)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-x537fo"
+      binary: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-x537fo"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
+      CMAKE_C_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/CMake/modules"
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-x537fo'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_bd45b.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Wersja programu MSBuild 17.9.5+33de0b227 dla .NET Framework
+        Kompilacja rozpocz©\xc2\x88a si© 03.04.2025 16:50:05.
+        
+        Projekt "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\cmTC_bd45b.vcxproj" w w©«le 1 (domy\xc2\x98lne elementy docelowe).
+        PrepareForBuild:
+          Tworzenie katalogu "cmTC_bd45b.dir\\Debug\\".
+          Dane wyj\xc2\x98ciowe ze strukturĄ sĄ w\xc2\x88Ączone. Formatowanie diagnostyki kompilatora b©dzie odzwierciedla† hierarchi© b\xc2\x88©d˘w. Aby uzyska† wi©cej informacji, zobacz https://aka.ms/cpp/structured-output.
+          Tworzenie katalogu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\Debug\\".
+          Tworzenie katalogu "cmTC_bd45b.dir\\Debug\\cmTC_bd45b.tlog\\".
+        InitializeBuildStatus:
+          Trwa tworzenie "cmTC_bd45b.dir\\Debug\\cmTC_bd45b.tlog\\unsuccessfulbuild", poniewaľ okre\xc2\x98lono "AlwaysCreate".
+          Modyfikowanie "cmTC_bd45b.dir\\Debug\\cmTC_bd45b.tlog\\unsuccessfulbuild".
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_bd45b.dir\\Debug\\\\" /Fd"cmTC_bd45b.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\src.c"
+          Microsoft (R) C/C++ wersja kompilatora optymalizujĄcego 19.39.33522 dla x64
+          Copyright (C) Microsoft Corporation. Wszystkie prawa zastrzeľone.
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_bd45b.dir\\Debug\\\\" /Fd"cmTC_bd45b.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\src.c"
+          src.c
+        C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\src.c(1,10): error C1083: Nie moľna otworzy† pliku do\xc2\x88Ącz: 'pthread.h': No such file or directory [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\cmTC_bd45b.vcxproj]
+        Kompilowanie projektu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\cmTC_bd45b.vcxproj" wykonane (domy\xc2\x98lne elementy docelowe) - NIEPOWODZENIE.
+        
+        Kompilacja NIE POWIODťA SI¨.
+        
+        "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\cmTC_bd45b.vcxproj" (domy\xc2\x98lny element docelowy) (1)->
+        (element docelowy ClCompile) -> 
+          C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\src.c(1,10): error C1083: Nie moľna otworzy† pliku do\xc2\x88Ącz: 'pthread.h': No such file or directory [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-x537fo\\cmTC_bd45b.vcxproj]
+        
+            Ostrzeľenia: 0
+            Liczba b\xc2\x88©d˘w: 1
+        
+        Czas, kt˘ry up\xc2\x88ynĄ\xc2\x88: 00:00:00.49
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CheckLibraryExists.cmake:112 (try_compile)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:112 (check_library_exists)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:175 (_threads_check_lib)"
+      - "CMakeLists.txt:60 (find_package)"
+    checks:
+      - "Looking for pthread_create in pthreads"
+    directories:
+      source: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-lewauq"
+      binary: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-lewauq"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
+      CMAKE_C_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/CMake/modules"
+    buildResult:
+      variable: "CMAKE_HAVE_PTHREADS_CREATE"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-lewauq'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_d2202.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Wersja programu MSBuild 17.9.5+33de0b227 dla .NET Framework
+        Kompilacja rozpocz©\xc2\x88a si© 03.04.2025 16:50:06.
+        
+        Projekt "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\cmTC_d2202.vcxproj" w w©«le 1 (domy\xc2\x98lne elementy docelowe).
+        PrepareForBuild:
+          Tworzenie katalogu "cmTC_d2202.dir\\Debug\\".
+          Dane wyj\xc2\x98ciowe ze strukturĄ sĄ w\xc2\x88Ączone. Formatowanie diagnostyki kompilatora b©dzie odzwierciedla† hierarchi© b\xc2\x88©d˘w. Aby uzyska† wi©cej informacji, zobacz https://aka.ms/cpp/structured-output.
+          Tworzenie katalogu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\Debug\\".
+          Tworzenie katalogu "cmTC_d2202.dir\\Debug\\cmTC_d2202.tlog\\".
+        InitializeBuildStatus:
+          Trwa tworzenie "cmTC_d2202.dir\\Debug\\cmTC_d2202.tlog\\unsuccessfulbuild", poniewaľ okre\xc2\x98lono "AlwaysCreate".
+          Modyfikowanie "cmTC_d2202.dir\\Debug\\cmTC_d2202.tlog\\unsuccessfulbuild".
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_d2202.dir\\Debug\\\\" /Fd"cmTC_d2202.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\CheckFunctionExists.c"
+          Microsoft (R) C/C++ wersja kompilatora optymalizujĄcego 19.39.33522 dla x64
+          Copyright (C) Microsoft Corporation. Wszystkie prawa zastrzeľone.
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_d2202.dir\\Debug\\\\" /Fd"cmTC_d2202.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\CheckFunctionExists.c"
+          CheckFunctionExists.c
+        Link:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\Debug\\cmTC_d2202.exe" /INCREMENTAL /ILK:"cmTC_d2202.dir\\Debug\\cmTC_d2202.ilk" /NOLOGO pthreads.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-lewauq/Debug/cmTC_d2202.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-lewauq/Debug/cmTC_d2202.lib" /MACHINE:X64  /machine:x64 cmTC_d2202.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: nie moľna otworzy† pliku "pthreads.lib" [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\cmTC_d2202.vcxproj]
+        Kompilowanie projektu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\cmTC_d2202.vcxproj" wykonane (domy\xc2\x98lne elementy docelowe) - NIEPOWODZENIE.
+        
+        Kompilacja NIE POWIODťA SI¨.
+        
+        "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\cmTC_d2202.vcxproj" (domy\xc2\x98lny element docelowy) (1)->
+        (element docelowy Link) -> 
+          LINK : fatal error LNK1104: nie moľna otworzy† pliku "pthreads.lib" [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-lewauq\\cmTC_d2202.vcxproj]
+        
+            Ostrzeľenia: 0
+            Liczba b\xc2\x88©d˘w: 1
+        
+        Czas, kt˘ry up\xc2\x88ynĄ\xc2\x88: 00:00:00.55
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/CheckLibraryExists.cmake:112 (try_compile)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:112 (check_library_exists)"
+      - "C:/Program Files/CMake/share/cmake-4.0/Modules/FindThreads.cmake:176 (_threads_check_lib)"
+      - "CMakeLists.txt:60 (find_package)"
+    checks:
+      - "Looking for pthread_create in pthread"
+    directories:
+      source: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-keshjx"
+      binary: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-keshjx"
+    cmakeVariables:
+      CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
+      CMAKE_C_FLAGS_DEBUG: "/Ob0 /Od /RTC1"
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+      CMAKE_MODULE_PATH: "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/CMake/modules"
+    buildResult:
+      variable: "CMAKE_HAVE_PTHREAD_CREATE"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-keshjx'
+        
+        Run Build Command(s): "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_e1e8d.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Wersja programu MSBuild 17.9.5+33de0b227 dla .NET Framework
+        Kompilacja rozpocz©\xc2\x88a si© 03.04.2025 16:50:07.
+        
+        Projekt "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\cmTC_e1e8d.vcxproj" w w©«le 1 (domy\xc2\x98lne elementy docelowe).
+        PrepareForBuild:
+          Tworzenie katalogu "cmTC_e1e8d.dir\\Debug\\".
+          Dane wyj\xc2\x98ciowe ze strukturĄ sĄ w\xc2\x88Ączone. Formatowanie diagnostyki kompilatora b©dzie odzwierciedla† hierarchi© b\xc2\x88©d˘w. Aby uzyska† wi©cej informacji, zobacz https://aka.ms/cpp/structured-output.
+          Tworzenie katalogu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\Debug\\".
+          Tworzenie katalogu "cmTC_e1e8d.dir\\Debug\\cmTC_e1e8d.tlog\\".
+        InitializeBuildStatus:
+          Trwa tworzenie "cmTC_e1e8d.dir\\Debug\\cmTC_e1e8d.tlog\\unsuccessfulbuild", poniewaľ okre\xc2\x98lono "AlwaysCreate".
+          Modyfikowanie "cmTC_e1e8d.dir\\Debug\\cmTC_e1e8d.tlog\\unsuccessfulbuild".
+        ClCompile:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_e1e8d.dir\\Debug\\\\" /Fd"cmTC_e1e8d.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\CheckFunctionExists.c"
+          Microsoft (R) C/C++ wersja kompilatora optymalizujĄcego 19.39.33522 dla x64
+          Copyright (C) Microsoft Corporation. Wszystkie prawa zastrzeľone.
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"cmTC_e1e8d.dir\\Debug\\\\" /Fd"cmTC_e1e8d.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\CheckFunctionExists.c"
+          CheckFunctionExists.c
+        Link:
+          C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:"C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\Debug\\cmTC_e1e8d.exe" /INCREMENTAL /ILK:"cmTC_e1e8d.dir\\Debug\\cmTC_e1e8d.ilk" /NOLOGO pthread.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-keshjx/Debug/cmTC_e1e8d.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/glfw-3.4/build/CMakeFiles/CMakeScratch/TryCompile-keshjx/Debug/cmTC_e1e8d.lib" /MACHINE:X64  /machine:x64 cmTC_e1e8d.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: nie moľna otworzy† pliku "pthread.lib" [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\cmTC_e1e8d.vcxproj]
+        Kompilowanie projektu "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\cmTC_e1e8d.vcxproj" wykonane (domy\xc2\x98lne elementy docelowe) - NIEPOWODZENIE.
+        
+        Kompilacja NIE POWIODťA SI¨.
+        
+        "C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\cmTC_e1e8d.vcxproj" (domy\xc2\x98lny element docelowy) (1)->
+        (element docelowy Link) -> 
+          LINK : fatal error LNK1104: nie moľna otworzy† pliku "pthread.lib" [C:\\Users\\Kubiaxx\\source\\repos\\GravitySimulation\\GravitySimulation\\glfw-3.4\\build\\CMakeFiles\\CMakeScratch\\TryCompile-keshjx\\cmTC_e1e8d.vcxproj]
+        
+            Ostrzeľenia: 0
+            Liczba b\xc2\x88©d˘w: 1
+        
+        Czas, kt˘ry up\xc2\x88ynĄ\xc2\x88: 00:00:00.56
+        
+      exitCode: 1
+...
