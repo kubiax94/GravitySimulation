@@ -6,7 +6,9 @@ class physics_system
 	std::unordered_map<scene_node*, rigid_body*> entities_;
 public:
 	bool add(rigid_body* r_body);
+	void gravity_simulation();
+
 	bool remove(rigid_body* rigid_body);
-	
+
 	void update(const float& dt);
 };
