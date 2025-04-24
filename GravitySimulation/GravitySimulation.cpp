@@ -24,7 +24,7 @@
 
 void sunShaderUniforms(shader& shader);
 
-const float G = 1.f;
+//const float G = 1.f;
 
 struct Planet {
     std::string name;
@@ -169,7 +169,7 @@ int main()
     sun_node->add_component<renderer>(sun_node, &gridShader, &sphereMesh);
 
     cam_node->add_component<Camera>(cam_node);
-    cam_node->set_position(glm::vec3(0.f, 245.f, 300.f));
+    cam_node->set_global_position(glm::vec3(0.f, 245.f, 300.f));
     cam_node->set_rotation(glm::vec3(-45.f, 0.f, 0.f));
     auto* cam = cam_node->find_component<Camera>();
     //sunRenderer.attach_to(sun_node);
@@ -190,8 +190,8 @@ int main()
 
     float x = 0;
 
-    grid_node->set_position(glm::vec3(.0f, .001f, .0f));
-    sun_node->set_position(glm::vec3(0,0,0));
+    grid_node->set_global_position(glm::vec3(.0f, .001f, .0f));
+    sun_node->set_global_position(glm::vec3(0,0,0));
     sun_node->set_scale(glm::vec3(20));
 
     float rot = 0;
@@ -204,8 +204,17 @@ int main()
     auto guid = uuid();
 
     std::cout << guid << std::endl;
-    auto p_data = physics_data(10.f, glm::vec3( 0,0,0 ), { 0,0,0 });
+    auto p_data = physics_data(100.f, glm::vec3( 0,0,0 ), { 0,0,0 });
+    auto p_data1 = physics_data(10.f, glm::vec3( -10.f,0,5.f ), { 0,0,0 });
     sun_node->add_component<rigid_body>(sun_node, p_data);
+
+    auto* rigid = cscene.create_scene_node("planet");
+    auto* rigid_drwa = rigid->add_component<renderer>(rigid, &sunShader, &sphereMesh);
+    rigid->add_component<rigid_body>(rigid, p_data1);
+
+    rigid->set_global_position({ 40,0,0 });
+    rigid->set_scale(10.f);
+
 	while (!glfwWindowShouldClose(window)) {
 
         glEnable(GL_DEPTH_TEST);
@@ -310,15 +319,16 @@ int main()
                         s.set_uni_vec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
                         s.set_uni_vec3("lightColor", glm::vec3(1.0f, .8f, .3f));
                         s.set_uni_vec3("viewPos", cam->get_transform()->get_global_position());
-                        s.set_uni_vec3("lightPos", sun_node->get_position());
+                        s.set_uni_vec3("lightPos", sun_node->get_global_rotation());
             //glUniform3fv(glGetUniformLocation(s.ID, "lightColor"), 1, &glm::vec3(1.0f, .8f, .3f)[0]);
             //glUniform1f(glGetUniformLocation(s.ID, "time"), time.current);
         });
-        find_test[0]->find_component<renderer>(search_options::first | search_options::include_self)[0]->draw(cam, [&](shader& s) {
+
+        rigid_drwa->draw(cam, [&](shader& s) {
             s.set_uni_vec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
             s.set_uni_vec3("lightColor", glm::vec3(1.0f, .8f, .3f));
             s.set_uni_vec3("viewPos", cam->get_transform()->get_global_position());
-            s.set_uni_vec3("lightPos", sun_node->get_position());
+            s.set_uni_vec3("lightPos", sun_node->get_global_position());
             //glUniform3fv(glGetUniformLocation(s.ID, "lightColor"), 1, &glm::vec3(1.0f, .8f, .3f)[0]);
             //glUniform1f(glGetUniformLocation(s.ID, "time"), time.current);
         });
