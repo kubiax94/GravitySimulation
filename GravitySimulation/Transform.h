@@ -75,10 +75,14 @@ public:
 
 	virtual const glm::mat4& get_global_matrix_model() const = 0;
 
+	virtual void set_global_position(const glm::vec3& n_pos) = 0;
+
 	virtual void set_position(const glm::vec3& n_pos) = 0;
 	virtual void set_position(const float& x, const float& y, const float& z) = 0;
+
 	virtual void set_rotation(const glm::vec3& n_rot) = 0;
 	virtual void set_rotation(const float& x, const float& y, const float& z) = 0;
+
 	virtual void set_scale(const float& x) = 0;
 	virtual void set_scale(const glm::vec3& n_sc) = 0;
 	virtual void set_scale(const float& x, const float& y, const float& z) = 0;
