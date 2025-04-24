@@ -97,6 +97,17 @@ const glm::mat4& scene_node::get_global_matrix_model() const {
 	return global_matrix_model_;
 }
 
+void scene_node::set_global_position(const glm::vec3& n_pos) {
+	if (parent_)
+	{
+		glm::mat4 inv = glm::inverse(parent_->get_global_matrix_model());
+		glm::vec4 local = inv * glm::vec4(n_pos, 1.0f);
+		set_position(glm::vec3(local));
+	} else
+		set_position(n_pos);
+	
+}
+
 void scene_node::set_position(const glm::vec3& n_pos) {
 	transform_.setPosition(n_pos);
 	set_dirty();

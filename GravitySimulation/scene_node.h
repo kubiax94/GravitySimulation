@@ -116,6 +116,8 @@ public:
 	const glm::vec3& get_global_scale() const override;
 	const glm::mat4& get_global_matrix_model() const override;
 
+	void set_global_position(const glm::vec3& n_pos) override;
+
 	void set_position(const glm::vec3& n_pos) override;
 	void set_position(const float& x, const float& y, const float& z) override;
 	void set_rotation(const glm::vec3& n_rot) override;
