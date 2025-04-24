@@ -64,7 +64,7 @@ void scene::init() {
 }
 
 void scene::update() {
-	float dt = time_->delta_time;
+	float dt = time_->fixed_delta_time;
 	physics_.update(dt);
 	//root_->update();
 }
