@@ -139,6 +139,7 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="GravitySimulation.cpp" />
+    <ClCompile Include="input_system.cpp" />
     <ClCompile Include="uuid.cpp" />
     <ClCompile Include="i_scene_manager.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -152,11 +153,12 @@
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="transformable.cpp" />
-    <ClCompile Include="UnitSystem.cpp" />
+    <ClCompile Include="unit_system.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="input_system.h" />
     <ClInclude Include="uuid.h" />
     <ClInclude Include="i_scene_manager.h" />
     <ClInclude Include="Mesh.h" />
@@ -170,7 +172,7 @@
     <ClInclude Include="Time.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="transformable.h" />
-    <ClInclude Include="UnitSystem.h" />
+    <ClInclude Include="unit_system.h" />
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="camera.fs.shader">
