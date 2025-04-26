@@ -19,7 +19,9 @@
 #include <algorithm>
 #include "Renderer.h"
 #include "Scene.h"
+#include "unit_system.h"
 #include "uuid.h"
+#include "input_system.h"
 
 
 void sunShaderUniforms(shader& shader);
@@ -75,6 +77,34 @@ float planetX_orbit_real = 145.8e6f;
 
 float visual_render_scale = 40.f;
 
+void sim_key_callback(GLFWwindow* window, int key, int scancode, int action, int modes) {
+
+	if (action == GLFW_PRESS)
+	{
+        input_system::on_key_press(key);
+	} else if (action == GLFW_RELEASE)
+	{
+        input_system::on_key_release(key);
+	}
+}
+
+void sim_mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
+    input_system::on_mouse_move(xpos, ypos);
+}
+
+void sim_mouse_buttons_callback(GLFWwindow* window, int button, int action, int modes) {
+
+    if (action == GLFW_PRESS)
+    {
+        input_system::on_key_press(button);
+    }
+    else if (action == GLFW_RELEASE)
+    {
+        input_system::on_key_release(button);
+    }
+
+}
+
 int main()
 {
     //Planet sun({ "Sun", {0.f,0.f,0.f},{0.f, 0.f, 0.f}, sun_mass_real / scale_mass });
@@ -82,7 +112,7 @@ int main()
 
     //float orbit_r = earth_orbit_real / scale_distance;
     //float sun_mass = sun_mass_real / scale_mass;
-    ////float v = earth_velocity_real * scale_time / scale_distance;
+    //float v = earth_velocity_real * scale_time;
     //float v = sqrt(G * sun_mass / orbit_r);
     //Planet earth({ "Earth", {orbit_r, 0, 0}, {0, v, 0}, earth_mass_real / scale_mass });
     //std::cout << "Velocity: " << v << "Position: " << orbit_r << "Earth Diameter: " << eartrh_diameter;
@@ -142,7 +172,10 @@ int main()
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-
+    //CALLBACKS
+    glfwSetKeyCallback(window, sim_key_callback);
+    glfwSetCursorPosCallback(window, sim_mouse_pos_callback);
+    glfwSetMouseButtonCallback(window, sim_mouse_buttons_callback);
 
     glEnable(GL_MULTISAMPLE);
 
@@ -169,7 +202,7 @@ int main()
     sun_node->add_component<renderer>(sun_node, &gridShader, &sphereMesh);
 
     cam_node->add_component<Camera>(cam_node);
-    cam_node->set_global_position(glm::vec3(0.f, 245.f, 300.f));
+    cam_node->set_global_position(glm::vec3(0.f, 280.f, 400.f));
     cam_node->set_rotation(glm::vec3(-45.f, 0.f, 0.f));
     auto* cam = cam_node->find_component<Camera>();
     //sunRenderer.attach_to(sun_node);
@@ -192,7 +225,6 @@ int main()
 
     grid_node->set_global_position(glm::vec3(.0f, .001f, .0f));
     sun_node->set_global_position(glm::vec3(0,0,0));
-    sun_node->set_scale(glm::vec3(20));
 
     float rot = 0;
 
@@ -201,26 +233,30 @@ int main()
     auto vel = glm::vec3(1, 0, 0);
     find_test[0]->add_component<renderer>(find_test[0], &gridShader, &sphereMesh);
 
-    auto guid = uuid();
+    unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
 
-    std::cout << guid << std::endl;
-    auto p_data = physics_data(100.f, glm::vec3( 0,0,0 ), { 0,0,0 });
-    auto p_data1 = physics_data(10.f, glm::vec3( -10.f,0,5.f ), { 0,0,0 });
+    float orbit_r = u_sys.distance(earth_orbit_real);
+    float sun_mass = u_sys.mass(sun_mass_real);
+	float v = sqrt(1.f * sun_mass / orbit_r);
+
+	auto p_data = physics_data(sun_mass, glm::vec3(0, 0, 0), {0, 0, 0});
+    auto p_data1 = physics_data(u_sys.mass(5.97e24f), glm::vec3(0.f, v, .0f), {0,0,0});
     sun_node->add_component<rigid_body>(sun_node, p_data);
 
     auto* rigid = cscene.create_scene_node("planet");
-    auto* rigid_drwa = rigid->add_component<renderer>(rigid, &sunShader, &sphereMesh);
+    auto* rigid_drwa = rigid->add_component<renderer>(rigid, &_shader, &sphereMesh);
     rigid->add_component<rigid_body>(rigid, p_data1);
 
-    rigid->set_global_position({ 40,0,0 });
-    rigid->set_scale(10.f);
-
+    rigid->set_global_position({ u_sys.distance(earth_orbit_real),0,0 });
+    
 	while (!glfwWindowShouldClose(window)) {
+
+        std::cout << input_system::is_key_pressed(GLFW_KEY_W);
 
         glEnable(GL_DEPTH_TEST);
 
         time1->update_time(static_cast<float>(glfwGetTime()));
-
+        cam->process_input(time1->delta_time);
 
         glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

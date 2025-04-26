@@ -1,8 +1,10 @@
+
 #pragma once
 #ifndef CAMERA_H_
 #define CAMERA_H_
 
 #include "transformable.h"
+#include  "input_system.h"
 
 enum Camera_Movment {
 	FORWARD,
@@ -47,6 +49,10 @@ public:
 	glm::mat4 GetProjectionMatrix(float aspectRatio);
 	void UpdateAspectRatio();
 	void LookAt(const transform& t);
+	void move(const glm::vec3& dir, const float& dt);
+	void process_input(const float& dt);
+
+	void set_postion(const glm::vec3& n_vec3);
 
 	type_id_t get_type_id() const override;
 };
