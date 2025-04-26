@@ -29,7 +29,7 @@ void renderer::draw(Camera* c, const std::function<void(shader&)>& pre_draw) con
 
 	shader_->set_uniform_mat4("view", view);
 	shader_->set_uniform_mat4("projection", projection);
-	shader_->set_uniform_mat4("model", owner_node_->get_global_matrix_model());
+	shader_->set_uniform_mat4("model", glm::scale(owner_node_->get_global_matrix_model(), glm::vec3(5)));
 
 	if (pre_draw) pre_draw(*shader_);
 
