@@ -117,6 +117,23 @@ void scene_node::set_position(const float& x, const float& y, const float& z) {
 	set_position(glm::vec3(x, y, z));
 }
 
+void scene_node::set_global_rotation(const glm::vec3& global_euler_deg) {
+	if (parent_)
+	{
+		glm::quat global_quat = glm::quat(glm::radians(global_euler_deg));
+		glm::quat parent_global_quat = glm::quat(glm::radians(parent_->get_global_rotation()));
+		glm::quat local_quat = glm::inverse(parent_global_quat) * global_quat;
+
+		transform_.setRotation(glm::degrees(glm::eulerAngles(local_quat)));
+
+	} else
+	{
+		transform_.setRotation(global_euler_deg);
+	}
+
+	set_dirty();
+}
+
 void scene_node::set_rotation(const glm::vec3& n_rot) {
 	transform_.setRotation(n_rot);
 	set_dirty();

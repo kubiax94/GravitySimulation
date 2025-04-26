@@ -120,8 +120,12 @@ public:
 
 	void set_position(const glm::vec3& n_pos) override;
 	void set_position(const float& x, const float& y, const float& z) override;
+
+	void set_global_rotation(const glm::vec3& global_euler_deg) override;
+
 	void set_rotation(const glm::vec3& n_rot) override;
 	void set_rotation(const float& x, const float& y, const float& z) override;
+
 	void set_scale(const float& x) override;
 	void set_scale(const glm::vec3& n_sc) override;
 	void set_scale(const float& x, const float& y, const float& z) override;
@@ -129,7 +133,7 @@ public:
 	void remove_component(component* component);
 
 	~scene_node() override = default;
-
+	
 };
 
 

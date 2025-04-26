@@ -96,11 +96,11 @@ void sim_mouse_buttons_callback(GLFWwindow* window, int button, int action, int 
 
     if (action == GLFW_PRESS)
     {
-        input_system::on_key_press(button);
+        input_system::on_mouse_button_press(button);
     }
     else if (action == GLFW_RELEASE)
     {
-        input_system::on_key_release(button);
+        input_system::on_mouse_button_release(button);
     }
 
 }
@@ -251,7 +251,7 @@ int main()
     
 	while (!glfwWindowShouldClose(window)) {
 
-        std::cout << input_system::is_key_pressed(GLFW_KEY_W);
+        
 
         glEnable(GL_DEPTH_TEST);
 

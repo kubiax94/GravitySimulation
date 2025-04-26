@@ -15,6 +15,7 @@ class transform
 {
 	glm::vec3 position = glm::vec3(0.f);
 	glm::vec3 rotation = glm::vec3(0.f);
+	glm::quat rotation_quat_ = glm::quat(1, 0, 0, 0);
 	glm::vec3 scale = glm::vec3(1.f);
 
 	mutable glm::vec3 _forward = Forward;
@@ -45,6 +46,7 @@ public:
 	void Translate(const glm::vec3& offset);
 	void setPosition(const glm::vec3& nPos);
 	void setRotation(const glm::vec3& nRot);
+	void set_rotation_quat(const glm::quat& quat);
 	void setScale(const glm::vec3& nSc);
 
 	const glm::vec3& forward() const;
@@ -79,6 +81,8 @@ public:
 
 	virtual void set_position(const glm::vec3& n_pos) = 0;
 	virtual void set_position(const float& x, const float& y, const float& z) = 0;
+
+	virtual void set_global_rotation(const glm::vec3& global_euler_deg) = 0;
 
 	virtual void set_rotation(const glm::vec3& n_rot) = 0;
 	virtual void set_rotation(const float& x, const float& y, const float& z) = 0;

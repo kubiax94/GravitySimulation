@@ -1,5 +1,7 @@
 #include "Camera.h"
 
+#include <glm/gtx/string_cast.hpp>
+
 Camera::Camera(scene_node* owner, float yaw, float pitch) : transformable(owner), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY) {
 
 	Yaw = yaw;
@@ -36,7 +38,24 @@ void Camera::process_input(const float& dt) {
 	if (input_system::is_key_pressed(GLFW_KEY_D))
 		move(transform_->right(), dt);
 
-	if (input_system::)
+	//std::cout << glm::to_string(input_system::get_mouse_move()) << std::endl;
+	auto mouse_move = input_system::get_mouse_move();
+	std::cout << input_system::is_button_down(GLFW_MOUSE_BUTTON_RIGHT) << std::endl;
+	if (input_system::is_button_down(GLFW_MOUSE_BUTTON_RIGHT))
+	{
+		auto rot = transform_->get_global_rotation();
+		rot.y -= mouse_move.x * 10.f * dt;
+		rot.x -= mouse_move.y * 10.f * dt;
+		rot.z = 0;
+
+		if (rot.x > 89.0f)
+			rot.x = 89.0f;
+
+		if (rot.x < -89.0f)
+			rot.x = -89.0f;
+
+		transform_->set_global_rotation(rot);
+	}
 
 }
 

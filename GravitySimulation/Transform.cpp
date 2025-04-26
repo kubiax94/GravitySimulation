@@ -45,7 +45,7 @@ const glm::mat4& transform::GetRotationMatrix() const {
 	return rotationMatrix;
 }
 void transform::RecalculateRotation() const {
-	rotationMatrix = glm::yawPitchRoll(rotation.y, rotation.x, rotation.z);
+	rotationMatrix = glm::mat4(rotation_quat_);
 
 	_forward = glm::normalize(-glm::vec3(rotationMatrix[2]));
 	_right = glm::normalize(glm::vec3(rotationMatrix[0]));
@@ -89,10 +89,18 @@ void transform::setPosition(const glm::vec3& nPos) {
 }
 void transform::setRotation(const glm::vec3& nRot) {
 	rotation = nRot;
+	rotation_quat_ = glm::quat(glm::radians(nRot));
 	dirtyRotation = true;
 	dirtyModel = true;
 }
 void transform::setScale(const glm::vec3& nSc) {
 	scale = nSc;
+	dirtyModel = true;
+}
+
+void transform::set_rotation_quat(const glm::quat& quat) {
+	rotation_quat_ = quat;
+	rotation = glm::degrees(glm::eulerAngles(quat));
+	dirtyRotation = true;
 	dirtyModel = true;
 }
