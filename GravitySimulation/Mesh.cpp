@@ -44,4 +44,5 @@ void Mesh::Draw()
 {
 	glBindVertexArray(VAO);
 	glDrawElements(MeshTypeToGL(type), meshData->indices.size(), GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
 }
