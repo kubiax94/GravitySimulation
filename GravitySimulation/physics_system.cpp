@@ -1,9 +1,11 @@
 ﻿#include "physics_system.h"
 
-const float G = 1.f;
 //float scale_mass = 1e24f; // masa Ziemi
 //float scale_distance = 1e6f; // 1mln km
 //float scale_time = 3.872e6f / 3600.f; // 1h
+
+physics_system::physics_system(unit_system* u_sys): u_sys(u_sys) {
+}
 
 bool physics_system::add(rigid_body* r_body) {
 	auto* test = r_body->get_node();
@@ -22,13 +24,13 @@ void physics_system::gravity_simulation() {
 		{
 			auto [b_node, b_body] = all[j];
 
-			glm::vec3 dir = b_node->get_global_position() - a_node->get_global_position();
+			glm::vec3 dir = b_body->position - a_body->position;
 			float dist = glm::length(dir);
 
 			if (dist < 1e-3f) continue;
 
 			glm::vec3 force_dir = glm::normalize(dir);
-			float force_mag = G * a_body->mass * b_body->mass / (dist * dist);
+			float force_mag = u_sys->scaled_G() * a_body->mass * b_body->mass / (dist * dist);
 			glm::vec3 force = force_dir * force_mag;
 
 			a_body->apply_force(force);
