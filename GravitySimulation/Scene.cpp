@@ -17,7 +17,6 @@ void scene::register_in(component* comp) {
 	if (t_id == rigid_body::type_id())
 		physics_.add(static_cast<rigid_body*>(comp)); //NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
 
-
 }
 
 void scene::register_out(component* comp) {
@@ -32,19 +31,14 @@ scene::~scene() {
 
 }
 
-scene::scene() {
-	root_ = new scene_node("root");
-	time_ = new sim::time();
-
-	main_camera_ = nullptr;
+scene::scene() : root_(new scene_node("root")), main_camera_(nullptr), time_(new sim::time()),
+                 unit_sys_(new unit_system(1e24f, 1e6f, 3.872e6f / 3600.f)), physics_(unit_sys_) {
 }
 
-scene::scene(sim::time* time) {
-	root_ = new scene_node("root");
-	time_ = time;
-
-	main_camera_ = nullptr;
+scene::scene(sim::time* time) : root_(new scene_node("root")), main_camera_(nullptr), time_(time),
+                                unit_sys_(new unit_system(1e24f, 1e6f, 3.872e6f / 3600.f)), physics_(unit_sys_) {
 }
+
 
 void scene::init() {
 
@@ -64,7 +58,7 @@ void scene::init() {
 }
 
 void scene::update() {
-	float dt = time_->fixed_delta_time;
+	float dt = unit_sys_->time(time_->fixed_delta_time);
 	physics_.update(dt);
 	//root_->update();
 }

@@ -20,8 +20,12 @@ class scene : public i_scene_manager
 	scene_node* root_;
 	Camera* main_camera_;
 	std::vector<Camera*> cameras_;
-	physics_system physics_;
 	sim::time* time_;
+
+	unit_system* unit_sys_;
+	physics_system physics_;
+	
+	
 
 public:
 	virtual ~scene();
