@@ -14,6 +14,7 @@ type_id_t rigid_body::get_type_id() const {
 
 void rigid_body::attach_to(scene_node* n_node) {
 	component::attach_to(n_node);
+	n_node->get_global_position(position);
 
 	if (auto* s_manager = owner_node_->get_scene_manager())
 		s_manager->register_in(this);
