@@ -14,11 +14,10 @@ type_id_t rigid_body::get_type_id() const {
 
 void rigid_body::attach_to(scene_node* n_node) {
 	component::attach_to(n_node);
-	n_node->get_global_position(position);
+	n_node->set_global_position(position);
 
 	if (auto* s_manager = owner_node_->get_scene_manager())
 		s_manager->register_in(this);
-	
 }
 
 void rigid_body::apply_force(const glm::vec3& force) {
@@ -43,12 +42,10 @@ void rigid_body::integrate(const float& dt) {
 	glm::vec3 acceleration = accumulated_force / mass;
 	velocity += acceleration * dt;
 
-	auto* node = get_node();
+	position += velocity * dt;
 
-	glm::vec3 pos = node->get_global_position();
-	pos += velocity * dt;
-
-	node->set_global_position(pos);
+	if (get_node())
+		get_node()->set_global_position(position);
 
 	clear_force();
 
