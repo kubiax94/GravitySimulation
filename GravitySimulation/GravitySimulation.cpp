@@ -49,12 +49,12 @@ float scale_time = 3.872e6f / 3600.f; // 1h
 float sun_mass_real = 1.9885e30f;
 float sun_orbit_real = 0.f;
 float sun_velocity_real = 0.f;
-float sun_diameter = 1.4e6f / scale_distance;
+float sun_diameter = 1.4e6f;
 
 float earth_mass_real = 5.97e24f;
 float earth_orbit_real = 149.6e6f;
 float earth_velocity_real = 47.4f;
-float eartrh_diameter = 12756.f / scale_distance;
+float eartrh_diameter = 12756.f;
 
 float venus_mass_real = 4.87e24f;
 float venus_orbit_real = 108.2e6f;
@@ -178,6 +178,7 @@ int main()
     glfwSetMouseButtonCallback(window, sim_mouse_buttons_callback);
 
     glEnable(GL_MULTISAMPLE);
+    //glEnable(GL_CULL_FACE);
 
     auto sphereVert = Shape::GenerateSphere();
     auto gridVert = Shape::GenerateGridLines(64, 50.f);
@@ -197,14 +198,14 @@ int main()
     scene_node* sun_node = cscene.create_scene_node("sun");
     scene_node* grid_node = cscene.create_scene_node("grid");
 
-    renderer sunRenderer(sun_node, &_shader, &sphereMesh);
+    renderer sunRenderer(sun_node, &sunShader, &sphereMesh);
 
-    sun_node->add_component<renderer>(sun_node, &gridShader, &sphereMesh);
+    sun_node->add_component<renderer>(sun_node, &sunShader, &sphereMesh);
 
     cam_node->add_component<Camera>(cam_node);
-    cam_node->set_global_position(glm::vec3(0.f, 280.f, 400.f));
-    cam_node->set_rotation(glm::vec3(-45.f, 0.f, 0.f));
-    auto* cam = cam_node->find_component<Camera>();
+    //cam_node->set_global_position(glm::vec3(0.f, 280.f, 400.f));
+    cam_node->set_global_rotation(glm::vec3(-45.f, 0.f, 0.f));
+    
     //sunRenderer.attach_to(sun_node);
 
     for (int i = 0; i < 10; i++)
@@ -237,10 +238,10 @@ int main()
 
     float orbit_r = u_sys.distance(earth_orbit_real);
     float sun_mass = u_sys.mass(sun_mass_real);
-	float v = sqrt(1.f * sun_mass / orbit_r);
+	float v = sqrt(u_sys.scaled_G() * sun_mass / orbit_r);
 
-	auto p_data = physics_data(sun_mass, glm::vec3(0, 0, 0), {0, 0, 0});
-    auto p_data1 = physics_data(u_sys.mass(5.97e24f), glm::vec3(0.f, v, .0f), {0,0,0});
+	auto p_data = physics_data(sun_mass, glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), {0, 0, 0});
+    auto p_data1 = physics_data(u_sys.mass(5.97e24f), {glm::vec3(u_sys.distance(earth_orbit_real), 0, 0)}, glm::vec3(0.f, v, .0f), {0,0,0});
     sun_node->add_component<rigid_body>(sun_node, p_data);
 
     auto* rigid = cscene.create_scene_node("planet");
@@ -248,12 +249,21 @@ int main()
     rigid->add_component<rigid_body>(rigid, p_data1);
 
     rigid->set_global_position({ u_sys.distance(earth_orbit_real),0,0 });
-    
+    rigid->add_child(cam_node);
+
+    auto* cam = cam_node->find_component<Camera>();
+
+    sun_node->set_global_scale(glm::vec3(u_sys.distance(sun_diameter)));
+    rigid->set_global_scale(glm::vec3(u_sys.distance(eartrh_diameter)));
+
+    //rigid_drwa->set_visual_scale(glm::vec3(10.f));
+
 	while (!glfwWindowShouldClose(window)) {
 
         
 
         glEnable(GL_DEPTH_TEST);
+        //glCullFace(GL_BACK);
 
         time1->update_time(static_cast<float>(glfwGetTime()));
         cam->process_input(time1->delta_time);
@@ -263,38 +273,9 @@ int main()
 
         while (time1->should_fixed_update())
         {
-            //for (int i = 0; i < planets.size(); ++i) {
-            //    std::cout << "Planet: " << planets[i].name << " vel: " << glm::length(planets[i].Velocity) << std::endl;
-            //    for (int j = i+1; j < planets.size(); ++j) {
-
-            //        glm::vec3 direction = planets[j].Position - planets[i].Position;
-            //        float distance = glm::length(direction);
-            //        direction = glm::normalize(direction);
-
-            //        float forceMagnitude = (G * planets[i].mass * planets[j].mass) / (distance * distance + 1e-5f); // epsilon do uniknięcia dzielenia przez 0
-            //        glm::vec3 force = direction * forceMagnitude;
-
-            //        planets[i].totalForce += force;
-            //        planets[j].totalForce -= force;
-
-            //        if (i == 0 && j == 1) {
-            //            std::cout << "forceMagnitude[0][1]: " << forceMagnitude << std::endl;
-            //        }
-            //    }
-            //}
-
-            //for (int i = 0; i < planets.size(); ++i) {
-
-            //    glm::vec3 acc = planets[i].totalForce / planets[i].mass;
-            //    planets[i].Velocity += acc * time1.fixed_delta_time;
-            //    planets[i].Position += planets[i].Velocity * time1.fixed_delta_time;
-            //    planets[i].totalForce = glm::vec3(0.f);
-
-            //   std::cout << planets[i].name << " -> " << " X: " << planets[i].Position.x << " Y: " << planets[i].Position.y << " Z: " << planets[i].Position.z << std::endl;
-            //   std::cout << planets[i].name << " Lenght to SUN -> " << glm::length(planets[i].Position - sun.Position) << std::endl;
-            //}
-
             cscene.update();
+
+            std::cout <<  glm::to_string(rigid->get_global_position()) << std::endl;
             time1->reduce_accumulator();
         }
 
@@ -352,10 +333,9 @@ int main()
         //}
 
     	sunRenderer.draw(cam, [&](shader& s) {
-                        s.set_uni_vec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
                         s.set_uni_vec3("lightColor", glm::vec3(1.0f, .8f, .3f));
                         s.set_uni_vec3("viewPos", cam->get_transform()->get_global_position());
-                        s.set_uni_vec3("lightPos", sun_node->get_global_rotation());
+                        s.set_uni_float("intensity", 0.75f);
             //glUniform3fv(glGetUniformLocation(s.ID, "lightColor"), 1, &glm::vec3(1.0f, .8f, .3f)[0]);
             //glUniform1f(glGetUniformLocation(s.ID, "time"), time.current);
         });
