@@ -72,7 +72,7 @@ const transform& scene_node::get_transform() const {
 	return transform_;
 }
 
-const glm::vec3& scene_node::get_global_scale() const {
+glm::vec3 scene_node::get_global_scale() const {
 	auto model = get_global_matrix_model();
 
 	return glm::vec3(
@@ -121,8 +121,9 @@ void scene_node::set_global_rotation(const glm::vec3& global_euler_deg) {
 	if (parent_)
 	{
 		glm::quat global_quat = glm::quat(glm::radians(global_euler_deg));
-		glm::quat parent_global_quat = glm::quat(glm::radians(parent_->get_global_rotation()));
-		glm::quat local_quat = glm::inverse(parent_global_quat) * global_quat;
+
+		glm::quat parent_global_quat = glm::quat_cast(parent_->get_transform().get_local_model_matrix());
+;		glm::quat local_quat = glm::inverse(parent_global_quat) * global_quat;
 
 		transform_.setRotation(glm::degrees(glm::eulerAngles(local_quat)));
 
@@ -141,6 +142,18 @@ void scene_node::set_rotation(const glm::vec3& n_rot) {
 
 void scene_node::set_rotation(const float& x, const float& y, const float& z) {
 	set_rotation(glm::vec3(x, y, z));
+}
+
+void scene_node::set_global_scale(const glm::vec3& scalar) {
+	if (parent_)
+	{
+		glm::vec3 local_scale = scalar / parent_->get_global_scale();
+		set_scale(local_scale);
+	}
+	else
+	{
+		set_scale(scalar);
+	}
 }
 
 void scene_node::set_scale(const float& x) {
