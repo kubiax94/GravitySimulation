@@ -12,20 +12,29 @@
 #include <iostream>
 #include <unordered_map>
 
+enum class shader_type : std::uint8_t
+{
+	visual_shader,
+	compute_shader
+};
 
 class shader
 {
-private:
+protected:
 	static unsigned int current_shader_id_;
 	std::unordered_map<std::string, GLint> registered_uniforms_;
 	void check_compiler_error(GLuint shader, const std::string& type);
 	void register_uniform(const std::string& u_name);
+	shader_type type_;
 
 public:
+	virtual ~shader() = default;
 	//Shader program ID
 	unsigned int id;
+
+	const shader_type& get_type() const;
 	shader(const char* vertex_source, const char* fragment_source);
-	void use();
+	virtual void use();
 
 	//DUZO FUNKCJI DO SETOWANIA UNIFORMoW
 	void set_uni_float(const std::string& u_name, const float& x);

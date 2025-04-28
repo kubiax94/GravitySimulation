@@ -2,6 +2,10 @@
 
 unsigned int shader::current_shader_id_ = 0;
 
+const shader_type& shader::get_type() const {
+	return get_type();
+}
+
 shader::shader(const char* vertex_source, const char* fragment_source) {
 
 	std::string vertexCode;
@@ -55,6 +59,7 @@ shader::shader(const char* vertex_source, const char* fragment_source) {
 	glDeleteShader(vertex);
 	glDeleteShader(fragment);
 
+	type_ = shader_type::visual_shader;
 }
 void shader::use() {
 	if (shader::current_shader_id_ != id) {
