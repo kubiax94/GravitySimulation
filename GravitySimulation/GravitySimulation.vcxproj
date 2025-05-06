@@ -138,6 +138,8 @@
     <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Component.cpp" />
+    <ClCompile Include="compute_shader.cpp" />
+    <ClCompile Include="galactic_simulation_test.cpp" />
     <ClCompile Include="GravitySimulation.cpp" />
     <ClCompile Include="input_system.cpp" />
     <ClCompile Include="uuid.cpp" />
@@ -158,7 +160,10 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Component.h" />
+    <ClInclude Include="compute_shader.h" />
+    <ClInclude Include="galactic_simulation_test.h" />
     <ClInclude Include="input_system.h" />
+    <ClInclude Include="physics_data.h" />
     <ClInclude Include="uuid.h" />
     <ClInclude Include="i_scene_manager.h" />
     <ClInclude Include="Mesh.h" />
@@ -195,6 +200,11 @@
       <FileType>Document</FileType>
     </CopyFileToFolders>
     <CopyFileToFolders Include="sun.fs.shader">
+      <FileType>Document</FileType>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="gravity_simulation.glsl">
       <FileType>Document</FileType>
     </CopyFileToFolders>
   </ItemGroup>

@@ -16,6 +16,9 @@
     <Filter Include="shaders">
       <UniqueIdentifier>{588e74ac-85e9-4998-8644-ed33616279bc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="simulation_test">
+      <UniqueIdentifier>{568a23c5-2318-4fe3-be40-656707daf9b2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GravitySimulation.cpp">
@@ -75,6 +78,12 @@
     <ClCompile Include="input_system.cpp">
       <Filter>Pliki źródłowe</Filter>
     </ClCompile>
+    <ClCompile Include="compute_shader.cpp">
+      <Filter>Pliki źródłowe</Filter>
+    </ClCompile>
+    <ClCompile Include="galactic_simulation_test.cpp">
+      <Filter>simulation_test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Renderer.h">
@@ -128,6 +137,15 @@
     <ClInclude Include="input_system.h">
       <Filter>Pliki nagłówkowe</Filter>
     </ClInclude>
+    <ClInclude Include="compute_shader.h">
+      <Filter>Pliki nagłówkowe</Filter>
+    </ClInclude>
+    <ClInclude Include="physics_data.h">
+      <Filter>Pliki nagłówkowe</Filter>
+    </ClInclude>
+    <ClInclude Include="galactic_simulation_test.h">
+      <Filter>simulation_test</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="camera.fs.shader">
@@ -149,6 +167,9 @@
       <Filter>shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="sun.fs.shader">
+      <Filter>shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="gravity_simulation.glsl">
       <Filter>shaders</Filter>
     </CopyFileToFolders>
   </ItemGroup>
