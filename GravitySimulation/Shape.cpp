@@ -11,7 +11,7 @@ MeshData Shape::GenerateSphere(const float radius, const int segements, const in
 
 	MeshData newData;
 
-	for (int ring = 0; ring < rings; ring++) {
+	for (int ring = 0; ring <= rings; ring++) {
 		float theta = M_PI * ring / rings;
 		for (int segment = 0; segment < segements; segment++) {
 			Vertex vert;
@@ -28,7 +28,7 @@ MeshData Shape::GenerateSphere(const float radius, const int segements, const in
 		}
 	}
 
-	for (int ring = 0; ring < rings-1; ++ring) {	
+	for (int ring = 0; ring <= rings-1; ++ring) {	
 		for (int segment = 0; segment < segements; ++segment) {
 			int nextSegment = (segment + 1) % segements;
 
@@ -38,12 +38,12 @@ MeshData Shape::GenerateSphere(const float radius, const int segements, const in
 			int v3 = (ring + 1) * segements + nextSegment;
 
 			newData.indices.push_back(v0);
-			newData.indices.push_back(v2);
 			newData.indices.push_back(v1);
+			newData.indices.push_back(v2);
 			
 			newData.indices.push_back(v1);
-			newData.indices.push_back(v2);
 			newData.indices.push_back(v3);
+			newData.indices.push_back(v2);
 		}
 	}
 
