@@ -8,6 +8,7 @@
 #include "Component.h"
 
 #include "i_scene_manager.h"
+#include "uuid.h"
 
 using type_id_t = std::size_t;
 
@@ -41,6 +42,7 @@ inline bool operator&(search_options lhs, search_options hhs) {
 class scene_node : public i_transformable
 {
 private:
+	uuid id_;
 	std::string name_;
 	scene_node* parent_ = nullptr;
 
@@ -133,6 +135,8 @@ public:
 	void set_scale(const float& x, const float& y, const float& z) override;
 
 	void remove_component(component* component);
+
+	uuid get_id() const;
 
 	~scene_node() override = default;
 	

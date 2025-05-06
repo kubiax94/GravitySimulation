@@ -15,7 +15,6 @@ void scene_node::set_dirty() {
 scene_node::scene_node(const std::string& name, scene_node* parent) {
 	this->name_ = name;
 	this->parent_ = parent;
-
 	if (parent != nullptr)
 		parent->add_child(this);
 }
@@ -47,6 +46,10 @@ i_scene_manager* scene_node::get_scene_manager() const {
 void scene_node::remove_component(component* component) {
 	component->detach();
 	components_.erase(component->get_type_id());
+}
+
+uuid scene_node::get_id() const {
+	return id_;
 }
 
 void scene_node::update() {
