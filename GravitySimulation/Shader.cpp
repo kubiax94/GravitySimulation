@@ -6,6 +6,7 @@ const shader_type& shader::get_type() const {
 	return get_type();
 }
 
+shader::shader() = default;
 shader::shader(const char* vertex_source, const char* fragment_source) {
 
 	std::string vertexCode;

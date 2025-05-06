@@ -33,6 +33,7 @@ public:
 	unsigned int id;
 
 	const shader_type& get_type() const;
+	shader();
 	shader(const char* vertex_source, const char* fragment_source);
 	virtual void use();
 

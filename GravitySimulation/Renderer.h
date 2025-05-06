@@ -14,7 +14,7 @@ private:
 	shader* shader_;
 	Mesh* mesh_;
 
-	glm::vec3 visual_scale_ = glm::vec3(10.f);
+	glm::vec3 visual_scale_ = glm::vec3(5.f);
 
 public:
 	[[nodiscard]] type_id_t get_type_id() const override;

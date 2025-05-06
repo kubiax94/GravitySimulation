@@ -32,7 +32,7 @@ private:
 
 	void RecalculateProjection();
 	void RecalculateView();
-	glm::vec3 visual_scale_ = glm::vec3(10.f);
+	glm::vec3 visual_scale_ = glm::vec3(5.f);
 
 public:
 
