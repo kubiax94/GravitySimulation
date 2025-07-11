@@ -1,6 +1,7 @@
 #include "instanced_simulation_test.h"
 #include "instance_buffer_manager.h"
 #include "instanced_renderer.h"
+#include "instanced_physics_system.h"
 #include "Mesh.h"
 #include "Shape.h"
 #include "Renderer.h"
@@ -36,6 +37,7 @@ namespace simtest_instanced {
     void init_instanced_gravity_test(scene* s_to_init, 
                                    InstancedRenderer** out_planet_renderer,
                                    InstanceBufferManager** out_instance_manager,
+                                   InstancedPhysicsSystem** out_physics_system,
                                    renderer** out_sun_renderer)
     {
         unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
@@ -66,6 +68,10 @@ namespace simtest_instanced {
         auto* instance_manager = new InstanceBufferManager();
         *out_instance_manager = instance_manager;
 
+        // Create physics system for instanced objects
+        auto* physics_system = new InstancedPhysicsSystem(instance_manager);
+        *out_physics_system = physics_system;
+
         // Create instanced shader for planets
         shader* planet_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/instanced.vs.shader", 
                                          "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/instanced.fs.shader");
@@ -75,6 +81,9 @@ namespace simtest_instanced {
 
         // Create a shader group for planets
         size_t planetShaderGroup = instance_manager->createShaderGroup("planets");
+        
+        // Create a compute group for physics
+        size_t planetComputeGroup = instance_manager->createComputeGroup("planet_physics");
 
         // Add planets as instances
         for (const auto& planet : planetary_data)
@@ -91,9 +100,13 @@ namespace simtest_instanced {
             planetInstance.color = planet.color;
             planetInstance.scale = planet.diameter / dia_scale;
 
-            // Add to instance manager
+            // Add to instance manager and groups
             size_t instanceIndex = instance_manager->addInstance(planetInstance);
             instance_manager->addInstanceToShaderGroup(planetShaderGroup, instanceIndex);
+            instance_manager->addInstanceToComputeGroup(planetComputeGroup, instanceIndex);
+
+            // Add to physics system
+            physics_system->addPhysicsObject(instanceIndex, p_physics_data);
 
             // Create physics data for scene node (still needed for physics)
             auto p_physics_data = physics_data(
