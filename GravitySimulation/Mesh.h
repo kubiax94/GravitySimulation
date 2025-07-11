@@ -35,5 +35,11 @@ public:
 	void Draw();
 	Mesh(MeshData& mdata);
 	MeshType type = MeshType::TRIANGLES;
+	
+	// Accessors for instanced rendering
+	size_t getIndexCount() const { return meshData->indices.size(); }
+	GLuint getVAO() const { return VAO; }
+	GLuint getVBO() const { return VBO; }
+	GLuint getEBO() const { return EBO; }
 };
 #endif // !MESH_H_
