@@ -103,6 +103,134 @@ Each frame the engine accumulates a time-step deficit. While there is enough acc
 
 ---
 
+## Implementation Examples
+
+The engine is designed around three independent axes of extensibility: **components**, the **scene graph**, and the **unit/physics systems**. Below are copy-paste-ready snippets that show how each piece fits together.
+
+---
+
+### 1. Creating a scene node and attaching built-in components
+
+```cpp
+// 1a. A simple renderable sphere (no physics)
+auto sphereVerts = Shape::GenerateSphere();
+Mesh sphereMesh(sphereVerts);
+shader myShader("camera.vs.shader", "camera.fs.shader");
+
+scene_node* asteroid = cscene.create_scene_node("Asteroid");
+asteroid->add_component<renderer>(asteroid, &myShader, &sphereMesh);
+asteroid->set_global_position(glm::vec3(200.f, 0.f, 0.f));
+asteroid->set_global_scale(glm::vec3(0.5f));
+```
+
+```cpp
+// 1b. The same node, now also affected by gravity
+unit_system u(1e24f, 1e6f, 3.872e6f / 3600.f);
+
+physics_data pd(
+    glm::vec4(200.f, 0.f, 0.f, u.mass(7.35e22f)),  // position + mass (Moon ~)
+    glm::vec4(0.f, 0.f, 1.02f,  u.mass(7.35e22f)),  // velocity (orbital)
+    glm::vec4(0.f, 0.f, 0.f,    u.mass(7.35e22f))   // accumulated force
+);
+asteroid->add_component<rigid_body>(asteroid, pd);
+// rigid_body::attach_to() automatically registers the body with physics_system
+```
+
+---
+
+### 2. Writing a custom component
+
+Any class that inherits from `component` and implements `get_type_id()` becomes a first-class engine citizen. The node's template methods (`add_component<T>`, `find_component<T>`, `has_component<T>`) handle lifetime and lookup automatically.
+
+```cpp
+// my_spin_component.h
+#pragma once
+#include "Component.h"
+
+class my_spin_component : public component {
+    float speed_;
+public:
+    static type_id_t type_id() { return ::get_type_id<my_spin_component>(); }
+    type_id_t get_type_id() const override { return type_id(); }
+
+    my_spin_component(scene_node* owner, float speed)
+        : component(owner), speed_(speed) {}
+
+    // Called manually from your game-loop or scene::update()
+    void update(float dt) {
+        glm::vec3 rot = owner_node_->get_rotation();
+        rot.y += speed_ * dt;
+        owner_node_->set_rotation(rot);
+    }
+};
+```
+
+```cpp
+// Usage
+scene_node* moon = cscene.create_scene_node("Moon");
+moon->add_component<my_spin_component>(moon, 45.f); // 45 deg/s
+
+// Later, retrieve it from anywhere in the code:
+auto* spin = moon->find_component<my_spin_component>();
+if (spin) spin->update(deltaTime);
+```
+
+---
+
+### 3. Querying the scene graph
+
+`scene_node` provides flexible traversal via `search_options` flags.
+
+```cpp
+// Find a single node by name (registered in scene)
+scene_node* earth = cscene.find_scene_node("Earth");
+
+// Find all renderers anywhere below a root node
+auto renderers = rootNode->find_component<renderer>(search_options::recursive_down);
+
+// Check whether a node has a physics body before touching it
+if (earth->has_component<rigid_body>()) {
+    auto* rb = earth->find_component<rigid_body>();
+    std::cout << "Earth mass: " << rb->get_mass() << "\n";
+}
+```
+
+---
+
+### 4. Custom unit scale for a different simulation
+
+`unit_system` is a plain struct – swap the three scale factors to switch from a Solar-System scenario to, for example, a binary-star or a galaxy-scale simulation without touching any physics code.
+
+```cpp
+// Solar system (default)
+unit_system solar(1e24f,   // mass scale  : ~1 Earth mass
+                  1e6f,    // dist scale  : 1 million km
+                  3.872e6f / 3600.f); // time scale : ~1 hour
+
+// Galaxy-scale: mass in solar masses, distance in light-years, time in Myr
+unit_system galactic(1.989e30f,   // 1 solar mass
+                     9.461e12f,   // 1 light-year in km
+                     3.156e13f);  // 1 million years in seconds
+```
+
+`physics_system` accepts a `unit_system*` pointer in its constructor, so a fresh `scene` with a different `unit_system` is all that is needed.
+
+---
+
+### 5. Custom draw uniforms per renderer
+
+`renderer::draw()` accepts an optional `std::function<void(shader&)>` that is called right before the draw call, letting you push any per-object uniforms without subclassing the renderer.
+
+```cpp
+myRenderer.draw(cam, [&](shader& s) {
+    s.set_uni_vec3("objectColor",  glm::vec3(0.2f, 0.6f, 1.0f)); // icy blue
+    s.set_uni_vec3("lightPos",     sunNode->get_global_position());
+    s.set_uni_float("emissive",    0.0f);
+});
+```
+
+---
+
 ## License
 
 See [LICENSE.txt](LICENSE.txt).
