@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CV – Dawid Kubiak</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      border-radius: 4px;
+      max-width: 100%;
+    }
+    #download-btn {
+      display: block;
+      margin: 20px auto 0;
+      padding: 12px 32px;
+      background: #0f3460;
+      color: #e94560;
+      border: 2px solid #e94560;
+      border-radius: 6px;
+      font-size: 16px;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    #download-btn:hover {
+      background: #e94560;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+<div style="display:flex; flex-direction:column; align-items:center;">
+  <canvas id="cv" width="794" height="1123"></canvas>
+  <button id="download-btn">⬇ Pobierz CV jako PNG</button>
+</div>
+
+<script>
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+
+// ── Palette ──────────────────────────────────────────────
+const C = {
+  bg:        '#ffffff',
+  sidebar:   '#0f3460',
+  accent:    '#e94560',
+  text:      '#1a1a2e',
+  muted:     '#555e7b',
+  light:     '#f4f6ff',
+  white:     '#ffffff',
+  tag:       '#dce6ff',
+  tagText:   '#0f3460',
+};
+
+// ── Helpers ───────────────────────────────────────────────
+function roundRect(x, y, w, h, r, fill) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function wrapText(text, x, y, maxW, lineH, color='#1a1a2e', size=12, font='Segoe UI') {
+  ctx.fillStyle = color;
+  ctx.font = `${size}px ${font}`;
+  const words = text.split(' ');
+  let line = '';
+  let curY = y;
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + ' ';
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxW && i > 0) {
+      ctx.fillText(line, x, curY);
+      line = words[i] + ' ';
+      curY += lineH;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, curY);
+  return curY + lineH;
+}
+
+function sidebarSection(title, y) {
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(20, y - 2, 190, 1);
+  ctx.fillStyle = C.accent;
+  ctx.font = 'bold 11px Segoe UI';
+  ctx.fillText(title.toUpperCase(), 20, y + 14);
+  return y + 24;
+}
+
+function mainSection(title, y) {
+  ctx.fillStyle = C.accent;
+  ctx.fillRect(230, y, 3, 18);
+  ctx.fillStyle = C.text;
+  ctx.font = 'bold 14px Segoe UI';
+  ctx.fillText(title.toUpperCase(), 240, y + 14);
+  // separator line
+  ctx.strokeStyle = '#e0e5f5';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(230, y + 24);
+  ctx.lineTo(W - 30, y + 24);
+  ctx.stroke();
+  return y + 34;
+}
+
+function tag(label, x, y) {
+  const pad = 8;
+  ctx.font = '11px Segoe UI';
+  const tw = ctx.measureText(label).width;
+  roundRect(x, y - 13, tw + pad * 2, 20, 4, C.tag);
+  ctx.fillStyle = C.tagText;
+  ctx.fillText(label, x + pad, y + 1);
+  return tw + pad * 2 + 6;
+}
+
+function dot(x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fillStyle = C.accent;
+  ctx.fill();
+}
+
+// ── Background ────────────────────────────────────────────
+ctx.fillStyle = C.bg;
+ctx.fillRect(0, 0, W, H);
+
+// Sidebar
+roundRect(0, 0, 215, H, 0, C.sidebar);
+
+// Top accent bar
+roundRect(215, 0, W - 215, 6, 0, C.accent);
+
+// ── Avatar placeholder (initials circle) ──────────────────
+const cx = 107, cy = 95, cr = 55;
+ctx.beginPath();
+ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+ctx.fillStyle = C.accent;
+ctx.fill();
+ctx.fillStyle = C.white;
+ctx.font = 'bold 32px Segoe UI';
+ctx.textAlign = 'center';
+ctx.fillText('DK', cx, cy + 12);
+ctx.textAlign = 'left';
+
+// ── Name & title in sidebar ───────────────────────────────
+ctx.fillStyle = C.white;
+ctx.font = 'bold 18px Segoe UI';
+ctx.textAlign = 'center';
+ctx.fillText('Dawid Kubiak', 107, 175);
+ctx.fillStyle = C.accent;
+ctx.font = '12px Segoe UI';
+ctx.fillText('DevOps Engineer', 107, 193);
+ctx.textAlign = 'left';
+
+// ── Sidebar – Contact ─────────────────────────────────────
+let sY = sidebarSection('Contact', 215);
+
+const contacts = [
+  { icon: '✉', text: 'dawid.kubiak9412@gmail.com' },
+  { icon: '📞', text: '+48 516 960 918' },
+  { icon: '📍', text: 'Poland' },
+  { icon: '🌐', text: 'kubiakhomelab.pl' },
+  { icon: '💻', text: 'github.com/kubiax94' },
+];
+
+contacts.forEach(c => {
+  ctx.fillStyle = C.accent;
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(c.icon, 20, sY);
+  ctx.fillStyle = C.white;
+  ctx.font = '11px Segoe UI';
+  ctx.fillText(c.text, 38, sY);
+  sY += 18;
+});
+
+// ── Sidebar – Skills ──────────────────────────────────────
+sY = sidebarSection('Languages', sY + 10);
+
+const langs = ['Python', 'C++', 'Java', 'JavaScript', 'C#'];
+langs.forEach(l => {
+  ctx.fillStyle = C.accent;
+  ctx.fillRect(20, sY - 6, 4, 13);
+  ctx.fillStyle = C.white;
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(l, 30, sY + 5);
+  sY += 20;
+});
+
+sY = sidebarSection('DevOps & Tools', sY + 4);
+const tools = ['Jenkins', 'Docker', 'Azure', 'NGINX', 'Jira', 'ServiceNow', 'Gitea'];
+tools.forEach(t => {
+  ctx.fillStyle = C.accent;
+  ctx.fillRect(20, sY - 6, 4, 13);
+  ctx.fillStyle = C.white;
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(t, 30, sY + 5);
+  sY += 20;
+});
+
+sY = sidebarSection('Concepts', sY + 4);
+const concepts = ['CI/CD', 'Automation', 'SSO', 'Observability', 'SOX ITGC'];
+concepts.forEach(c => {
+  ctx.fillStyle = C.accent;
+  ctx.fillRect(20, sY - 6, 4, 13);
+  ctx.fillStyle = C.white;
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(c, 30, sY + 5);
+  sY += 20;
+});
+
+// ── Sidebar – Languages spoken ────────────────────────────
+sY = sidebarSection('Spoken Languages', sY + 4);
+
+[['Polish', 'Native'], ['English', 'Intermediate']].forEach(([lang, level]) => {
+  ctx.fillStyle = C.white;
+  ctx.font = '12px Segoe UI';
+  ctx.fillText(lang, 20, sY);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = '11px Segoe UI';
+  ctx.fillText(level, 20, sY + 14);
+  sY += 32;
+});
+
+// ── MAIN CONTENT ──────────────────────────────────────────
+let mY = 28;
+
+// Summary
+mY = mainSection('Summary', mY);
+mY = wrapText(
+  'DevOps Engineer with strong experience in automation, CI/CD, and large-scale enterprise systems. ' +
+  'Proven track record of taking ownership, replacing external vendors, and stabilizing complex environments.',
+  230, mY, W - 260, 18, C.muted, 12
+) + 6;
+
+// Experience
+mY = mainSection('Experience', mY);
+
+const jobs = [
+  {
+    title: 'DevOps Engineer',
+    company: 'ArcelorMittal',
+    period: 'Oct 2025 – Present',
+    bullets: [
+      'CI/CD pipelines (Jenkins), automation & custom plugin development',
+      'Docker, NGINX, Azure environments',
+      'SSO (AD / Azure AD), SOX ITGC compliance',
+      'Log centralization & system integrations (Jira, ServiceNow, Gitea)',
+      'Managed ~200 processes in ~135k user environment',
+    ],
+  },
+  {
+    title: 'IT Specialist (Transition Owner)',
+    company: 'ArcelorMittal',
+    period: 'Apr 2024 – Sep 2025',
+    bullets: [
+      'Transitioned responsibilities from external vendor (Sii) to internal team',
+      'Owned L2 operations (~1200 users, 2-person team)',
+      'Stabilized systems and improved incident handling',
+      'Scaled team and documented processes',
+    ],
+  },
+  {
+    title: 'IT Specialist',
+    company: 'Sii',
+    period: 'Jul 2023 – Apr 2024',
+    bullets: [
+      'L2 support, ServiceNow, AD administration',
+    ],
+  },
+];
+
+jobs.forEach(job => {
+  // Role title
+  ctx.fillStyle = C.text;
+  ctx.font = 'bold 13px Segoe UI';
+  ctx.fillText(job.title, 230, mY);
+
+  // Company + period right-aligned
+  ctx.fillStyle = C.muted;
+  ctx.font = '11px Segoe UI';
+  const period = `${job.company}  ·  ${job.period}`;
+  const pw = ctx.measureText(period).width;
+  ctx.fillText(period, W - 30 - pw, mY);
+
+  mY += 16;
+  job.bullets.forEach(b => {
+    dot(238, mY - 4);
+    ctx.fillStyle = C.muted;
+    ctx.font = '12px Segoe UI';
+    mY = wrapText(b, 248, mY, W - 280, 17, C.muted, 12) + 1;
+  });
+  mY += 8;
+});
+
+// Education
+mY = mainSection('Education', mY);
+ctx.fillStyle = C.text;
+ctx.font = 'bold 13px Segoe UI';
+ctx.fillText('Engineering (In Progress)', 230, mY);
+ctx.fillStyle = C.muted;
+ctx.font = '11px Segoe UI';
+ctx.fillText('2022 – Present', W - 30 - ctx.measureText('2022 – Present').width, mY);
+mY += 16;
+ctx.fillStyle = C.muted;
+ctx.font = '12px Segoe UI';
+ctx.fillText('Wyższa Szkoła Technologii Informatycznych w Katowicach', 230, mY);
+mY += 24;
+
+// Projects
+mY = mainSection('Projects', mY);
+const projects = [
+  'Custom CI/CD pipelines & Jenkins integrations',
+  'Experimental game & graphics engines (see GitHub)',
+  'Gravity Simulation engine (C++ / OpenGL)',
+];
+projects.forEach(p => {
+  dot(238, mY - 4);
+  ctx.fillStyle = C.muted;
+  ctx.font = '12px Segoe UI';
+  mY = wrapText(p, 248, mY, W - 280, 17, C.muted, 12) + 1;
+});
+
+ctx.fillStyle = C.accent;
+ctx.font = '12px Segoe UI';
+ctx.fillText('github.com/kubiax94', 248, mY + 4);
+
+// ── Download ──────────────────────────────────────────────
+document.getElementById('download-btn').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'Dawid_Kubiak_CV.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+</script>
+</body>
+</html>
