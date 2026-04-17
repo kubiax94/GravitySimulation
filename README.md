@@ -244,9 +244,3 @@ unit_system galactic(1.989e30f,     // 1 solar mass
 - The Sun provides Phong point-lighting for all planets
 
 This scene is intentionally kept in a single file (`galactic_simulation_test.cpp`) so it can be replaced or extended without touching the engine.
-
----
-
-## License
-
-See [LICENSE.txt](LICENSE.txt).
