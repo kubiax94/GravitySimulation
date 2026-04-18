@@ -104,13 +104,13 @@ public:
 	const transform& get_transform() const;
 	void set_transform(const transform& new_transform);
 
-	const glm::vec3& forward() const override;
+	glm::vec3 forward() const override;
 	const glm::vec3& forward_local() const override;
 
-	const glm::vec3& right() const override;
+	glm::vec3 right() const override;
 	const glm::vec3& right_local() const override;
 
-	const glm::vec3& up() const override;
+	glm::vec3 up() const override;
 	const glm::vec3& up_local() const override;
 
 	glm::vec3 get_global_position() const override;

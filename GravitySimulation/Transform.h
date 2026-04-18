@@ -57,13 +57,13 @@ public:
 class i_transformable
 {
 public:
-	virtual const glm::vec3& forward() const = 0;
+	virtual glm::vec3 forward() const = 0;
 	virtual const glm::vec3& forward_local() const = 0;
 
-	virtual const glm::vec3& right() const = 0;
+	virtual glm::vec3 right() const = 0;
 	virtual const glm::vec3& right_local() const = 0;
 
-	virtual const glm::vec3& up() const = 0;
+	virtual glm::vec3 up() const = 0;
 	virtual const glm::vec3& up_local() const = 0;
 
 	virtual const glm::vec3& get_position() const = 0;

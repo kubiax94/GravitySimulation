@@ -31,6 +31,7 @@ public:
 	static void on_mouse_button_release(int button);
 
 	static void on_mouse_move(const double x, const double y);
+	static void reset_mouse_delta();
 
 private:
 

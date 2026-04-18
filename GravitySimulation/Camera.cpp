@@ -29,25 +29,23 @@ void Camera::move(const glm::vec3& dir, const float& dt) {
 }
 
 void Camera::process_input(const float& dt) {
-	if (input_system::is_key_pressed(GLFW_KEY_W))
+	if (input_system::is_key_down(GLFW_KEY_W))
 		move(transform_->forward(), dt);
 
-	if (input_system::is_key_pressed(GLFW_KEY_A))
+	if (input_system::is_key_down(GLFW_KEY_A))
 		move(-transform_->right(), dt);
 
-	if (input_system::is_key_pressed(GLFW_KEY_S))
+	if (input_system::is_key_down(GLFW_KEY_S))
 		move(-transform_->forward(), dt);
 
-	if (input_system::is_key_pressed(GLFW_KEY_D))
+	if (input_system::is_key_down(GLFW_KEY_D))
 		move(transform_->right(), dt);
 
-	//std::cout << glm::to_string(input_system::get_mouse_move()) << std::endl;
-	
 	if (input_system::is_button_down(GLFW_MOUSE_BUTTON_RIGHT))
 	{
 		auto mouse_move = input_system::get_mouse_move();
-		Yaw -= mouse_move.x * 10.f * dt;
-		Pitch -= mouse_move.y * 10.f * dt;
+		Yaw -= mouse_move.x * MouseSensitivity;
+		Pitch -= mouse_move.y * MouseSensitivity;
 
 		if (Pitch > 89.0f)
 			Pitch = 89.0f;

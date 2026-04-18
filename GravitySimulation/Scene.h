@@ -7,19 +7,21 @@
 #include <vector>
 #include <unordered_map>
 #include <ranges>
+#include <algorithm>
 
 #include "Camera.h"
 #include "Time.h"
 #include "physics_system.h"
 
 
+class renderer;
+
 class scene : public i_scene_manager
 {
-	//TODO:
-	//ObjectManager
 	scene_node* root_;
 	Camera* main_camera_;
 	std::vector<Camera*> cameras_;
+	std::vector<renderer*> renderers_;
 	sim::time* time_;
 
 	unit_system* unit_sys_;
@@ -36,6 +38,8 @@ public:
 
 	virtual void update();
 	virtual void draw();
+	void sync_render() const;
+	const std::vector<renderer*>& get_renderers() const { return renderers_; }
 
 	void add_to_scene(scene_node* n_node) const;
 	[[nodiscard]] scene_node* create_scene_node(const std::string& n_name);

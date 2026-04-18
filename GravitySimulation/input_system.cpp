@@ -38,9 +38,23 @@ void input_system::on_key_press(int key) { current_keys_[key] = true; }
 
 void input_system::on_key_release(int key) { current_keys_[key] = false; }
 
-void input_system::on_mouse_button_press(int button) { current_mouse_buttons_[button] = true; }
+void input_system::reset_mouse_delta() {
+	mouse_previous_pos_ = mouse_pos_;
+	mouse_move_ = glm::vec3(0.f);
+	dirty_mouse_pos_ = false;
+}
 
-void input_system::on_mouse_button_release(int button) { current_mouse_buttons_[button] = false; }
+void input_system::on_mouse_button_press(int button) {
+	current_mouse_buttons_[button] = true;
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+		reset_mouse_delta();
+}
+
+void input_system::on_mouse_button_release(int button) {
+	current_mouse_buttons_[button] = false;
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+		reset_mouse_delta();
+}
 
 void input_system::on_mouse_move(const double x, const double y) {
 	mouse_previous_pos_ = mouse_pos_;

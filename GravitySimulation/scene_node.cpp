@@ -177,24 +177,24 @@ void scene_node::set_transform(const transform& new_transform) {
 	set_dirty();
 }
 
-const glm::vec3& scene_node::forward() const {
-	return -glm::normalize(get_global_matrix_model()[2]);
+glm::vec3 scene_node::forward() const {
+	return -glm::normalize(glm::vec3(get_global_matrix_model()[2]));
 }
 
 const glm::vec3& scene_node::forward_local() const {
 	return transform_.forward();
 }
 
-const glm::vec3& scene_node::right() const {
-	return glm::normalize(get_global_matrix_model()[0]);
+glm::vec3 scene_node::right() const {
+	return glm::normalize(glm::vec3(get_global_matrix_model()[0]));
 }
 
 const glm::vec3& scene_node::right_local() const {
 	return transform_.right();
 }
 
-const glm::vec3& scene_node::up() const {
-	return glm::normalize(get_global_matrix_model()[1]);
+glm::vec3 scene_node::up() const {
+	return glm::normalize(glm::vec3(get_global_matrix_model()[1]));
 }
 
 const glm::vec3& scene_node::up_local() const {
@@ -205,7 +205,7 @@ glm::vec3 scene_node::get_global_position() const {
 	return glm::vec3(get_global_matrix_model()[3]);
 }
 
-glm::vec3 scene_node::get_global_rotation() {
+	glm::vec3 scene_node::get_global_rotation() {
 	auto model = get_global_matrix_model();
 	const auto scale = get_global_scale();
 

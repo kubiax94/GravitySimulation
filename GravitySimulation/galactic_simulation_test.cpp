@@ -3,7 +3,7 @@
 #include <random>
 
 #include "Mesh.h"
-#include "Shape.h"
+#include "g_shape.h"
 #include "renderer.h"
 
 struct planet_data
@@ -32,6 +32,33 @@ namespace simtest {
 		return dist(gen);
 	}
 
+void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_renders, int count) {
+    unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
+
+    shader* planet_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.fs.shader");
+
+    auto tmp = g_shape::generate_sphere();
+    MeshData* sphere_mesh_data = new MeshData();
+    *sphere_mesh_data = tmp;
+    auto* sphere_mesh = new Mesh(*sphere_mesh_data);
+
+    std::mt19937 gen(std::random_device{}());
+    std::uniform_real_distribution<float> dist_pos(-1000.f, 1000.f);
+    std::uniform_real_distribution<float> dist_mass(0.1f, 1000.f);
+
+    for (int i = 0; i < count; ++i) {
+        physics_data* p = new physics_data(
+            glm::vec4(dist_pos(gen), dist_pos(gen), dist_pos(gen), u_sys.mass(dist_mass(gen))),
+            glm::vec4(0.f),
+            glm::vec4(0.f));
+
+        auto* node = s_to_init->create_scene_node("stress_" + std::to_string(i));
+        node->add_component<rigid_body>(node, p);
+        planets_renders.push_back(node->add_component<renderer>(node, planet_shader, sphere_mesh));
+        node->set_global_scale(glm::vec3(1.f));
+    }
+}
+
 
 	void simtest::init_gravity_test(scene* s_to_init, std::vector<renderer*>& planets_renders) {
 
@@ -41,7 +68,7 @@ namespace simtest {
 		shader* planet_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.fs.shader");
 		shader* sun_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/lightsource.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/sun.fs.shader");
 
-		auto tmp = Shape::GenerateSphere();
+		auto tmp = g_shape::generate_sphere();
 
 		MeshData* sphere_mesh_data = new MeshData();
 		*sphere_mesh_data = tmp;
@@ -58,22 +85,25 @@ namespace simtest {
 			glm::vec4(0, 0, 0, sun_mass),
 			{ 0, 0, 0, sun_mass });
 
-		sun_node->add_component<rigid_body>(sun_node, p_data);
+		auto* s_rigid = sun_node->add_component<rigid_body>(sun_node, p_data);
 		sun_node->set_global_scale(glm::vec3(1391000/dia_scale));
+
+		//s_rigid->add_compute_buffor();
 
 		for (auto planet : data)
 		{
 			float v = sqrt(u_sys.scaled_G() * sun_mass / u_sys.distance(planet.distance_to_sun));
-			auto p_physics_data = physics_data(
-				glm::vec4(u_sys.distance(planet.distance_to_sun) + 109.f, 0, 0, u_sys.mass(planet.mass)),
-				glm::vec4(0, 0, v, u_sys.mass(planet.mass)),
-				{ 0, 0, 0, u_sys.mass(planet.mass) });
+            // allocate physics data on heap so rigid_body stores a valid pointer
+            auto* p_physics_data = new physics_data(
+                glm::vec4(u_sys.distance(planet.distance_to_sun), 0, 0, u_sys.mass(planet.mass)),
+                glm::vec4(0, 0, v, u_sys.mass(planet.mass)),
+                { 0, 0, 0, u_sys.mass(planet.mass) });
 
-			auto* planet_node = s_to_init->create_scene_node(planet.name);
-			planet_node->add_component<rigid_body>(planet_node, p_physics_data);
-			planets_renders.push_back(planet_node->add_component<renderer>(planet_node, planet_shader, sphere_mesh));
+            auto* planet_node = s_to_init->create_scene_node(planet.name);
+            planet_node->add_component<rigid_body>(planet_node, p_physics_data);
+            planets_renders.push_back(planet_node->add_component<renderer>(planet_node, planet_shader, sphere_mesh));
 
-			planet_node->set_global_position(p_physics_data.position);
+            planet_node->set_global_position(p_physics_data->position);
 			planet_node->set_global_scale(glm::vec3(planet.diameter/dia_scale));
 
 		}

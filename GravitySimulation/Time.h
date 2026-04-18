@@ -17,6 +17,7 @@ public:
 	float delta_time;
 	const float fixed_delta_time = 1.f / 60.f;
 	[[nodiscard]] bool should_fixed_update() const;
+	[[nodiscard]] float interpolation_alpha() const;
 	void reduce_accumulator();
 	void update_time(float new_frame_time);
 };

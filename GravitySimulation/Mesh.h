@@ -6,6 +6,8 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
+#include "asset.h"
+
 enum class MeshType {
 	TRIANGLES,
 	LINES,
@@ -24,16 +26,22 @@ struct MeshData {
 	std::vector<unsigned int> indices;
 };
 
-class Mesh
+class Mesh : public asset
 {
-private:
-	GLuint VAO, VBO, EBO;
+	GLuint VAO{}, VBO{}, EBO{};
+	GLuint instanceVBO{};
 	void Init();
+	void InitInstanceBuffer();
 	MeshData* meshData;
 
 public:
 	void Draw();
+	void DrawInstanced(GLsizei instanceCount);
+	void UpdateInstanceModels(const std::vector<glm::mat4>& models);
 	Mesh(MeshData& mdata);
 	MeshType type = MeshType::TRIANGLES;
+
+	bool is_vaild() override;
+	void cleanup() override;
 };
 #endif // !MESH_H_

@@ -1,176 +1,330 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Pliki źródłowe">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <!-- GŁÓWNE KATEGORIE -->
+    <Filter Include="Core">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-7890-ABCD-123456789ABC}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Pliki nagłówkowe">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Core\Engine">
+      <UniqueIdentifier>{B2C3D4E5-F6G7-8901-BCDE-234567890BCD}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Pliki zasobów">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Core\Time">
+      <UniqueIdentifier>{C3D4E5F6-G7H8-9012-CDEF-345678901CDE}</UniqueIdentifier>
     </Filter>
-    <Filter Include="shaders">
+    <Filter Include="Core\Utils">
+      <UniqueIdentifier>{D4E5F6G7-H8I9-0123-DEFG-456789012DEF}</UniqueIdentifier>
+    </Filter>
+    <!-- GRAPHICS & RENDERING -->
+    <Filter Include="Graphics">
+      <UniqueIdentifier>{E5F6G7H8-I9J0-1234-EFGH-567890123EFG}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Rendering">
+      <UniqueIdentifier>{F6G7H8I9-J0K1-2345-FGHI-678901234FGH}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Shaders">
+      <UniqueIdentifier>{G7H8I9J0-K1L2-3456-GHIJ-789012345GHI}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Mesh">
+      <UniqueIdentifier>{H8I9J0K1-L2M3-4567-HIJK-890123456HIJ}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Camera">
+      <UniqueIdentifier>{I9J0K1L2-M3N4-5678-IJKL-901234567IJK}</UniqueIdentifier>
+    </Filter>
+    <!-- PHYSICS -->
+    <Filter Include="Physics">
+      <UniqueIdentifier>{J0K1L2M3-N4O5-6789-JKLM-012345678JKL}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics\Systems">
+      <UniqueIdentifier>{K1L2M3N4-O5P6-7890-KLMN-123456789KLM}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics\Components">
+      <UniqueIdentifier>{L2M3N4O5-P6Q7-8901-LMNO-234567890LMN}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Physics\Compute">
+      <UniqueIdentifier>{M3N4O5P6-Q7R8-9012-MNOP-345678901MNO}</UniqueIdentifier>
+    </Filter>
+    <!-- SCENE MANAGEMENT -->
+    <Filter Include="Scene">
+      <UniqueIdentifier>{N4O5P6Q7-R8S9-0123-NOPQ-456789012NOP}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Components">
+      <UniqueIdentifier>{O5P6Q7R8-S9T0-1234-OPQR-567890123OPQ}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Nodes">
+      <UniqueIdentifier>{P6Q7R8S9-T0U1-2345-PQRS-678901234PQR}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Scene\Transform">
+      <UniqueIdentifier>{Q7R8S9T0-U1V2-3456-QRST-789012345QRS}</UniqueIdentifier>
+    </Filter>
+    <!-- INPUT -->
+    <Filter Include="Input">
+      <UniqueIdentifier>{R8S9T0U1-V2W3-4567-RSTU-890123456RST}</UniqueIdentifier>
+    </Filter>
+    <!-- ASSETS -->
+    <Filter Include="Assets">
+      <UniqueIdentifier>{S9T0U1V2-W3X4-5678-STUV-901234567STU}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets\Management">
+      <UniqueIdentifier>{T0U1V2W3-X4Y5-6789-TUVW-012345678TUV}</UniqueIdentifier>
+    </Filter>
+    <!-- SIMULATION -->
+    <Filter Include="Simulation">
+      <UniqueIdentifier>{U1V2W3X4-Y5Z6-7890-UVWX-123456789UVW}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Simulation\Tests">
+      <UniqueIdentifier>{V2W3X4Y5-Z6A7-8901-VWXY-234567890VWX}</UniqueIdentifier>
+    </Filter>
+    <!-- RESOURCES -->
+    <Filter Include="Resources">
+      <UniqueIdentifier>{W3X4Y5Z6-A7B8-9012-WXYZ-345678901WXY}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources\Shaders">
       <UniqueIdentifier>{588e74ac-85e9-4998-8644-ed33616279bc}</UniqueIdentifier>
     </Filter>
-    <Filter Include="simulation_test">
-      <UniqueIdentifier>{568a23c5-2318-4fe3-be40-656707daf9b2}</UniqueIdentifier>
+    <!-- EXTERNAL -->
+    <Filter Include="External">
+      <UniqueIdentifier>{X4Y5Z6A7-B8C9-0123-XYZA-456789012XYZ}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\Glad">
+      <UniqueIdentifier>{Y5Z6A7B8-C9D0-1234-YZAB-567890123YZA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Async">
+      <UniqueIdentifier>{3c1a5d01-a1d2-4143-9728-ccde5402571e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <!-- CORE ENGINE -->
     <ClCompile Include="GravitySimulation.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Renderer.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Shape.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera.cpp">
-      <Filter>Pliki źródłowe</Filter>
+      <Filter>Core\Engine</Filter>
     </ClCompile>
     <ClCompile Include="Time.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="unit_system.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Transform.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Mesh.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="Component.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="transformable.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="scene_node.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="physics_system.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="rigid_body.cpp">
-      <Filter>Pliki źródłowe</Filter>
-    </ClCompile>
-    <ClCompile Include="i_scene_manager.cpp">
-      <Filter>Pliki źródłowe</Filter>
+      <Filter>Core\Time</Filter>
     </ClCompile>
     <ClCompile Include="uuid.cpp">
-      <Filter>Pliki źródłowe</Filter>
+      <Filter>Core\Utils</Filter>
     </ClCompile>
-    <ClCompile Include="input_system.cpp">
-      <Filter>Pliki źródłowe</Filter>
+    <ClCompile Include="unit_system.cpp">
+      <Filter>Core\Utils</Filter>
+    </ClCompile>
+    <!-- GRAPHICS & RENDERING -->
+    <ClCompile Include="Renderer.cpp">
+      <Filter>Graphics\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>Graphics\Shaders</Filter>
     </ClCompile>
     <ClCompile Include="compute_shader.cpp">
-      <Filter>Pliki źródłowe</Filter>
+      <Filter>Graphics\Shaders</Filter>
     </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Graphics\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="g_shape.cpp">
+      <Filter>Graphics\Mesh</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Graphics\Camera</Filter>
+    </ClCompile>
+    <!-- PHYSICS -->
+    <ClCompile Include="physics_system.cpp">
+      <Filter>Physics\Systems</Filter>
+    </ClCompile>
+    <ClCompile Include="rigid_body.cpp">
+      <Filter>Physics\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="compute_group.cpp">
+      <Filter>Physics\Compute</Filter>
+    </ClCompile>
+    <ClCompile Include="ssbo_manager.cpp">
+      <Filter>Physics\Compute</Filter>
+    </ClCompile>
+    <ClCompile Include="shader_group.cpp">
+      <Filter>Physics\Compute</Filter>
+    </ClCompile>
+    <ClCompile Include="i_data_provider.cpp">
+      <Filter>Physics\Compute</Filter>
+    </ClCompile>
+    <!-- SCENE MANAGEMENT -->
+    <ClCompile Include="Scene.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Component.cpp">
+      <Filter>Scene\Components</Filter>
+    </ClCompile>
+    <ClCompile Include="scene_node.cpp">
+      <Filter>Scene\Nodes</Filter>
+    </ClCompile>
+    <ClCompile Include="transformable.cpp">
+      <Filter>Scene\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="Transform.cpp">
+      <Filter>Scene\Transform</Filter>
+    </ClCompile>
+    <ClCompile Include="i_scene_manager.cpp">
+      <Filter>Scene</Filter>
+    </ClCompile>
+    <!-- INPUT -->
+    <ClCompile Include="input_system.cpp">
+      <Filter>Input</Filter>
+    </ClCompile>
+    <!-- ASSETS -->
+    <ClCompile Include="asset.cpp">
+      <Filter>Assets\Management</Filter>
+    </ClCompile>
+    <ClCompile Include="asset_manager.cpp">
+      <Filter>Assets\Management</Filter>
+    </ClCompile>
+    <ClCompile Include="instance_manager.cpp">
+      <Filter>Assets\Management</Filter>
+    </ClCompile>
+    <!-- SIMULATION -->
     <ClCompile Include="galactic_simulation_test.cpp">
-      <Filter>simulation_test</Filter>
+      <Filter>Simulation\Tests</Filter>
+    </ClCompile>
+    <!-- EXTERNAL LIBRARIES -->
+    <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c">
+      <Filter>External\Glad</Filter>
+    </ClCompile>
+    <ClCompile Include="base_manager.cpp">
+      <Filter>Assets\Management</Filter>
+    </ClCompile>
+    <ClCompile Include="async_base.cpp">
+      <Filter>Core\Async</Filter>
+    </ClCompile>
+    <ClCompile Include="resource.cpp">
+      <Filter>Resources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Renderer.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Shape.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
+    <!-- CORE ENGINE HEADERS -->
     <ClInclude Include="Time.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="unit_system.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Transform.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="Component.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="transformable.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="scene_node.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="physics_system.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="rigid_body.h">
-      <Filter>Pliki nagłówkowe</Filter>
-    </ClInclude>
-    <ClInclude Include="i_scene_manager.h">
-      <Filter>Pliki nagłówkowe</Filter>
+      <Filter>Core\Time</Filter>
     </ClInclude>
     <ClInclude Include="uuid.h">
-      <Filter>Pliki nagłówkowe</Filter>
+      <Filter>Core\Utils</Filter>
     </ClInclude>
-    <ClInclude Include="input_system.h">
-      <Filter>Pliki nagłówkowe</Filter>
+    <ClInclude Include="unit_system.h">
+      <Filter>Core\Utils</Filter>
+    </ClInclude>
+    <!-- GRAPHICS & RENDERING HEADERS -->
+    <ClInclude Include="Renderer.h">
+      <Filter>Graphics\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>Graphics\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="compute_shader.h">
-      <Filter>Pliki nagłówkowe</Filter>
+      <Filter>Graphics\Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Graphics\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="g_shape.h">
+      <Filter>Graphics\Mesh</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>Graphics\Camera</Filter>
+    </ClInclude>
+    <!-- PHYSICS HEADERS -->
+    <ClInclude Include="physics_system.h">
+      <Filter>Physics\Systems</Filter>
+    </ClInclude>
+    <ClInclude Include="rigid_body.h">
+      <Filter>Physics\Components</Filter>
     </ClInclude>
     <ClInclude Include="physics_data.h">
-      <Filter>Pliki nagłówkowe</Filter>
+      <Filter>Physics\Components</Filter>
     </ClInclude>
+    <ClInclude Include="physics_buffer.h">
+      <Filter>Physics\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="compute_group.h">
+      <Filter>Physics\Compute</Filter>
+    </ClInclude>
+    <ClInclude Include="ssbo_manager.h">
+      <Filter>Physics\Compute</Filter>
+    </ClInclude>
+    <ClInclude Include="shader_group.h">
+      <Filter>Physics\Compute</Filter>
+    </ClInclude>
+    <ClInclude Include="i_data_provider.h">
+      <Filter>Physics\Compute</Filter>
+    </ClInclude>
+    <!-- SCENE MANAGEMENT HEADERS -->
+    <ClInclude Include="Scene.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Component.h">
+      <Filter>Scene\Components</Filter>
+    </ClInclude>
+    <ClInclude Include="scene_node.h">
+      <Filter>Scene\Nodes</Filter>
+    </ClInclude>
+    <ClInclude Include="transformable.h">
+      <Filter>Scene\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="Transform.h">
+      <Filter>Scene\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="i_scene_manager.h">
+      <Filter>Scene</Filter>
+    </ClInclude>
+    <!-- INPUT HEADERS -->
+    <ClInclude Include="input_system.h">
+      <Filter>Input</Filter>
+    </ClInclude>
+    <!-- ASSETS HEADERS -->
+    <ClInclude Include="asset.h">
+      <Filter>Assets\Management</Filter>
+    </ClInclude>
+    <ClInclude Include="asset_manager.h">
+      <Filter>Assets\Management</Filter>
+    </ClInclude>
+    <ClInclude Include="instance_manager.h">
+      <Filter>Assets\Management</Filter>
+    </ClInclude>
+    <!-- SIMULATION HEADERS -->
     <ClInclude Include="galactic_simulation_test.h">
-      <Filter>simulation_test</Filter>
+      <Filter>Simulation\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="base_manager.h">
+      <Filter>Assets\Management</Filter>
+    </ClInclude>
+    <ClInclude Include="async_base.h">
+      <Filter>Core\Async</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Resources</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="camera.fs.shader">
-      <Filter>shaders</Filter>
-    </CopyFileToFolders>
+    <!-- SHADER RESOURCES -->
     <CopyFileToFolders Include="camera.vs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="default.fs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="default.vs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="lightsource.fs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="lightsource.vs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="sun.fs.shader">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="gravity_simulation.glsl">
-      <Filter>shaders</Filter>
+      <Filter>Resources\Shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="gravity_defor.glsl">
+      <Filter>Resources\Shaders</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="camera.fs.shader">
+      <Filter>Resources\Shaders</Filter>
     </CopyFileToFolders>
   </ItemGroup>
 </Project>

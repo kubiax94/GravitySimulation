@@ -2,12 +2,12 @@
 #define _USE_MATH_DEFINES
 #endif // !_USE_MATH_DEFINES
 
-#include "Shape.h"
+#include "g_shape.h"
 
 #include <cmath>
 #include <iostream>
 
-MeshData Shape::GenerateSphere(const float radius, const int segements, const int rings) {
+MeshData g_shape::generate_sphere(const float radius, const int segements, const int rings) {
 
 	MeshData newData;
 
@@ -50,7 +50,7 @@ MeshData Shape::GenerateSphere(const float radius, const int segements, const in
 	return newData;
 }
 
-MeshData Shape::GenerateGrid(const unsigned int size, float tileSize) {
+MeshData g_shape::generate_grid(const unsigned int size, float tileSize) {
 	MeshData grid;
 
 	for (int x = 0; x <= size; x++) {
@@ -88,7 +88,7 @@ MeshData Shape::GenerateGrid(const unsigned int size, float tileSize) {
 	return grid;
 }
 
-MeshData Shape::GenerateGridLines(const int size, float tileSize) {
+MeshData g_shape::generate_grid_lines(const int size, float tileSize) {
 	MeshData grid;
 
 	for (int x = -size; x <= size; ++x) {
@@ -117,7 +117,7 @@ MeshData Shape::GenerateGridLines(const int size, float tileSize) {
 	return grid;
 }
 
-MeshData Shape::generate_cube() {
+MeshData g_shape::generate_cube() {
 	MeshData m_data;
 
 	for (auto x = 0; x < 2; x++)
