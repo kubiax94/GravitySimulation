@@ -23,8 +23,39 @@ scene_node::scene_node(const std::string& name, scene_node* parent, i_scene_mana
 }
 
 void scene_node::add_child(scene_node* n_node) {
-	n_node->parent_ = this;
-	children_[n_node->name_] = n_node;
+ if (!n_node)
+		return;
+
+	n_node->set_parent(this);
+}
+
+void scene_node::set_parent(scene_node* new_parent, bool keep_global_transform) {
+	if (parent_ == new_parent)
+		return;
+
+	const glm::vec3 global_position = keep_global_transform ? get_global_position() : glm::vec3(0.f);
+	const glm::vec3 global_rotation = keep_global_transform ? get_global_rotation() : glm::vec3(0.f);
+	const glm::vec3 global_scale = keep_global_transform ? get_global_scale() : glm::vec3(1.f);
+
+	if (parent_)
+		parent_->children_.erase(name_);
+
+	parent_ = new_parent;
+	if (parent_)
+		parent_->children_[name_] = this;
+
+	if (keep_global_transform) {
+		set_global_position(global_position);
+		set_global_rotation(global_rotation);
+		set_global_scale(global_scale);
+	}
+	else {
+		set_dirty();
+	}
+}
+
+scene_node* scene_node::get_parent() const {
+	return parent_;
 }
 bool scene_node::add_component(component* comp) {
 	comp->attach_to(this);

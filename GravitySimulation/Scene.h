@@ -16,6 +16,7 @@
 
 class renderer;
 class compute_shader;
+class gpu_particle_system_component;
 
 class scene : public i_scene_manager
 {
@@ -23,6 +24,7 @@ class scene : public i_scene_manager
 	Camera* main_camera_;
 	std::vector<Camera*> cameras_;
 	std::vector<renderer*> renderers_;
+   std::vector<gpu_particle_system_component*> gpu_particle_systems_;
 	sim::time* time_;
 
 	unit_system* unit_sys_;
@@ -41,9 +43,12 @@ public:
 	virtual void draw();
 	void sync_render() const;
   [[nodiscard]] Camera* get_main_camera() const { return main_camera_; }
+  [[nodiscard]] scene_node* get_root_node() const { return root_; }
 	[[nodiscard]] size_t get_renderer_physics_index(const renderer* render) const;
 	[[nodiscard]] GLuint get_render_ssbo() const;
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
+	const std::vector<gpu_particle_system_component*>& get_gpu_particle_systems() const { return gpu_particle_systems_; }
+	unit_system* get_unit_system() const { return unit_sys_; }
 
 	void add_to_scene(scene_node* n_node) const;
 	[[nodiscard]] scene_node* create_scene_node(const std::string& n_name);

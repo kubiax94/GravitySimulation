@@ -45,16 +45,17 @@ physics_system::physics_system(unit_system* u_sys): u_sys_(u_sys) {
 
 bool physics_system::add(rigid_body* r_body) {
 	auto* node = r_body->get_node();
+	const uuid node_id = node->get_id();
 
-	if (entities_.contains(node->get_id())) return false;
+   if (entities_.contains(node_id)) return false;
  if (!compute_shaders_.contains(r_body->get_compute_shader_id()) && gravity_simulation_comp_)
 		r_body->set_compute_shader(gravity_simulation_comp_->get_id());
 
-	entities_[node->get_id()] = r_body;
-	order_id_.push_back(node->get_id());
-   rebuild_order_indices();
-	previous_positions_[node->get_id()] = r_body->get_position();
-	current_positions_[node->get_id()] = r_body->get_position();
+ entities_.emplace(node_id, r_body);
+	order_id_.push_back(node_id);
+	order_index_[node_id] = order_id_.size() - 1;
+	previous_positions_[node_id] = r_body->get_position();
+	current_positions_[node_id] = r_body->get_position();
 	compute_groups_[r_body->get_compute_shader_id()].push_back(r_body);
 	gpu_buffer_dirty_ = true;
 	

@@ -81,7 +81,13 @@
     <ClCompile Include="ComputeShaderReadbackPerfTest.cpp">
       <Filter>Pliki źródłowe</Filter>
     </ClCompile>
-    <ClCompile Include="ComputeShaderReadbackPerfTest1.cpp">
+    <ClCompile Include="..\GravitySimulation\physics_system.cpp">
+      <Filter>External</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysicsSystemAddPerfTest.cpp">
+      <Filter>Pliki źródłowe</Filter>
+    </ClCompile>
+    <ClCompile Include="PhysicsSystemAddPerfTest1.cpp">
       <Filter>Pliki źródłowe</Filter>
     </ClCompile>
   </ItemGroup>

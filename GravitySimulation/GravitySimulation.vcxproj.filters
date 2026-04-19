@@ -202,6 +202,7 @@
     <ClCompile Include="cloth_scene.cpp" />
     <ClCompile Include="galactic_scene.cpp" />
     <ClCompile Include="galactic_stress_scene.cpp" />
+    <ClCompile Include="gpu_particle_system_component.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -312,6 +313,7 @@
     <ClInclude Include="cloth_scene.h" />
     <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_stress_scene.h" />
+    <ClInclude Include="gpu_particle_system_component.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -326,5 +328,7 @@
     <None Include="GravitySimulation.vcxproj.copilot.tmp" />
     <None Include="cloth_simulation.glsl" />
     <None Include="cloth_link.vs.shader" />
+    <None Include="gpu_particle_system.vs.shader" />
+    <None Include="gpu_particle_system.fs.shader" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "compute_shader.h"
 #include "frame_profiler.h"
+#include "gpu_particle_system_component.h"
 
 scene_node* scene::create_scene_node(const std::string& n_name) {
 	auto* node = new scene_node(n_name, nullptr, this);
@@ -20,6 +21,8 @@ void scene::register_in(component* comp) {
 		physics_.add(static_cast<rigid_body*>(comp)); //NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
 	else if (t_id == get_type_id<renderer>())
 		renderers_.push_back(static_cast<renderer*>(comp));
+   else if (t_id == gpu_particle_system_component::type_id())
+		gpu_particle_systems_.push_back(static_cast<gpu_particle_system_component*>(comp));
 }
 
 void scene::register_out(component* comp) {
@@ -30,6 +33,10 @@ void scene::register_out(component* comp) {
 	if (t_id == get_type_id<renderer>()) {
 		auto* r = static_cast<renderer*>(comp);
 		renderers_.erase(std::remove(renderers_.begin(), renderers_.end(), r), renderers_.end());
+	}
+   else if (t_id == gpu_particle_system_component::type_id()) {
+		auto* system = static_cast<gpu_particle_system_component*>(comp);
+		gpu_particle_systems_.erase(std::remove(gpu_particle_systems_.begin(), gpu_particle_systems_.end(), system), gpu_particle_systems_.end());
 	}
 }
 
@@ -79,6 +86,10 @@ void scene::update() {
 	}
 
 	physics_.set_gpu_driven_nodes(gpu_driven_nodes);
+    for (auto* system : gpu_particle_systems_) {
+		if (system)
+			system->fixed_update(dt);
+	}
 	physics_.update(dt);
 	//root_->update();
 }

@@ -27,22 +27,16 @@ namespace simtest {
 	{"Neptune", 102e24f, 49528, 4495.1e6f}
 	};
 
-	float random_float(float min, float max) {
+  float random_float(float min, float max) {
 		static std::mt19937 gen(std::random_device{}()); // generator (zainicjalizowany raz)
 		std::uniform_real_distribution<float> dist(min, max);
 		return dist(gen);
 	}
 
-void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_renders, int count) {
-    unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
-
-    shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
-
-    auto tmp = g_shape::generate_sphere();
-    MeshData* sphere_mesh_data = new MeshData();
-    *sphere_mesh_data = tmp;
-    auto* sphere_mesh = new Mesh(*sphere_mesh_data);
-
+std::vector<physics_data> simtest::create_stress_particles(int count) {
+	unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
+	std::vector<physics_data> particles;
+	particles.reserve(static_cast<size_t>(count) + 1);
     std::mt19937 gen(std::random_device{}());
     std::uniform_real_distribution<float> dist_unit(0.f, 1.f);
 	std::uniform_real_distribution<float> dist_arm_offset(-0.22f, 0.22f);
@@ -59,13 +53,10 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 	constexpr float spiral_twist = 0.0075f;
 	constexpr float tau = 6.28318530718f;
 	const float core_mass = u_sys.mass(8.5e30f);
-
-	auto* core_node = s_to_init->create_scene_node("stress_core");
-	auto* core_data = new physics_data(
+	particles.push_back(physics_data(
 		glm::vec4(0.f, 0.f, 0.f, core_mass),
 		glm::vec4(0.f, 0.f, 0.f, core_mass),
-		glm::vec4(0.f, 0.f, 0.f, core_mass));
-	core_node->add_component<rigid_body>(core_node, core_data);
+       glm::vec4(0.f, 0.f, 0.f, core_mass)));
 
     for (int i = 0; i < count; ++i) {
         const float radius = min_radius + std::sqrt(dist_unit(gen)) * (max_radius - min_radius);
@@ -83,17 +74,32 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 			+ radial_direction * dist_radial_velocity(gen)
 			+ glm::vec3(0.f, dist_vertical_velocity(gen), 0.f);
 
-        physics_data* p = new physics_data(
+     particles.push_back(physics_data(
             glm::vec4(position, body_mass),
 			glm::vec4(velocity, body_mass),
-            glm::vec4(0.f));
-
-        auto* node = s_to_init->create_scene_node("stress_" + std::to_string(i));
-        node->add_component<rigid_body>(node, p);
-        planets_renders.push_back(node->add_component<renderer>(node, planet_shader, sphere_mesh));
-        node->set_global_position(position);
-		node->set_global_scale(glm::vec3(0.45f + 0.2f * std::cbrt(body_mass_e24)));
+            glm::vec4(0.f)));
     }
+
+	return particles;
+}
+
+void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_renders, int count) {
+	shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+
+	auto tmp = g_shape::generate_sphere();
+	MeshData* sphere_mesh_data = new MeshData();
+	*sphere_mesh_data = tmp;
+	auto* sphere_mesh = new Mesh(*sphere_mesh_data);
+
+	auto particles = create_stress_particles(count);
+	for (size_t i = 0; i < particles.size(); ++i) {
+		auto* node = s_to_init->create_scene_node("stress_" + std::to_string(i));
+		auto* p = new physics_data(particles[i]);
+		node->add_component<rigid_body>(node, p);
+		planets_renders.push_back(node->add_component<renderer>(node, planet_shader, sphere_mesh));
+		node->set_global_position(p->position);
+		node->set_global_scale(i == 0 ? glm::vec3(14.f) : glm::vec3(0.55f));
+	}
 }
 
 

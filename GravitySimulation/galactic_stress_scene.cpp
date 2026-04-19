@@ -3,15 +3,27 @@
 #include "galactic_simulation_test.h"
 
 #include "Camera.h"
+#include "compute_shader.h"
 #include "Renderer.h"
 #include "g_shape.h"
+#include "gpu_particle_system_component.h"
 
 namespace {
-constexpr int stress_object_count = 10000;
+constexpr int stress_object_count = 25000;
 constexpr float camera_height = 820.f;
 constexpr float camera_distance = 2350.f;
 constexpr float grid_size = 5000.f;
 constexpr float sun_marker_scale = 65.f;
+
+MeshData create_particle_point_mesh() {
+    MeshData data;
+    Vertex vertex{};
+    vertex.Position = glm::vec3(0.f);
+    vertex.Normal = glm::vec3(0.f, 1.f, 0.f);
+    data.vertecies.push_back(vertex);
+    data.indices = { 0u };
+    return data;
+}
 }
 
 galactic_stress_scene::galactic_stress_scene(sim::time* time)
@@ -40,5 +52,18 @@ void galactic_stress_scene::initialize_scene_content() {
     sun_node->add_component<renderer>(sun_node, sun_shader_.get(), sun_mesh_.get());
     sun_node->set_global_scale(glm::vec3(sun_marker_scale));
 
-    simtest::stress_test(this, stress_renderers_, stress_object_count);
+    auto* particle_node = create_scene_node("galactic_stress_particles");
+    static MeshData particle_data = create_particle_point_mesh();
+    particle_mesh_ = std::make_unique<Mesh>(particle_data);
+    particle_mesh_->type = MeshType::POINTS;
+    particle_shader_ = std::make_unique<shader>("GravitySimulation/gpu_particle_system.vs.shader", "GravitySimulation/gpu_particle_system.fs.shader");
+    particle_compute_shader_ = std::make_unique<compute_shader>("GravitySimulation/gravity_simulation.glsl");
+    particle_node->add_component<gpu_particle_system_component>(
+        particle_node,
+        particle_compute_shader_.get(),
+        particle_shader_.get(),
+        particle_mesh_.get(),
+        get_unit_system(),
+        simtest::create_stress_particles(stress_object_count),
+        2.5f);
 }

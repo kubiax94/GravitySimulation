@@ -72,6 +72,8 @@ public:
 	scene_node(const std::string& name, scene_node* parent);
 
 	void add_child(scene_node* n_node);
+	void set_parent(scene_node* new_parent, bool keep_global_transform = true);
+	[[nodiscard]] scene_node* get_parent() const;
 
 	bool add_component(component* comp);
 
