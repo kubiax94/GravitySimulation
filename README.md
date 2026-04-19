@@ -14,23 +14,27 @@ https://github.com/user-attachments/assets/86716b93-f516-44f6-a268-134ce153d508
 ## Engine Features
 
 ### Core
+- **Engine & state machine** — `engine` owns the GLFW window and the main loop; behaviour is swapped by pushing `engine_state` objects
 - **Component-based scene graph** — entities are `scene_node` objects; behaviour is added by attaching typed `component` instances
 - **UUID node identity** — every node gets a unique ID at creation, enabling safe cross-frame references
 - **Flexible transform hierarchy** — local / global position, rotation, scale; dirty-flag propagation; `forward` / `right` / `up` vectors
 - **Fixed-update loop** — accumulator-based time-stepping with a configurable delta time (`sim::time`)
 - **Centralised input system** — keyboard and mouse state queried from anywhere via `input_system`
+- **Frame profiler** — scope-based timer (`frame_profiler`) that prints average timings every N frames
 
 ### Rendering
 - **GLSL shader wrapper** — compile, link, set uniforms (`float`, `vec3`, `mat4`) via a clean C++ API
 - **GPU compute shader** — generic `compute_shader` that owns an SSBO, dispatches work groups, and reads results back
+- **Render pipeline** — `render_pipeline` collects `renderer` components each frame and flushes them in batches via `instance_manager` (GPU instanced drawing)
 - **Renderer component** — attach a `Mesh` + `shader` to any node; optional per-draw uniform lambda for zero-cost customisation
-- **Procedural mesh generation** — `Shape::GenerateSphere()`, grid, and other helpers
-- **Phong lighting** — point-light support in the default shaders
+- **Procedural mesh generation** — `g_shape::generate_sphere()`, `generate_grid()`, `generate_grid_lines()`, `generate_cube()`
+- **Phong lighting** — point-light support in the default shaders; dedicated `sun.fs.shader` for the light source
 - **Free-look camera** — perspective camera component, WASD + mouse look
+- **Asset manager** — `asset_manager` stores and retrieves `shader` and `Mesh` assets by UUID
 
 ### Physics
 - **`rigid_body` component** — position, velocity, accumulated force; semi-implicit Euler integration
-- **`physics_system`** — collects registered `rigid_body` objects and dispatches either a CPU or GPU force pass each fixed step
+- **`physics_system`** — collects registered `rigid_body` objects and dispatches either a CPU or GPU force pass each fixed step; supports async GPU readback
 - **`unit_system`** — scales mass / distance / time so that arbitrary physical scenarios stay numerically stable
 
 ---
@@ -40,39 +44,62 @@ https://github.com/user-attachments/assets/86716b93-f516-44f6-a268-134ce153d508
 ```
 GravitySimulation/
 │
+│  ── Application entry ─────────────────────────────────────────────────────
+├── GravitySimulation.cpp      # Entry point: creates engine, pushes simulation_state
+├── engine.h / .cpp            # GLFW window, main loop, engine_state machine
+├── engine_state.h             # Abstract state interface (on_enter/update/render/…)
+├── simulation_state.h / .cpp  # Concrete state: sets up scene, drives render pipeline
+│
 │  ── Engine core ───────────────────────────────────────────────────────────
 ├── scene_node.h / .cpp        # Scene graph node; owns children + components
 ├── Scene.h / .cpp             # Top-level scene: root node, camera list, systems
 ├── Component.h / .cpp         # Abstract component base; type-id system
 ├── Transform.h / .cpp         # Local transform (pos / rot / scale)
 ├── transformable.h / .cpp     # Interface: get/set global transform
+├── i_scene_manager.h / .cpp   # Interface for scene-level registration (cameras, renderers…)
 ├── uuid.h / .cpp              # Lightweight unique ID
 ├── Time.h / .cpp              # Delta-time + fixed-update accumulator
 ├── input_system.h / .cpp      # Keyboard & mouse state
+├── frame_profiler.h / .cpp    # Scope-based performance profiler
 │
 │  ── Rendering ─────────────────────────────────────────────────────────────
 ├── Renderer.h / .cpp          # Renderer component
+├── render_pipeline.h / .cpp   # Per-frame batch collector + instanced flush
+├── instance_manager.h / .cpp  # GPU instanced draw calls
 ├── Shader.h / .cpp            # GLSL program wrapper
 ├── compute_shader.h / .cpp    # Compute shader + SSBO helper
+├── compute_group.h / .cpp     # Groups compute shaders with data bindings
+├── shader_group.h / .cpp      # Shader grouping helper
+├── ssbo_manager.h / .cpp      # SSBO lifecycle helper
 ├── Mesh.h / .cpp              # VAO/VBO wrapper
-├── Shape.h / .cpp             # Procedural geometry generators
+├── g_shape.h / .cpp           # Procedural geometry generators (sphere, grid, cube)
 ├── Camera.h / .cpp            # Perspective camera component
-├── camera.vs.shader           # Default vertex shader
-├── camera.fs.shader           # Default fragment shader
-├── default.vs/fs.shader       # Alternate shaders
-├── lightsource.vs/fs.shader   # Light-source (emissive) shaders
+├── camera.vs.shader           # Camera vertex shader
+├── camera.fs.shader           # Camera fragment shader
+├── default.vs.shader          # Default vertex shader
+├── default.fs.shader          # Default fragment shader
+├── lightsource.vs.shader      # Light-source (emissive) vertex shader
+├── lightsource.fs.shader      # Light-source (emissive) fragment shader
+├── sun.fs.shader              # Sun-specific fragment shader
+│
+│  ── Assets ────────────────────────────────────────────────────────────────
+├── asset.h / .cpp             # Base asset type + asset_type enum
+├── asset_manager.h / .cpp     # Creates and stores shader / Mesh assets by UUID
+├── resource.h / .cpp          # Generic resource base
+├── base_manager.h / .cpp      # Templated manager base class
 │
 │  ── Physics ───────────────────────────────────────────────────────────────
-├── rigid_body.h / .cpp        # Physics component
+├── rigid_body.h / .cpp        # Physics component (implements i_data_provider)
 ├── physics_data.h             # std430-compatible data struct (CPU ↔ GPU)
-├── physics_system.h / .cpp    # Force integration orchestrator
+├── physics_buffer.h           # Physics buffer helpers
+├── physics_system.h / .cpp    # Force integration orchestrator; async GPU readback
 ├── unit_system.h / .cpp       # Physical unit scaling
+├── i_data_provider.h / .cpp   # Interface for GPU-uploadable data
 │
 │  ── Example scene ─────────────────────────────────────────────────────────
-├── galactic_simulation_test.h / .cpp   # Solar System scene setup
+├── galactic_simulation_test.h / .cpp   # Solar System + stress-test scene setup
 ├── gravity_simulation.glsl             # GPU N-body compute shader
-│
-└── GravitySimulation.cpp      # Entry point: window, main loop, scene boot
+└── gravity_defor.glsl                  # Gravity deformation compute shader
 ```
 
 ---
@@ -95,7 +122,7 @@ GravitySimulation/
 2. Ensure include paths for **GLAD**, **GLM**, and **GLFW** are set in project properties (or via `vcpkg`).
 3. Select **Debug | x64** or **Release | x64** and build.
 
-> **Note:** Shader source paths are currently hard-coded in `GravitySimulation.cpp` and `galactic_simulation_test.cpp`. Update them to match your local checkout before building.
+> **Note:** Shader source paths are currently hard-coded relative to the working directory in `simulation_state.cpp` and `galactic_simulation_test.cpp`. Update them to match your local checkout before building.
 
 ---
 
@@ -119,8 +146,8 @@ The sections below show how to use the engine independently of the Solar System 
 
 ```cpp
 // Renderable sphere — no physics
-auto verts = Shape::GenerateSphere();
-Mesh sphereMesh(verts);
+auto meshData = g_shape::generate_sphere();
+Mesh sphereMesh(meshData);
 shader myShader("camera.vs.shader", "camera.fs.shader");
 
 scene_node* rock = myScene.create_scene_node("Rock");
@@ -203,13 +230,13 @@ if (player->has_component<rigid_body>()) {
 
 ### 4. Per-draw shader uniforms
 
-`renderer::draw()` takes an optional lambda that is called right before the GL draw call, so you can push per-object data without subclassing the renderer.
+`render_pipeline::flush()` accepts an optional lambda that is called before each draw call, so you can push per-frame globals (lighting, view position, …) without subclassing the renderer.
 
 ```cpp
-myRenderer.draw(cam, [&](shader& s) {
+render_pipeline_.flush(cam_, [&](shader& s) {
     s.set_uni_vec3("objectColor", glm::vec3(1.f, 0.4f, 0.1f));
-    s.set_uni_vec3("lightPos",    lightNode->get_global_position());
-    s.set_uni_float("emissive",   0.0f);
+    s.set_uni_vec3("lightPos",    sunNode->get_global_position());
+    s.set_uni_float("intensity",  0.75f);
 });
 ```
 
@@ -242,5 +269,6 @@ unit_system galactic(1.989e30f,     // 1 solar mass
 - GPU-accelerated pairwise force calculation via `gravity_simulation.glsl` (OpenGL compute shader, SSBO)
 - Semi-implicit Euler integration in `rigid_body::integrate()`
 - The Sun provides Phong point-lighting for all planets
+- `stress_test()` helper adds hundreds of additional random bodies for GPU performance testing
 
-This scene is intentionally kept in a single file (`galactic_simulation_test.cpp`) so it can be replaced or extended without touching the engine.
+This scene is set up in `galactic_simulation_test.cpp` and booted from `simulation_state`, so it can be replaced or extended without touching the engine core.
