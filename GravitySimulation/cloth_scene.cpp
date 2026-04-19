@@ -41,6 +41,8 @@ cloth_scene::cloth_scene(sim::time* time)
 }
 
 void cloth_scene::initialize_scene_content() {
+  auto& assets = get_asset_manager();
+
     auto* cam_node = create_scene_node("cam");
     cam_node->add_component<Camera>(cam_node);
     cam_node->set_global_position(glm::vec3(0.f, 90.f, 260.f));
@@ -48,23 +50,23 @@ void cloth_scene::initialize_scene_content() {
 
     auto* grid_node = create_scene_node("grid");
     static MeshData grid_data = g_shape::generate_grid_lines(64, 50.f);
-    grid_mesh_ = std::make_unique<Mesh>(grid_data);
+    grid_mesh_ = assets.create_mesh(grid_data);
     grid_mesh_->type = MeshType::LINES;
-    grid_shader_ = std::make_unique<shader>("GravitySimulation/default.vs.shader", "GravitySimulation/default.fs.shader");
-    grid_node->add_component<renderer>(grid_node, grid_shader_.get(), grid_mesh_.get());
+    grid_shader_ = assets.create_shader("cloth.grid", "GravitySimulation/default.vs.shader", "GravitySimulation/default.fs.shader");
+    grid_node->add_component<renderer>(grid_node, grid_shader_, grid_mesh_);
     grid_node->set_global_position(glm::vec3(0.f, .001f, 0.f));
 
     static MeshData cloth_particle_data = g_shape::generate_sphere(1.f, 24, 16);
     static MeshData cloth_link_data = create_spring_segment_mesh();
 
-    cloth_particle_shader_ = std::make_unique<shader>("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
-    cloth_link_shader_ = std::make_unique<shader>("GravitySimulation/cloth_link.vs.shader", "GravitySimulation/default.fs.shader");
-    cloth_compute_shader_ = std::make_unique<compute_shader>("GravitySimulation/cloth_simulation.glsl");
-    cloth_particle_mesh_ = std::make_unique<Mesh>(cloth_particle_data);
-    cloth_link_mesh_ = std::make_unique<Mesh>(cloth_link_data);
+    cloth_particle_shader_ = assets.create_shader("cloth.particle", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+    cloth_link_shader_ = assets.create_shader("cloth.link", "GravitySimulation/cloth_link.vs.shader", "GravitySimulation/default.fs.shader");
+    cloth_compute_shader_ = assets.create_compute_shader("cloth.compute", "GravitySimulation/cloth_simulation.glsl");
+    cloth_particle_mesh_ = assets.create_mesh(cloth_particle_data);
+    cloth_link_mesh_ = assets.create_mesh(cloth_link_data);
     cloth_link_mesh_->type = MeshType::LINES;
 
-    register_compute_shader(cloth_compute_shader_.get());
+    register_compute_shader(cloth_compute_shader_);
 
     constexpr int columns = 13;
     constexpr int rows = 9;
@@ -100,7 +102,7 @@ void cloth_scene::initialize_scene_content() {
             auto* particle_node = create_scene_node("cloth_particle_" + std::to_string(index));
             particle_node->set_global_position(position);
             particle_node->set_global_scale(glm::vec3(mass_radius));
-            auto* particle_renderer = particle_node->add_component<renderer>(particle_node, cloth_particle_shader_.get(), cloth_particle_mesh_.get());
+            auto* particle_renderer = particle_node->add_component<renderer>(particle_node, cloth_particle_shader_, cloth_particle_mesh_);
             particle_renderer->set_gpu_driven_positions(true);
             particle_renderer->set_gpu_physics_index(static_cast<int>(index));
 
@@ -120,7 +122,7 @@ void cloth_scene::initialize_scene_content() {
     auto add_link = [&](size_t a, size_t b, float stiffness) {
         auto* spring_node = create_scene_node("cloth_link_" + std::to_string(constraints.size()));
         spring_node->set_global_scale(glm::vec3(static_cast<float>(a + 1), static_cast<float>(b + 1), 1.f));
-        auto* spring_renderer = spring_node->add_component<renderer>(spring_node, cloth_link_shader_.get(), cloth_link_mesh_.get());
+        auto* spring_renderer = spring_node->add_component<renderer>(spring_node, cloth_link_shader_, cloth_link_mesh_);
         spring_renderer->set_visual_scale(glm::vec3(1.f));
         spring_renderer->set_gpu_driven_positions(true);
 

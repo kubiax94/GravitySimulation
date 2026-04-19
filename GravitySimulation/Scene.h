@@ -11,6 +11,7 @@
 
 #include "Camera.h"
 #include "Time.h"
+#include "asset_manager.h"
 #include "physics_system.h"
 
 
@@ -26,6 +27,7 @@ class scene : public i_scene_manager
 	std::vector<renderer*> renderers_;
    std::vector<gpu_particle_system_component*> gpu_particle_systems_;
 	sim::time* time_;
+	asset_manager asset_manager_;
 
 	unit_system* unit_sys_;
 	physics_system physics_;
@@ -49,6 +51,8 @@ public:
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
 	const std::vector<gpu_particle_system_component*>& get_gpu_particle_systems() const { return gpu_particle_systems_; }
 	unit_system* get_unit_system() const { return unit_sys_; }
+	asset_manager& get_asset_manager() { return asset_manager_; }
+	const asset_manager& get_asset_manager() const { return asset_manager_; }
 
 	void add_to_scene(scene_node* n_node) const;
 	[[nodiscard]] scene_node* create_scene_node(const std::string& n_name);

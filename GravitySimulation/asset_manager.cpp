@@ -9,16 +9,26 @@ void asset_manager::add_asset(std::unique_ptr<asset> n_asset) {
 }
 
 void asset_manager::remove_asset(const uuid& asset_id) {
-	 auto found = find_asset_by_id(asset_id);
-	 found->cleanup();
-	 asset_list_.erase(found->get_id());
-	 delete found;
+   auto it = asset_list_.find(asset_id);
+	if (it == asset_list_.end() || !it->second)
+		return;
+
+	it->second->cleanup();
+	asset_list_.erase(it);
 }
 
 shader* asset_manager::create_shader(const std::string& name, const char* vertx_path, const char* frag_path) {
 	auto n_shader = std::make_unique<shader>(vertx_path, frag_path);
 	n_shader->name_ = name;
 	shader* n_shader_ptr = n_shader.get();
+	add_asset(std::move(n_shader));
+	return n_shader_ptr;
+}
+
+compute_shader* asset_manager::create_compute_shader(const std::string& name, const char* compute_path) {
+	auto n_shader = std::make_unique<compute_shader>(compute_path);
+	n_shader->name_ = name;
+	compute_shader* n_shader_ptr = n_shader.get();
 	add_asset(std::move(n_shader));
 	return n_shader_ptr;
 }

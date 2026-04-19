@@ -17,7 +17,7 @@ int main()
     if (!app.init(1280, 720, "Test"))
         return -1;
 
-    app.change_state(std::make_unique<simulation_state>(std::make_unique<cloth_scene>(&app.get_time())));
+    app.change_state(std::make_unique<simulation_state>(std::make_unique<galactic_stress_scene>(&app.get_time())));
     app.run();
     return 0;
 }

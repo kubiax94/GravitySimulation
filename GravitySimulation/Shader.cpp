@@ -45,13 +45,6 @@ static GLuint create_fallback_program() {
 static std::string read_file(const char* path) {
     if (!path) return {};
     std::filesystem::path p(path);
-    std::ostringstream debug_paths;
-
-    // Log current working directory for debugging
-    try {
-        debug_paths << "CWD=" << std::filesystem::current_path().string() << "\n";
-    }
-    catch (...) {}
 
     // Try the given path first
     if (std::filesystem::exists(p)) {
@@ -67,7 +60,6 @@ static std::string read_file(const char* path) {
     std::filesystem::path cwd = std::filesystem::current_path();
     for (int i = 0; i < 6; ++i) {
         std::filesystem::path try_path = cwd / p;
-        debug_paths << "try: " << try_path.string() << "\n";
         if (std::filesystem::exists(try_path)) {
             std::ifstream f(try_path, std::ios::binary);
             if (f.is_open()) {
@@ -87,8 +79,7 @@ static std::string read_file(const char* path) {
         return ss.str();
     }
 
-    // Print debug info to stderr to help diagnose missing file in Release
-    std::cerr << "ERROR::READ_FILE failed for '" << path << "'\n" << debug_paths.str();
+    std::cerr << "ERROR::READ_FILE failed for relative asset path '" << p.generic_string() << "'" << std::endl;
     return {};
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base_manager.h"
+#include "compute_shader.h"
 #include "Mesh.h"
 #include "Shader.h"
 
@@ -14,6 +15,7 @@ public:
 	void remove_asset(const uuid& asset_id);
 	  
 	shader* create_shader(const std::string& name, const char* vertx_path, const char* frag_path);
+ compute_shader* create_compute_shader(const std::string& name, const char* compute_path);
 	Mesh* create_mesh(MeshData& mesh_data);
 
 	asset* find_asset_by_id(const uuid& id);

@@ -95,7 +95,7 @@ GravitySimulation/
 2. Ensure include paths for **GLAD**, **GLM**, and **GLFW** are set in project properties (or via `vcpkg`).
 3. Select **Debug | x64** or **Release | x64** and build.
 
-> **Note:** Shader source paths are currently hard-coded in `GravitySimulation.cpp` and `galactic_simulation_test.cpp`. Update them to match your local checkout before building.
+> **Note:** Runtime assets are referenced using repository-relative paths such as `GravitySimulation/camera.vs.shader`, so the working directory still needs to point at the solution root or a child directory beneath it.
 
 ---
 
@@ -244,3 +244,13 @@ unit_system galactic(1.989e30f,     // 1 solar mass
 - The Sun provides Phong point-lighting for all planets
 
 This scene is intentionally kept in a single file (`galactic_simulation_test.cpp`) so it can be replaced or extended without touching the engine.
+
+---
+
+## Known limitations
+
+- **Semi-implicit Euler integration** — good enough for experimentation, but it accumulates error in long-running orbital simulations.
+- **No gravitational softening** — close approaches can produce unstable accelerations and unrealistic slingshots.
+- **O(N²) force evaluation** — the default gravity solver still scales quadratically with body count, so very large systems require either fewer active bodies or a different approximation method.
+- **GPU readback / CPU sync costs** — scenes that materialize every simulated body as a CPU `scene_node` still pay for readback and transform synchronization.
+- **High-count rendering path is evolving** — the engine now has groundwork for GPU-driven particle fields, but picking / debug views for individual particles are still more limited than classic `renderer` components.

@@ -4,6 +4,9 @@ layout(local_size_x = 64) in;
 uniform float G;
 uniform float dt;
 
+const float softening = 25.0;
+const float velocityDamping = 0.9995;
+
 struct PhysicsBody {
         vec4 position;
         vec4 velocity;
@@ -17,31 +20,25 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= bodies.length()) return;
 
-    vec3 pos_i = bodies[i].position.xyz;
-    float mass_i = bodies[i].position.w;
-
-    vec3 force = vec3(0);
-
-    // compute pairwise forces
-    for (int j = 0; j < bodies.length(); ++j) {
-        if (int(i) == j) continue;
-
-        vec3 pos_j = bodies[j].position.xyz;
-        float mass_j = bodies[j].position.w;
-
-        vec3 dir = pos_j - pos_i;
-        float dist = length(dir);
-        if (dist < 1e-3) continue;
-
-        vec3 dir_norm = normalize(dir);
-        float force_mag = G * mass_i * mass_j / (dist * dist);
-        force += dir_norm * force_mag;
+    if (i == 0u) {
+        bodies[i].velocity.xyz = vec3(0.0);
+        bodies[i].accumulated_force.xyz = vec3(0.0);
+        return;
     }
 
-    // integrate on GPU
-    vec3 acceleration = force / mass_i;
-    vec3 vel = bodies[i].velocity.xyz + acceleration * dt;
-    vec3 pos = bodies[i].position.xyz + vel * dt;
+    vec3 pos = bodies[i].position.xyz;
+    vec3 vel = bodies[i].velocity.xyz;
+    vec3 corePos = bodies[0].position.xyz;
+    float coreMass = bodies[0].position.w;
+
+    vec3 dir = corePos - pos;
+    float distSq = dot(dir, dir) + softening * softening;
+    float invDist = inversesqrt(distSq);
+    float invDist3 = invDist * invDist * invDist;
+    vec3 acceleration = G * coreMass * dir * invDist3;
+
+    vel = (vel + acceleration * dt) * velocityDamping;
+    pos += vel * dt;
 
     bodies[i].velocity.xyz = vel;
     bodies[i].position.xyz = pos;

@@ -24,7 +24,8 @@ gpu_particle_system_component::gpu_particle_system_component(scene_node* owner,
     Mesh* render_mesh,
     unit_system* unit_system,
     std::vector<physics_data> particles,
-    float particle_size)
+    float particle_size,
+    float simulation_speed)
     : transformable(owner, owner),
     compute_shader_(compute_shader),
     render_shader_(render_shader),
@@ -32,6 +33,7 @@ gpu_particle_system_component::gpu_particle_system_component(scene_node* owner,
     unit_system_(unit_system),
     initial_particles_(std::move(particles)),
     particle_size_(particle_size),
+    simulation_speed_(simulation_speed),
     particle_count_(initial_particles_.size()) {
 }
 

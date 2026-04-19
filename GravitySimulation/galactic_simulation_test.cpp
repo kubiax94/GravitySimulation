@@ -4,6 +4,7 @@
 #include <random>
 
 #include "Mesh.h"
+#include "asset_manager.h"
 #include "g_shape.h"
 #include "renderer.h"
 
@@ -84,12 +85,13 @@ std::vector<physics_data> simtest::create_stress_particles(int count) {
 }
 
 void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_renders, int count) {
-	shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+ auto& assets = s_to_init->get_asset_manager();
+	shader* planet_shader = assets.create_shader("stress.cpu.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
 
 	auto tmp = g_shape::generate_sphere();
 	MeshData* sphere_mesh_data = new MeshData();
 	*sphere_mesh_data = tmp;
-	auto* sphere_mesh = new Mesh(*sphere_mesh_data);
+    auto* sphere_mesh = assets.create_mesh(*sphere_mesh_data);
 
 	auto particles = create_stress_particles(count);
 	for (size_t i = 0; i < particles.size(); ++i) {
@@ -106,17 +108,18 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 	void simtest::init_gravity_test(scene* s_to_init, std::vector<renderer*>& planets_renders) {
 
 		unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
+		auto& assets = s_to_init->get_asset_manager();
 
 		auto* sun_node = s_to_init->create_scene_node("Sun");
-     shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
-		shader* sun_shader = new shader("GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun.fs.shader");
+        shader* planet_shader = assets.create_shader("galactic.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+		shader* sun_shader = assets.create_shader("galactic.sun", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun.fs.shader");
 
 		auto tmp = g_shape::generate_sphere();
 
 		MeshData* sphere_mesh_data = new MeshData();
 		*sphere_mesh_data = tmp;
 
-		auto* sphere_mesh = new Mesh(*sphere_mesh_data);
+        auto* sphere_mesh = assets.create_mesh(*sphere_mesh_data);
 		
 		auto* sun_render = sun_node->add_component<renderer>(sun_node, sun_shader, sphere_mesh);
 

@@ -70,6 +70,7 @@ bool engine::init(int width, int height, const std::string& title) {
 
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
+ glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
