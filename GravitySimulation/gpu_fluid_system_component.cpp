@@ -162,6 +162,14 @@ void gpu_fluid_system_component::queue_gpu_completion_fence() {
     gpu_completion_fence_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 }
 
+void gpu_fluid_system_component::set_planetary_surface(const glm::vec3& center, float radius, float shell_thickness, float gravity_strength) {
+    planetary_surface_enabled_ = true;
+    planetary_center_ = center;
+    planetary_radius_ = glm::max(radius, particle_radius_);
+    planetary_shell_thickness_ = glm::max(shell_thickness, particle_radius_ * 2.f);
+    planetary_gravity_strength_ = glm::max(gravity_strength, 0.0f);
+}
+
 void gpu_fluid_system_component::ensure_initialized() {
     if (initialized_ || !compute_shader_ || !compute_shader_->is_vaild())
         return;
@@ -220,6 +228,11 @@ void gpu_fluid_system_component::fixed_update(float dt) {
     compute_shader_->set_uni_int("gridSizeX", static_cast<int>(grid_size_x_));
     compute_shader_->set_uni_int("gridSizeY", static_cast<int>(grid_size_y_));
     compute_shader_->set_uni_int("gridSizeZ", static_cast<int>(grid_size_z_));
+    compute_shader_->set_uni_int("simulationMode", planetary_surface_enabled_ ? 1 : 0);
+    compute_shader_->set_uni_vec3("planetaryCenter", planetary_center_);
+    compute_shader_->set_uni_float("planetaryRadius", planetary_radius_);
+    compute_shader_->set_uni_float("planetaryShellThickness", planetary_shell_thickness_);
+    compute_shader_->set_uni_float("planetaryGravityStrength", planetary_gravity_strength_);
 
     for (unsigned int substep = 0; substep < substeps; ++substep) {
         compute_shader_->set_uni_float("dt", substep_dt);
@@ -272,9 +285,14 @@ void gpu_fluid_system_component::draw(Camera* camera) const {
     render_shader_->set_uni_float("particleSize", particle_size_);
     render_shader_->set_uni_vec3("particleColor", glm::vec3(0.18f, 0.58f, 1.0f));
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, particle_binding_, ssbo);
     render_mesh_->DrawInstanced(static_cast<GLsizei>(particle_count_));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, particle_binding_, 0);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 GLuint gpu_fluid_system_component::get_ssbo_id() const {

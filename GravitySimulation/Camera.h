@@ -16,6 +16,7 @@ enum Camera_Movment {
 const float YAW = -90.f;
 const float PITCH = 0.f;
 const float SPEED = 2.5f;
+const float SPRINT_MULTIPLIER = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.f;
 
@@ -32,8 +33,10 @@ private:
 
 	void RecalculateProjection();
 	void RecalculateView();
+   void sync_angles_to_transform();
    static constexpr float near_plane_ = 1.0f;
 	static constexpr float far_plane_ = 50000.0f;
+	bool rotating_with_mouse_ = false;
 
 public:
 

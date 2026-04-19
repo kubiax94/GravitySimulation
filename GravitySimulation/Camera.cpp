@@ -21,14 +21,31 @@ glm::mat4 Camera::GetProjectionMatrix(float aspectRatio)  {
    return glm::perspective(FOV, aspectRatio, near_plane_, far_plane_);
 }
 
+void Camera::sync_angles_to_transform() {
+	const glm::vec3 direction = glm::normalize(transform_->forward());
+   Yaw = glm::degrees(std::atan2(-direction.x, -direction.z));
+	Pitch = glm::degrees(std::asin(glm::clamp(direction.y, -1.f, 1.f)));
+}
+
 void Camera::move(const glm::vec3& dir, const float& dt) {
-	glm::vec3 c_pos = transform_->get_position();
-	c_pos += dir * 20.f * dt;
+   glm::vec3 c_pos = transform_->get_global_position();
+   const bool sprinting = input_system::is_key_down(GLFW_KEY_LEFT_SHIFT)
+		|| input_system::is_key_down(GLFW_KEY_RIGHT_SHIFT);
+	const float speed_multiplier = sprinting ? SPRINT_MULTIPLIER : 1.0f;
+	c_pos += dir * MovementSpeed * 8.0f * speed_multiplier * dt;
 
 	set_postion(c_pos);
 }
 
 void Camera::process_input(const float& dt) {
+  const bool right_mouse_down = input_system::is_button_down(GLFW_MOUSE_BUTTON_RIGHT);
+    const bool just_started_rotating = right_mouse_down && !rotating_with_mouse_;
+	if (right_mouse_down && !rotating_with_mouse_) {
+		sync_angles_to_transform();
+		input_system::reset_mouse_delta();
+	}
+	rotating_with_mouse_ = right_mouse_down;
+
 	if (input_system::is_key_down(GLFW_KEY_W))
 		move(transform_->forward(), dt);
 
@@ -41,7 +58,7 @@ void Camera::process_input(const float& dt) {
 	if (input_system::is_key_down(GLFW_KEY_D))
 		move(transform_->right(), dt);
 
-	if (input_system::is_button_down(GLFW_MOUSE_BUTTON_RIGHT))
+ if (right_mouse_down && !just_started_rotating)
 	{
 		auto mouse_move = input_system::get_mouse_move();
 		Yaw -= mouse_move.x * MouseSensitivity;
@@ -59,7 +76,7 @@ void Camera::process_input(const float& dt) {
 		glm::quat orient = q_yaw * q_pitch;
 
 		glm::vec3 euler = glm::degrees(glm::eulerAngles(orient));
-		transform_->set_rotation(euler);
+        transform_->set_global_rotation(euler);
 	}
 
 }
@@ -73,7 +90,7 @@ void Camera::RecalculateProjection() {
 }
 
 void Camera::set_postion(const glm::vec3& n_vec3) {
-	transform_->set_position(n_vec3);
+   transform_->set_global_position(n_vec3);
 	dirty_projection_ = true;
 }
 

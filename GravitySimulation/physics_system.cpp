@@ -90,6 +90,7 @@ void physics_system::compute_cpu() {
 
 void physics_system::compute_gpu(const float& dt) {
 	constexpr GLuint local_size_x = 64;
+	const float scaled_dt = u_sys_->time(dt) * simulation_speed_;
 
 	for (auto& [shader_id, bodies] : compute_groups_) {
 		auto shader_it = compute_shaders_.find(shader_id);
@@ -137,7 +138,7 @@ void physics_system::compute_gpu(const float& dt) {
 			auto section = frame_profiler::measure_active("fixed_update_gpu_dispatch");
 			compute->use();
 			compute->set_uni_float("G", u_sys_->scaled_G());
-			compute->set_uni_float("dt", u_sys_->time(dt) * simulation_speed_);
+         compute->set_uni_float("dt", scaled_dt);
 			compute->set_uni_float("rawDt", dt);
 			compute->set_uni_float("simulationTime", simulation_time_);
 			compute->dispatch({groups_x, 1, 1});
@@ -182,6 +183,14 @@ void physics_system::register_in(compute_shader* c_shader) {
 	compute_shaders_[c_shader->get_id()] = c_shader;
 }
 
+void physics_system::set_simulation_speed(float speed) {
+	simulation_speed_ = speed > 0.f ? speed : 1.f;
+}
+
+float physics_system::get_simulation_speed() const {
+	return simulation_speed_;
+}
+
 void physics_system::set_gpu_driven_nodes(const std::unordered_set<uuid>& node_ids) {
 	gpu_driven_nodes_ = node_ids;
 }
@@ -210,7 +219,8 @@ void physics_system::sync_scene_positions(float alpha) const {
 }
 
 void physics_system::update(const float& dt) {
-	simulation_time_ += dt;
+ const float scaled_dt = u_sys_->time(dt) * simulation_speed_;
+	simulation_time_ += scaled_dt;
 
  for (const auto& id : order_id_) {
 		auto it = entities_.find(id);
@@ -235,10 +245,11 @@ void physics_system::update(const float& dt) {
 	}
 	else {
 		auto section = frame_profiler::measure_active("fixed_update_cpu_fallback");
+     compute_cpu();
 		for (auto& entity : entities_ | std::views::values)
 		{
 			const auto id = entity->get_node()->get_id();
-			entity->integrate(dt);
+          entity->integrate(scaled_dt);
 			current_positions_[id] = entity->get_position();
 		}
 	}

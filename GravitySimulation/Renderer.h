@@ -43,7 +43,7 @@ private:
 	shader* shader_;
 	Mesh* mesh_;
 
-	glm::vec3 visual_scale_ = glm::vec3(5.f);
+   glm::vec3 visual_scale_ = glm::vec3(1.f);
  renderer_blend_mode blend_mode_ = renderer_blend_mode::opaque;
 	renderer_cull_mode cull_mode_ = renderer_cull_mode::back;
 	bool depth_write_enabled_ = true;

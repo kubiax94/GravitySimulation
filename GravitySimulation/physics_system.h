@@ -20,7 +20,7 @@ class physics_system
 	std::unordered_set<uuid> gpu_driven_nodes_;
 
 	unit_system* u_sys_;
-	static constexpr float simulation_speed_ = 20.0f;
+   float simulation_speed_ = 20.0f;
 
 	compute_shader* gravity_simulation_comp_;
  bool gpu_buffer_dirty_ = true;
@@ -45,6 +45,8 @@ public:
 	void register_in(compute_shader* c_shader);
 	void unregister(const uuid& c_uuid);
    void set_gpu_driven_nodes(const std::unordered_set<uuid>& node_ids);
+   void set_simulation_speed(float speed);
+	[[nodiscard]] float get_simulation_speed() const;
 	void sync_scene_positions(float alpha) const;
 	[[nodiscard]] size_t get_body_index(const uuid& id) const;
 	[[nodiscard]] GLuint get_render_ssbo() const;

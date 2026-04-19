@@ -30,7 +30,7 @@ private:
     std::array<bool, 4> previous_scene_switch_down_{};
     bool focus_active_ = false;
     float focus_elapsed_ = 0.f;
-    float focus_duration_ = 0.85f;
+    float focus_duration_ = 1.8f;
     glm::vec3 focus_start_position_ = glm::vec3(0.f);
     glm::vec3 focus_target_position_ = glm::vec3(0.f);
     glm::vec3 focus_target_offset_ = glm::vec3(0.f);

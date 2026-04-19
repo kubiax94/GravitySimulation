@@ -279,8 +279,8 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
                   instance_manager_.draw_instanced(batch.key.shader_ptr, batch.key.mesh_ptr, renders, batch.instance_models, batch.instance_physics_indices, frame_context, physics_ssbo, instance_base_index, use_gpu_positions, pre_draw);
                 }
             }
-
-    apply_pipeline_render_state(pipeline_render_state{});
         }
     }
+
+    apply_pipeline_render_state(pipeline_render_state{});
 }

@@ -58,6 +58,8 @@ public:
    const std::vector<gpu_fluid_system_component*>& get_gpu_fluid_systems() const { return gpu_fluid_systems_; }
 	const std::vector<gpu_particle_system_component*>& get_gpu_particle_systems() const { return gpu_particle_systems_; }
 	unit_system* get_unit_system() const { return unit_sys_; }
+   void set_simulation_speed(float speed) { physics_.set_simulation_speed(speed); }
+	[[nodiscard]] float get_simulation_speed() const { return physics_.get_simulation_speed(); }
 	asset_manager& get_asset_manager() { return asset_manager_; }
 	const asset_manager& get_asset_manager() const { return asset_manager_; }
 

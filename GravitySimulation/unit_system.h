@@ -9,13 +9,13 @@ struct unit_system
 	float scale_time;
 
 	// Converts kilograms to simulation mass units.
-	float mass(float kg);
+   float mass(float kg) const;
 	// Converts kilometers to simulation distance units.
-	float distance(float km);
+   float distance(float km) const;
 	// Converts seconds to simulation time units.
-	float time(float seconds);
+  float time(float seconds) const;
 
-	float to_renderer_scale(float realm_km) {
+   float to_renderer_scale(float realm_km) const {
 		return realm_km / 12742.0f;
 	}
 

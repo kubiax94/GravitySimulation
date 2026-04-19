@@ -19,6 +19,11 @@ uniform int gridSizeX;
 uniform int gridSizeY;
 uniform int gridSizeZ;
 uniform int passMode;
+uniform int simulationMode;
+uniform vec3 planetaryCenter;
+uniform float planetaryRadius;
+uniform float planetaryShellThickness;
+uniform float planetaryGravityStrength;
 
 struct FluidParticle {
     vec4 position;
@@ -70,6 +75,28 @@ float tensile_correction(float distance) {
     float q = 1.0 - clamp(distance / max(interactionRadius, eps), 0.0, 1.0);
     float q2 = q * q;
     return -nearPressureStrength * q2 * q2;
+}
+
+vec3 compute_external_acceleration(vec3 position) {
+    if (simulationMode == 1) {
+        vec3 toCenter = planetaryCenter - position;
+        float distanceSq = dot(toCenter, toCenter);
+        if (distanceSq > epsSq)
+            return toCenter * inversesqrt(distanceSq) * planetaryGravityStrength;
+
+        return vec3(0.0);
+    }
+
+    return gravity;
+}
+
+void constrain_to_planetary_shell(inout vec3 position) {
+    vec3 offset = position - planetaryCenter;
+    float distance = length(offset);
+    vec3 normal = distance > eps ? offset / distance : vec3(0.0, 1.0, 0.0);
+    float minRadius = max(planetaryRadius + particleRadius * 0.35, eps);
+    float maxRadius = max(minRadius, planetaryRadius + max(planetaryShellThickness - particleRadius * 0.35, 0.0));
+    position = planetaryCenter + normal * clamp(distance, minRadius, maxRadius);
 }
 
 void compute_lambda(uint selfIndex) {
@@ -178,6 +205,14 @@ void compute_delta_position(uint selfIndex) {
 
 void solve_boundaries(uint selfIndex) {
     vec3 position = particles[selfIndex].predicted_position.xyz + particles[selfIndex].delta_position.xyz;
+
+    if (simulationMode == 1) {
+        constrain_to_planetary_shell(position);
+        particles[selfIndex].predicted_position = vec4(position, particles[selfIndex].predicted_position.w);
+        particles[selfIndex].delta_position = vec4(0.0);
+        return;
+    }
+
     vec3 wallMin = boundsMin + vec3(particleRadius);
     vec3 wallMax = boundsMax - vec3(particleRadius);
 
@@ -253,6 +288,24 @@ void finalize_particle(uint selfIndex) {
     velocity += compute_viscosity(selfIndex, velocity) * clamp(viscosityStrength * dt, 0.0, 1.0);
     velocity *= max(0.0, 1.0 - velocityDamping * dt);
 
+    if (simulationMode == 1) {
+        constrain_to_planetary_shell(position);
+        vec3 radial = position - planetaryCenter;
+        float radialSq = dot(radial, radial);
+        if (radialSq > epsSq) {
+            vec3 normal = radial * inversesqrt(radialSq);
+            velocity -= normal * dot(velocity, normal);
+        }
+
+        velocity *= collisionDamping;
+        particles[selfIndex].position = vec4(position, particles[selfIndex].position.w);
+        particles[selfIndex].predicted_position = vec4(position, particles[selfIndex].predicted_position.w);
+        particles[selfIndex].velocity = vec4(velocity, particles[selfIndex].velocity.w);
+        particles[selfIndex].solver_data = vec4(0.0);
+        particles[selfIndex].delta_position = vec4(0.0);
+        return;
+    }
+
     vec3 wallMin = boundsMin + vec3(particleRadius);
     vec3 wallMax = boundsMax - vec3(particleRadius);
 
@@ -285,7 +338,7 @@ void main() {
         return;
 
     if (passMode == 0) {
-        vec3 velocity = particles[i].velocity.xyz + gravity * dt;
+        vec3 velocity = particles[i].velocity.xyz + compute_external_acceleration(particles[i].position.xyz) * dt;
         vec3 predicted = particles[i].position.xyz + velocity * dt;
         particles[i].predicted_position = vec4(predicted, particles[i].predicted_position.w);
         particles[i].delta_position = vec4(0.0);

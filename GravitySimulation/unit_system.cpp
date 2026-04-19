@@ -7,14 +7,14 @@ const float unit_system::scaled_G() const {
 		/ (distance_scale * distance_scale * distance_scale);
 }
 
-float unit_system::mass(float kg) {
+float unit_system::mass(float kg) const {
 	return kg / mass_scale;
 }
 
-float unit_system::distance(float km) {
+float unit_system::distance(float km) const {
 	return  km / distance_scale;
 }
 
-float unit_system::time(float seconds) {
+float unit_system::time(float seconds) const {
 	return seconds / scale_time;
 }

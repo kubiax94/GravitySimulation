@@ -5,7 +5,6 @@ uniform float G;
 uniform float dt;
 
 const float softening = 25.0;
-const float velocityDamping = 0.9995;
 
 struct PhysicsBody {
         vec4 position;
@@ -37,7 +36,7 @@ void main() {
     float invDist3 = invDist * invDist * invDist;
     vec3 acceleration = G * coreMass * dir * invDist3;
 
-    vel = (vel + acceleration * dt) * velocityDamping;
+    vel += acceleration * dt;
     pos += vel * dt;
 
     bodies[i].velocity.xyz = vel;

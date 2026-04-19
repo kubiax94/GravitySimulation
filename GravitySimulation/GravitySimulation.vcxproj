@@ -247,6 +247,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="fluid_predict.glsl" />
+    <None Include="gas_giant.fs.shader" />
     <None Include="gpu_fluid_system.fs.shader" />
     <None Include="gpu_fluid_system.vs.shader" />
     <None Include="gpu_particle_system.fs.shader" />
@@ -258,6 +259,9 @@
     <None Include="lightsource.vs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="planetary_ocean_surface.fs.shader" />
+    <None Include="planet_atmosphere.fs.shader" />
+    <None Include="planet_ocean.fs.shader" />
     <None Include="sun.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

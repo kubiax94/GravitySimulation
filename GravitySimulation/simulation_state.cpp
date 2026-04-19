@@ -31,6 +31,19 @@ float ease_out_cubic(float t) {
     return 1.f - inv * inv * inv;
 }
 
+float ease_in_out_cubic(float t) {
+    const float clamped = glm::clamp(t, 0.f, 1.f);
+    if (clamped < 0.5f)
+        return 4.f * clamped * clamped * clamped;
+
+    const float f = -2.f * clamped + 2.f;
+    return 1.f - (f * f * f) / 2.f;
+}
+
+float damp_factor(float dt, float sharpness) {
+    return 1.f - std::exp(-glm::max(dt, 0.f) * sharpness);
+}
+
 std::unique_ptr<scene> create_example_scene(simulation_state::example_scene_kind scene_kind, sim::time* time) {
     switch (scene_kind) {
     case simulation_state::example_scene_kind::fluid:
@@ -90,7 +103,7 @@ void orient_camera_towards(Camera& camera, const glm::vec3& target_position) {
         return;
 
     const glm::vec3 direction = glm::normalize(delta);
-    const float yaw = glm::degrees(std::atan2(direction.z, direction.x));
+    const float yaw = glm::degrees(std::atan2(-direction.x, -direction.z));
     const float pitch = glm::degrees(std::asin(glm::clamp(direction.y, -1.f, 1.f)));
     const glm::quat q_pitch = glm::angleAxis(glm::radians(pitch), glm::vec3(1.f, 0.f, 0.f));
     const glm::quat q_yaw = glm::angleAxis(glm::radians(yaw), glm::vec3(0.f, 1.f, 0.f));
@@ -314,12 +327,12 @@ void simulation_state::try_begin_focus() {
     if (!focus_target_node_)
         return;
 
-    cam_->get_node()->set_parent(focus_target_node_, true);
-    attached_camera_parent_ = focus_target_node_;
+    if (cam_->get_node()->get_parent() != scene_->get_root_node())
+        cam_->get_node()->set_parent(scene_->get_root_node(), true);
 
-    const glm::mat4 parent_inverse = glm::inverse(focus_target_node_->get_global_matrix_model());
-    focus_start_position_ = cam_->get_node()->get_position();
-    focus_target_position_ = glm::vec3(parent_inverse * glm::vec4(focus_target_world_position, 1.f));
+    attached_camera_parent_ = nullptr;
+    focus_start_position_ = cam_->get_node()->get_global_position();
+    focus_target_position_ = focus_target_world_position;
     focus_target_offset_ = focus_target_position_;
     focus_look_at_ = pick->world_position;
     focus_elapsed_ = 0.f;
@@ -336,10 +349,10 @@ void simulation_state::update_camera_focus(float dt) {
     }
 
     const float t = glm::clamp(focus_elapsed_ / focus_duration_, 0.f, 1.f);
-    const float eased_t = ease_out_cubic(t);
+    const float eased_t = ease_in_out_cubic(t);
     const glm::vec3 next_position = glm::mix(focus_start_position_, focus_target_position_, eased_t);
 
-    cam_->get_node()->set_position(next_position);
+    cam_->get_node()->set_global_position(next_position);
     orient_camera_towards(*cam_, focus_look_at_);
 
    if (t >= 1.f) {
@@ -351,7 +364,7 @@ void simulation_state::update_camera_focus(float dt) {
 void simulation_state::cancel_camera_focus() {
     focus_active_ = false;
     focus_elapsed_ = 0.f;
-   focus_target_node_ = nullptr;
+    focus_target_node_ = nullptr;
 }
 
 void simulation_state::detach_camera_parent() {

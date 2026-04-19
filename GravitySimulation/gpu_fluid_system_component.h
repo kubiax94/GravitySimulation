@@ -27,6 +27,11 @@ class gpu_fluid_system_component final : public transformable
     float velocity_damping_ = 0.35f;
     float viscosity_strength_ = 0.18f;
     float rest_density_ = 10.f;
+    bool planetary_surface_enabled_ = false;
+    glm::vec3 planetary_center_ = glm::vec3(0.f);
+    float planetary_radius_ = 1.f;
+    float planetary_shell_thickness_ = 0.1f;
+    float planetary_gravity_strength_ = 9.81f;
     unsigned int solver_substeps_ = 3;
     unsigned int constraint_iterations_ = 4;
     unsigned int runtime_solver_substeps_ = 3;
@@ -83,6 +88,7 @@ public:
     [[nodiscard]] size_t get_particle_count() const { return particle_count_; }
     [[nodiscard]] GLuint get_ssbo_id() const;
     void set_bounds(const fluid_bounds& bounds);
+    void set_planetary_surface(const glm::vec3& center, float radius, float shell_thickness, float gravity_strength);
 
     ~gpu_fluid_system_component() override;
 };

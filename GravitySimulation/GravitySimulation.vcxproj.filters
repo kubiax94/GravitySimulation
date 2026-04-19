@@ -340,5 +340,9 @@
     <None Include="gpu_fluid_system.vs.shader" />
     <None Include="gpu_fluid_system.fs.shader" />
     <None Include="sun_halo.fs.shader" />
+    <None Include="planet_atmosphere.fs.shader" />
+    <None Include="gas_giant.fs.shader" />
+    <None Include="planet_ocean.fs.shader" />
+    <None Include="planetary_ocean_surface.fs.shader" />
   </ItemGroup>
 </Project>

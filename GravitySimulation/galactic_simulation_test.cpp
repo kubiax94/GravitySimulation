@@ -4,8 +4,12 @@
 #include <random>
 
 #include "Mesh.h"
+#include "compute_shader.h"
 #include "asset_manager.h"
+#include "fluid_bounds.h"
+#include "fluid_particle.h"
 #include "g_shape.h"
+#include "gpu_fluid_system_component.h"
 #include "renderer.h"
 
 struct planet_data
@@ -19,6 +23,93 @@ namespace simtest {
 
 constexpr float sun_visual_radius_scale = 0.42f;
 constexpr float sun_halo_scale_multiplier = 1.08f;
+constexpr int planetary_ocean_particle_count = 8192;
+constexpr float earth_ocean_base_radius = 1.015f;
+constexpr float earth_ocean_shell_thickness = 0.14f;
+
+float get_visual_orbit_offset(const planet_data& planet, float dia_scale) {
+ const float sun_visual_radius = sun_visual_radius_scale * (1391000.f / dia_scale);
+	const float sun_halo_radius = sun_visual_radius * sun_halo_scale_multiplier;
+	const float planet_visual_radius = planet.diameter / dia_scale;
+	return sun_halo_radius + planet_visual_radius + 12.0f;
+}
+
+float get_visual_orbital_radius(const planet_data& planet, unit_system& u_sys, float dia_scale) {
+    const float scaled_distance = planet.distance_to_sun / u_sys.distance_scale;
+	const float compressed_orbit_radius = 12.0f * std::sqrt(glm::max(scaled_distance, 0.0f));
+	return compressed_orbit_radius + get_visual_orbit_offset(planet, dia_scale);
+}
+
+float get_initial_orbit_angle(size_t index) {
+	constexpr float degrees_to_radians = 0.01745329252f;
+	constexpr float start_angles_deg[] = {
+		0.f,
+		42.f,
+		96.f,
+		151.f,
+		208.f,
+		257.f,
+		311.f,
+		342.f
+	};
+	return start_angles_deg[index % std::size(start_angles_deg)] * degrees_to_radians;
+}
+
+MeshData create_particle_point_mesh() {
+	MeshData data;
+	Vertex vertex{};
+	vertex.Position = glm::vec3(0.f);
+	vertex.Normal = glm::vec3(0.f, 1.f, 0.f);
+	data.vertecies.push_back(vertex);
+	data.indices = { 0u };
+	return data;
+}
+
+std::vector<fluid_particle> create_planetary_shell_particles(int count, float base_radius, float shell_thickness) {
+	std::vector<fluid_particle> particles;
+	particles.reserve(static_cast<size_t>(count));
+	constexpr float golden_angle = 2.39996323f;
+
+	for (int i = 0; i < count; ++i) {
+		const float t = (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+		const float y = 1.0f - 2.0f * t;
+		const float radial = std::sqrt(glm::max(0.0f, 1.0f - y * y));
+		const float angle = golden_angle * static_cast<float>(i);
+		const glm::vec3 normal(std::cos(angle) * radial, y, std::sin(angle) * radial);
+		const float layer = static_cast<float>(i % 5) / 4.0f;
+		const float radius = base_radius + shell_thickness * layer;
+
+		fluid_particle particle;
+		particle.position = glm::vec4(normal * radius, 1.0f);
+		particle.predicted_position = particle.position;
+		const glm::vec3 tangent = glm::normalize(glm::cross(normal, glm::vec3(0.f, 1.f, 0.f) + glm::vec3(0.13f, 0.f, 0.07f)));
+		particle.velocity = glm::vec4(tangent * ((layer - 0.5f) * 0.05f), 0.0f);
+		particles.push_back(particle);
+	}
+
+	return particles;
+}
+
+bool has_planet_atmosphere(const planet_data& planet) {
+	return planet.name != "Mercury";
+}
+
+bool is_gas_giant(const planet_data& planet) {
+	return planet.name == "Jupiter"
+		|| planet.name == "Saturn"
+		|| planet.name == "Uranus"
+		|| planet.name == "Neptune";
+}
+
+float get_planet_atmosphere_scale(const planet_data& planet) {
+	if (planet.diameter >= 45000.f)
+       return 1.12f;
+	if (planet.name == "Venus")
+       return 1.09f;
+	if (planet.name == "Mars")
+      return 1.055f;
+	return 1.075f;
+}
 
 	std::vector<planet_data> data = {
 	{"Mercury", 0.330e24f, 4879, 57.9e6f},
@@ -115,8 +206,13 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 
 		auto* sun_node = s_to_init->create_scene_node("Sun");
         shader* planet_shader = assets.create_shader("galactic.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+		shader* gas_giant_shader = assets.create_shader("galactic.planets.gas_giant", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/gas_giant.fs.shader");
+        shader* planet_atmosphere_shader = assets.create_shader("galactic.planets.atmosphere", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/planet_atmosphere.fs.shader");
+        shader* ocean_surface_shader = assets.create_shader("galactic.planets.ocean.surface", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/planetary_ocean_surface.fs.shader");
 		shader* sun_shader = assets.create_shader("galactic.sun", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun.fs.shader");
 		shader* sun_halo_shader = assets.create_shader("galactic.sun.halo", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun_halo.fs.shader");
+		shader* ocean_render_shader = assets.create_shader("galactic.earth.ocean.points", "GravitySimulation/gpu_fluid_system.vs.shader", "GravitySimulation/gpu_fluid_system.fs.shader");
+		compute_shader* ocean_compute_shader = assets.create_compute_shader("galactic.earth.ocean.compute", "GravitySimulation/fluid_predict.glsl");
 
 		auto tmp = g_shape::generate_sphere();
 
@@ -125,10 +221,15 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 
         auto* sphere_mesh = assets.create_mesh(*sphere_mesh_data);
 		
-		auto* sun_render = sun_node->add_component<renderer>(sun_node, sun_shader, sphere_mesh);
+        auto* sun_render = sun_node->add_component<renderer>(sun_node, sun_shader, sphere_mesh);
+		sun_render->set_visual_scale(glm::vec3(1.f));
 		auto* sun_halo_node = s_to_init->create_scene_node("SunHalo");
 		sun_halo_node->set_parent(sun_node, false);
 		auto* sun_halo_render = sun_halo_node->add_component<renderer>(sun_halo_node, sun_halo_shader, sphere_mesh);
+     sun_halo_render->set_visual_scale(glm::vec3(1.f));
+		static MeshData ocean_particle_data = create_particle_point_mesh();
+		auto* ocean_particle_mesh = assets.create_mesh(ocean_particle_data);
+		ocean_particle_mesh->type = MeshType::POINTS;
 
 		float sun_mass = u_sys.mass(1.9885e30f);
 		float dia_scale = 12756.f;
@@ -148,21 +249,86 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 
 		//s_rigid->add_compute_buffor();
 
-		for (auto planet : data)
+        for (size_t planet_index = 0; planet_index < data.size(); ++planet_index)
 		{
-			float v = sqrt(u_sys.scaled_G() * sun_mass / u_sys.distance(planet.distance_to_sun));
+           auto planet = data[planet_index];
+           shader* current_planet_shader = planet_shader;
+			if (is_gas_giant(planet))
+				current_planet_shader = gas_giant_shader;
+
+            const float orbital_radius = get_visual_orbital_radius(planet, u_sys, dia_scale);
+           const float orbit_angle = get_initial_orbit_angle(planet_index);
+			const glm::vec3 radial_direction(std::cos(orbit_angle), 0.f, std::sin(orbit_angle));
+			const glm::vec3 tangent_direction(-radial_direction.z, 0.f, radial_direction.x);
+			float v = sqrt(u_sys.scaled_G() * sun_mass / orbital_radius);
             // allocate physics data on heap so rigid_body stores a valid pointer
             auto* p_physics_data = new physics_data(
-                glm::vec4(u_sys.distance(planet.distance_to_sun), 0, 0, u_sys.mass(planet.mass)),
-                glm::vec4(0, 0, v, u_sys.mass(planet.mass)),
+               glm::vec4(radial_direction * orbital_radius, u_sys.mass(planet.mass)),
+				glm::vec4(tangent_direction * v, u_sys.mass(planet.mass)),
                 { 0, 0, 0, u_sys.mass(planet.mass) });
 
             auto* planet_node = s_to_init->create_scene_node(planet.name);
             planet_node->add_component<rigid_body>(planet_node, p_physics_data);
-            planets_renders.push_back(planet_node->add_component<renderer>(planet_node, planet_shader, sphere_mesh));
+			auto* planet_render = planet_node->add_component<renderer>(planet_node, current_planet_shader, sphere_mesh);
+			planet_render->set_visual_scale(glm::vec3(1.f));
+			planets_renders.push_back(planet_render);
 
             planet_node->set_global_position(p_physics_data->position);
 			planet_node->set_global_scale(glm::vec3(planet.diameter/dia_scale));
+
+			if (planet.name == "Earth") {
+				auto* ocean_node = s_to_init->create_scene_node("Earth_ocean_fluid");
+				ocean_node->set_parent(planet_node, false);
+				auto* ocean_surface_node = s_to_init->create_scene_node("Earth_ocean_surface");
+				ocean_surface_node->set_parent(planet_node, false);
+
+				fluid_bounds ocean_bounds;
+				const float ocean_outer_radius = earth_ocean_base_radius + earth_ocean_shell_thickness;
+				ocean_bounds.min = glm::vec3(-ocean_outer_radius - 0.15f);
+				ocean_bounds.max = glm::vec3(ocean_outer_radius + 0.15f);
+				ocean_bounds.restitution = 0.02f;
+				ocean_bounds.damping = 0.995f;
+				auto ocean_particles = create_planetary_shell_particles(planetary_ocean_particle_count, earth_ocean_base_radius, earth_ocean_shell_thickness);
+				auto* ocean_system = new gpu_fluid_system_component(
+					ocean_node,
+					ocean_compute_shader,
+					ocean_render_shader,
+					ocean_particle_mesh,
+					std::move(ocean_particles),
+					ocean_bounds,
+					glm::vec3(0.f),
+					6.5f,
+					0.11f,
+					0.026f,
+					0.28f,
+					0.03f,
+					1.8f,
+					1.4f,
+					4.0f,
+					2u,
+					3u);
+				ocean_node->add_component(ocean_system);
+				ocean_system->set_planetary_surface(glm::vec3(0.f), earth_ocean_base_radius, earth_ocean_shell_thickness, 4.2f);
+
+               auto* ocean_surface_render = new renderer(ocean_surface_node, ocean_surface_shader, sphere_mesh);
+				ocean_surface_render->set_visual_scale(glm::vec3(1.f));
+				ocean_surface_node->add_component(ocean_surface_render);
+				ocean_surface_node->set_scale(glm::vec3(earth_ocean_base_radius + earth_ocean_shell_thickness * 0.55f));
+				ocean_surface_render->set_blend_mode(renderer_blend_mode::additive);
+				ocean_surface_render->set_depth_write_enabled(false);
+				ocean_surface_render->set_cull_mode(renderer_cull_mode::front);
+			}
+
+			if (has_planet_atmosphere(planet)) {
+				auto* atmosphere_node = s_to_init->create_scene_node(planet.name + "_atmosphere");
+				atmosphere_node->set_parent(planet_node, false);
+				auto* atmosphere_render = atmosphere_node->add_component<renderer>(atmosphere_node, planet_atmosphere_shader, sphere_mesh);
+             atmosphere_render->set_visual_scale(glm::vec3(1.f));
+				atmosphere_node->set_scale(glm::vec3(get_planet_atmosphere_scale(planet)));
+				atmosphere_render->set_blend_mode(renderer_blend_mode::additive);
+				atmosphere_render->set_depth_write_enabled(false);
+				atmosphere_render->set_cull_mode(renderer_cull_mode::front);
+			}
 
 		}
 

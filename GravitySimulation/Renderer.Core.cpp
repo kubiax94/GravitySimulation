@@ -11,9 +11,9 @@ namespace {
 
 	glm::mat4 apply_visual_scale(const glm::mat4& model, const glm::vec3& visual_scale) {
 		glm::mat4 scaled = model;
-		const glm::vec4 scale(visual_scale, 1.0f);
-		for (int column = 0; column < 4; ++column)
-			scaled[column] *= scale;
+      scaled[0] *= visual_scale.x;
+		scaled[1] *= visual_scale.y;
+		scaled[2] *= visual_scale.z;
 
 		return scaled;
 	}

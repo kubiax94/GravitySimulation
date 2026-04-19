@@ -1,8 +1,7 @@
 #pragma once
 #include "Scene.h"
 #include "physics_data.h"
-
-class renderer;
+#include "Renderer.h"
 
 namespace simtest
 {
