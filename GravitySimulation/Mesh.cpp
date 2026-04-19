@@ -58,6 +58,13 @@ void Mesh::InitInstanceBuffer() {
 		glEnableVertexAttribArray(2 + i);
 		glVertexAttribDivisor(2 + i, 1);
 	}
+
+	glGenBuffers(1, &instancePhysicsIndexVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, instancePhysicsIndexVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLint) * instance_buffer_capacity_, nullptr, GL_STREAM_DRAW);
+	glVertexAttribIPointer(6, 1, GL_INT, sizeof(GLint), nullptr);
+	glEnableVertexAttribArray(6);
+	glVertexAttribDivisor(6, 1);
 }
 
 bool Mesh::AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) const {
@@ -68,6 +75,10 @@ bool Mesh::AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) cons
 		return true;
 
 	return std::memcmp(cached_instance_models_.data(), models.data(), sizeof(glm::mat4) * models.size()) == 0;
+}
+
+bool Mesh::AreInstancePhysicsIndicesUnchanged(const std::vector<int>& indices) const {
+	return cached_instance_physics_indices_ == indices;
 }
 
 void Mesh::UpdateInstanceModels(const std::vector<glm::mat4>& models)
@@ -88,6 +99,26 @@ void Mesh::UpdateInstanceModels(const std::vector<glm::mat4>& models)
 		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * models.size(), models.data());
 
 	cached_instance_models_ = models;
+}
+
+void Mesh::UpdateInstancePhysicsIndices(const std::vector<int>& indices)
+{
+	if (AreInstancePhysicsIndicesUnchanged(indices))
+		return;
+
+	glBindBuffer(GL_ARRAY_BUFFER, instancePhysicsIndexVBO);
+
+	if (indices.size() > instance_buffer_capacity_) {
+		while (instance_buffer_capacity_ < indices.size())
+			instance_buffer_capacity_ *= 2;
+	}
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLint) * instance_buffer_capacity_, nullptr, GL_STREAM_DRAW);
+
+	if (!indices.empty())
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLint) * indices.size(), indices.data());
+
+	cached_instance_physics_indices_ = indices;
 }
 
 void Mesh::Draw()
@@ -116,6 +147,7 @@ void Mesh::cleanup() {
         glDeleteBuffers(1, &VBO);
         glDeleteBuffers(1, &EBO);
         glDeleteBuffers(1, &instanceVBO);
+      glDeleteBuffers(1, &instancePhysicsIndexVBO);
         glDeleteVertexArrays(1, &VAO);
         status_ = asset_status::UNLOADED;
     }

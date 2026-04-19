@@ -30,17 +30,21 @@ class Mesh : public asset
 {
 	GLuint VAO{}, VBO{}, EBO{};
 	GLuint instanceVBO{};
+	GLuint instancePhysicsIndexVBO{};
     size_t instance_buffer_capacity_ = 0;
 	std::vector<glm::mat4> cached_instance_models_;
+    std::vector<int> cached_instance_physics_indices_;
 	void Init();
 	void InitInstanceBuffer();
- [[nodiscard]] bool AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) const;
+	[[nodiscard]] bool AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) const;
+	[[nodiscard]] bool AreInstancePhysicsIndicesUnchanged(const std::vector<int>& indices) const;
 	MeshData* meshData;
 
 public:
 	void Draw();
 	void DrawInstanced(GLsizei instanceCount);
 	void UpdateInstanceModels(const std::vector<glm::mat4>& models);
+	void UpdateInstancePhysicsIndices(const std::vector<int>& indices);
 	Mesh(MeshData& mdata);
 	MeshType type = MeshType::TRIANGLES;
 

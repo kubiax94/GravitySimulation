@@ -32,7 +32,8 @@ private:
 
 	void RecalculateProjection();
 	void RecalculateView();
-	glm::vec3 visual_scale_ = glm::vec3(5.f);
+   static constexpr float near_plane_ = 1.0f;
+	static constexpr float far_plane_ = 50000.0f;
 
 public:
 

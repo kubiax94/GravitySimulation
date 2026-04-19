@@ -76,6 +76,10 @@ void compute_shader::dispatch(const glm::uvec3& groups) {
 	}
 
 	use();
+    for (const auto& [binding, info] : binding_data_) {
+		if (info && info->id != 0)
+			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, info->id);
+	}
 	glDispatchCompute(groups.x, groups.y, groups.z);
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
 }

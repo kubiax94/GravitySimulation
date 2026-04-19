@@ -43,7 +43,11 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
 
 	shader_->use();
 	shader_->set_uni_int("useInstancing", 0);
-	shader_->set_uni_int("useGpuPositions", 0);
+ shader_->set_uni_int("useGpuPositions", frame_context.use_gpu_positions ? 1 : 0);
+	shader_->set_uni_int("instanceBaseIndex", 0);
+	shader_->set_uni_int("physicsBodyIndex", frame_context.physics_body_index);
+	if (frame_context.use_gpu_positions && frame_context.physics_ssbo != 0)
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, frame_context.physics_ssbo);
 
     shader_->set_uniform_mat4("view", frame_context.view);
 	shader_->set_uniform_mat4("projection", frame_context.projection);
@@ -59,5 +63,7 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
 	if (pre_draw) pre_draw(*shader_);
 
 	mesh_->Draw();
+	if (frame_context.use_gpu_positions && frame_context.physics_ssbo != 0)
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
 
 }

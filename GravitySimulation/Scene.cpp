@@ -69,6 +69,16 @@ void scene::init() {
 
 void scene::update() {
 	const float dt = time_->fixed_delta_time;
+    std::unordered_set<uuid> gpu_driven_nodes;
+	gpu_driven_nodes.reserve(renderers_.size());
+	for (const auto* render : renderers_) {
+		if (!render || !render->uses_gpu_driven_positions() || !render->get_node())
+			continue;
+
+		gpu_driven_nodes.insert(render->get_node()->get_id());
+	}
+
+	physics_.set_gpu_driven_nodes(gpu_driven_nodes);
 	physics_.update(dt);
 	//root_->update();
 }

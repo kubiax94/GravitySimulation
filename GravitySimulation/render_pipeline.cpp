@@ -28,6 +28,7 @@ public:
 
 #include <glm/gtc/matrix_inverse.hpp>
 
+#include <ranges>
 #include <unordered_map>
 
 namespace {
@@ -96,10 +97,12 @@ void render_pipeline::update_cached_batch_instances(cached_batch& batch, bool us
         batch.uses_gpu_positions = use_gpu_positions;
         batch.instance_revisions.resize(render_count);
         batch.instance_models.resize(render_count);
+       batch.instance_physics_indices.resize(render_count, -1);
     }
 
     for (size_t i = 0; i < render_count; ++i) {
         auto* render = batch.renders[i];
+        batch.instance_physics_indices[i] = (use_gpu_positions && render) ? render->get_gpu_physics_index() : -1;
         const uint64_t revision = render ? render->get_instance_revision(use_gpu_positions) : 0;
         if (!requires_full_refresh && batch.instance_revisions[i] == revision)
             continue;
@@ -167,7 +170,20 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
 
             if (renders.size() == 1) {
                 auto draw_section = frame_profiler::measure_active("render_pipeline_flush_draw_single");
-                renders.front()->draw(frame_context, pre_draw);
+             auto single_frame_context = frame_context;
+                if (scene_context && renders.front()->uses_gpu_driven_positions()) {
+                    const GLuint physics_ssbo = scene_context->get_render_ssbo();
+                    const size_t physics_index = scene_context->get_renderer_physics_index(renders.front());
+                    if (physics_ssbo != 0) {
+                        single_frame_context.use_gpu_positions = true;
+                        single_frame_context.physics_ssbo = physics_ssbo;
+                      single_frame_context.physics_body_index = physics_index != static_cast<size_t>(-1)
+                            ? static_cast<int>(physics_index)
+                            : -1;
+                    }
+                }
+
+                renders.front()->draw(single_frame_context, pre_draw);
             }
             else {
                 auto draw_section = frame_profiler::measure_active("render_pipeline_flush_draw_instanced");
@@ -177,17 +193,21 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
 
                 if (scene_context) {
                     physics_ssbo = scene_context->get_render_ssbo();
-                    const size_t first_index = scene_context->get_renderer_physics_index(renders.front());
-                    if (physics_ssbo != 0 && first_index != static_cast<size_t>(-1)) {
+                  const bool gpu_driven_batch = std::ranges::all_of(renders, [](const renderer* render) {
+                        return render && render->uses_gpu_driven_positions();
+                    });
+                    if (gpu_driven_batch && physics_ssbo != 0) {
                         use_gpu_positions = true;
-                        instance_base_index = static_cast<int>(first_index);
+                        const size_t first_index = scene_context->get_renderer_physics_index(renders.front());
+                        if (first_index != static_cast<size_t>(-1)) {
+                            instance_base_index = static_cast<int>(first_index);
 
-                        for (size_t i = 1; i < renders.size(); ++i) {
-                            const size_t expected = first_index + i;
-                            if (scene_context->get_renderer_physics_index(renders[i]) != expected) {
-                                use_gpu_positions = false;
-                                instance_base_index = -1;
-                                break;
+                            for (size_t i = 1; i < renders.size(); ++i) {
+                                const size_t expected = first_index + i;
+                                if (scene_context->get_renderer_physics_index(renders[i]) != expected) {
+                                    instance_base_index = -1;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -200,7 +220,7 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
 
                 {
                     auto submit_instanced_section = frame_profiler::measure_active("render_pipeline_flush_submit_instanced");
-                    instance_manager_.draw_instanced(batch.key.shader_ptr, batch.key.mesh_ptr, renders, batch.instance_models, frame_context, physics_ssbo, instance_base_index, use_gpu_positions, pre_draw);
+                  instance_manager_.draw_instanced(batch.key.shader_ptr, batch.key.mesh_ptr, renders, batch.instance_models, batch.instance_physics_indices, frame_context, physics_ssbo, instance_base_index, use_gpu_positions, pre_draw);
                 }
             }
         }

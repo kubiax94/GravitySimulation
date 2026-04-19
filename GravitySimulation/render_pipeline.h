@@ -36,6 +36,7 @@ class render_pipeline
         bool uses_gpu_positions = false;
         std::vector<uint64_t> instance_revisions;
         std::vector<glm::mat4> instance_models;
+      std::vector<int> instance_physics_indices;
     };
 
     std::vector<render_item> items_;

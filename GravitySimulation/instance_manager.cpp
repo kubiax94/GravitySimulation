@@ -6,7 +6,8 @@
 void instance_manager::draw_instanced(shader* batch_shader,
 	Mesh* batch_mesh,
 	const std::vector<renderer*>& renderers,
-  const std::vector<glm::mat4>& instance_models,
+    const std::vector<glm::mat4>& instance_models,
+	const std::vector<int>& instance_physics_indices,
 	const render_frame_context& frame_context,
 	GLuint physics_ssbo,
 	int instance_base_index,
@@ -19,6 +20,7 @@ void instance_manager::draw_instanced(shader* batch_shader,
 	batch_shader->set_uni_int("useInstancing", 1);
 	batch_shader->set_uni_int("useGpuPositions", use_gpu_positions ? 1 : 0);
 	batch_shader->set_uni_int("instanceBaseIndex", instance_base_index);
+	batch_shader->set_uni_int("physicsBodyIndex", -1);
 	batch_shader->set_uniform_mat4("view", frame_context.view);
 	batch_shader->set_uniform_mat4("projection", frame_context.projection);
 	batch_shader->set_uniform_mat4("model", glm::mat4(1.0f));
@@ -32,6 +34,9 @@ void instance_manager::draw_instanced(shader* batch_shader,
 
 	if (pre_draw) pre_draw(*batch_shader);
 
-   batch_mesh->UpdateInstanceModels(instance_models);
+	batch_mesh->UpdateInstanceModels(instance_models);
+    batch_mesh->UpdateInstancePhysicsIndices(instance_physics_indices);
 	batch_mesh->DrawInstanced(static_cast<GLsizei>(instance_models.size()));
+   if (use_gpu_positions && physics_ssbo != 0)
+		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
 }

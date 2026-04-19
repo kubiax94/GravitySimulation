@@ -10,15 +10,15 @@ Camera::Camera(scene_node* owner, float yaw, float pitch) : transformable(owner)
 }
 
 glm::mat4 Camera::GetViewMatrix() {
-	glm::vec3 scaled_pos = transform_->get_global_position() * visual_scale_;
+   const glm::vec3 position = transform_->get_global_position();
 
-	return glm::lookAt(scaled_pos,
-				scaled_pos + transform_->forward(),
+	return glm::lookAt(position,
+				position + transform_->forward(),
 	                   transform_->up());
 }
 glm::mat4 Camera::GetProjectionMatrix(float aspectRatio)  {
 	//if(dirtyProjection)
-	return glm::perspective(FOV, aspectRatio, 0.1f, 10000.f);
+   return glm::perspective(FOV, aspectRatio, near_plane_, far_plane_);
 }
 
 void Camera::move(const glm::vec3& dir, const float& dt) {
@@ -69,7 +69,7 @@ type_id_t Camera::get_type_id() const {
 }
 
 void Camera::RecalculateProjection() {
-	projectionMatrix = glm::perspective(FOV, aspect_ratio_, 0.1f, 10000.f);
+ projectionMatrix = glm::perspective(FOV, aspect_ratio_, near_plane_, far_plane_);
 }
 
 void Camera::set_postion(const glm::vec3& n_vec3) {

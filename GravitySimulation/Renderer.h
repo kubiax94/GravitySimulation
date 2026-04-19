@@ -21,6 +21,9 @@ struct render_frame_context {
 	glm::mat4 view = glm::mat4(1.0f);
 	glm::mat4 projection = glm::mat4(1.0f);
 	glm::vec3 camera_position = glm::vec3(0.0f);
+    unsigned int physics_ssbo = 0;
+	int physics_body_index = -1;
+	bool use_gpu_positions = false;
 };
 
 class renderer : public transformable
@@ -30,6 +33,8 @@ private:
 	Mesh* mesh_;
 
 	glm::vec3 visual_scale_ = glm::vec3(5.f);
+	bool gpu_driven_positions_ = false;
+	int gpu_physics_index_ = -1;
 
 public:
 	[[nodiscard]] type_id_t get_type_id() const override;
@@ -43,8 +48,12 @@ public:
 	void attach_to(scene_node* n_node) override;
 	bool detach() override;
 	void draw(Camera* c, const std::function<void(shader&)>& pre_draw = nullptr) const;
-  void draw(const render_frame_context& frame_context, const std::function<void(shader&)>& pre_draw = nullptr) const;
-  [[nodiscard]] uint64_t get_instance_revision(bool ignore_translation = false) const;
+	void draw(const render_frame_context& frame_context, const std::function<void(shader&)>& pre_draw = nullptr) const;
+	[[nodiscard]] uint64_t get_instance_revision(bool ignore_translation = false) const;
+	void set_gpu_driven_positions(bool enabled);
+	[[nodiscard]] bool uses_gpu_driven_positions() const;
+  void set_gpu_physics_index(int index);
+	[[nodiscard]] int get_gpu_physics_index() const;
 	shader* get_shader() const { return shader_; }
 	Mesh* get_mesh() const { return mesh_; }
 };

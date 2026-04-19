@@ -1,7 +1,6 @@
 #include "cloth_scene.h"
 
 #include <cmath>
-#include <glm/gtx/quaternion.hpp>
 
 #include "compute_shader.h"
 #include "g_shape.h"
@@ -34,58 +33,6 @@ MeshData create_spring_segment_mesh() {
     return mesh_data;
 }
 
-glm::quat align_forward_to(const glm::vec3& direction) {
-    const glm::vec3 normalized_direction = glm::normalize(direction);
-    const float alignment = glm::dot(transform::Forward, normalized_direction);
-
-    if (alignment > 0.9999f)
-        return glm::quat(1.f, 0.f, 0.f, 0.f);
-
-    if (alignment < -0.9999f)
-        return glm::angleAxis(glm::radians(180.0f), glm::vec3(0.f, 1.f, 0.f));
-
-    return glm::rotation(transform::Forward, normalized_direction);
-}
-
-void update_spring_visual(scene_node* spring_node, const glm::vec3& start, const glm::vec3& end) {
-    if (!spring_node)
-        return;
-
-    const glm::vec3 delta = end - start;
-    const float length = glm::length(delta);
-
-    transform spring_transform;
-    spring_transform.setPosition(start);
-
-    if (length > 0.0001f)
-        spring_transform.set_rotation_quat(align_forward_to(delta));
-
-    spring_transform.setScale(glm::vec3(1.f, 1.f, length));
-    spring_node->set_transform(spring_transform);
-}
-
-class spring_link_component final : public component
-{
-    scene_node* start_node_ = nullptr;
-    scene_node* end_node_ = nullptr;
-
-public:
-    spring_link_component(scene_node* owner, scene_node* start_node, scene_node* end_node)
-        : component(owner), start_node_(start_node), end_node_(end_node) {
-    }
-
-    type_id_t get_type_id() const override {
-        return ::get_type_id<spring_link_component>();
-    }
-
-    void update() override {
-        if (!owner_node_ || !start_node_ || !end_node_)
-            return;
-
-        update_spring_visual(owner_node_, start_node_->get_global_position(), end_node_->get_global_position());
-    }
-};
-
 }
 
 cloth_scene::cloth_scene(sim::time* time)
@@ -111,6 +58,7 @@ void cloth_scene::initialize_scene_content() {
     static MeshData cloth_link_data = create_spring_segment_mesh();
 
     cloth_particle_shader_ = std::make_unique<shader>("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+    cloth_link_shader_ = std::make_unique<shader>("GravitySimulation/cloth_link.vs.shader", "GravitySimulation/default.fs.shader");
     cloth_compute_shader_ = std::make_unique<compute_shader>("GravitySimulation/cloth_simulation.glsl");
     cloth_particle_mesh_ = std::make_unique<Mesh>(cloth_particle_data);
     cloth_link_mesh_ = std::make_unique<Mesh>(cloth_link_data);
@@ -124,15 +72,14 @@ void cloth_scene::initialize_scene_content() {
     constexpr float top_y = 150.f;
     constexpr float mass_radius = 1.6f;
     constexpr float particle_mass = 1.f;
-    constexpr float structural_stiffness = 14.f;
-    constexpr float shear_stiffness = 9.f;
-    constexpr float bend_stiffness = 2.5f;
+    constexpr float structural_stiffness = 44.f;
+    constexpr float shear_stiffness = 6.f;
+    constexpr float bend_stiffness = 1.2f;
 
     auto particle_index = [columns](int x, int y) {
         return static_cast<size_t>(y * columns + x);
     };
 
-    std::vector<scene_node*> particle_nodes(columns * rows, nullptr);
     std::vector<glm::vec3> particle_positions(columns * rows, glm::vec3(0.f));
     std::vector<cloth_constraint_data> constraints;
     constraints.reserve((columns - 1) * rows + (rows - 1) * columns + 2 * (columns - 1) * (rows - 1));
@@ -153,7 +100,9 @@ void cloth_scene::initialize_scene_content() {
             auto* particle_node = create_scene_node("cloth_particle_" + std::to_string(index));
             particle_node->set_global_position(position);
             particle_node->set_global_scale(glm::vec3(mass_radius));
-            particle_node->add_component<renderer>(particle_node, cloth_particle_shader_.get(), cloth_particle_mesh_.get());
+            auto* particle_renderer = particle_node->add_component<renderer>(particle_node, cloth_particle_shader_.get(), cloth_particle_mesh_.get());
+            particle_renderer->set_gpu_driven_positions(true);
+            particle_renderer->set_gpu_physics_index(static_cast<int>(index));
 
             auto* particle_data = new physics_data{
                 glm::vec4(position, pinned ? 0.f : particle_mass),
@@ -164,15 +113,16 @@ void cloth_scene::initialize_scene_content() {
             body->set_compute_shader(cloth_compute_shader_->get_id());
             particle_node->add_component(body);
 
-            particle_nodes[index] = particle_node;
             particle_positions[index] = position;
         }
     }
 
     auto add_link = [&](size_t a, size_t b, float stiffness) {
         auto* spring_node = create_scene_node("cloth_link_" + std::to_string(constraints.size()));
-        spring_node->add_component<renderer>(spring_node, grid_shader_.get(), cloth_link_mesh_.get());
-        spring_node->add_component(new spring_link_component(spring_node, particle_nodes[a], particle_nodes[b]));
+        spring_node->set_global_scale(glm::vec3(static_cast<float>(a + 1), static_cast<float>(b + 1), 1.f));
+        auto* spring_renderer = spring_node->add_component<renderer>(spring_node, cloth_link_shader_.get(), cloth_link_mesh_.get());
+        spring_renderer->set_visual_scale(glm::vec3(1.f));
+        spring_renderer->set_gpu_driven_positions(true);
 
         constraints.push_back({
             glm::uvec2(static_cast<unsigned int>(a), static_cast<unsigned int>(b)),

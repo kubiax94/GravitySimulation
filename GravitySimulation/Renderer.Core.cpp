@@ -80,3 +80,19 @@ uint64_t renderer::get_instance_revision(bool ignore_translation) const {
 	const uint64_t transform_revision = node ? node->get_orientation_revision() : 0;
 	return transform_revision ^ (scale_hash << 1);
 }
+
+void renderer::set_gpu_driven_positions(bool enabled) {
+	gpu_driven_positions_ = enabled;
+}
+
+bool renderer::uses_gpu_driven_positions() const {
+	return gpu_driven_positions_;
+}
+
+void renderer::set_gpu_physics_index(int index) {
+	gpu_physics_index_ = index;
+}
+
+int renderer::get_gpu_physics_index() const {
+	return gpu_physics_index_;
+}

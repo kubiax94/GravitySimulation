@@ -4,6 +4,7 @@
 #include "unit_system.h"
 #include "uuid.h"
 #include <glm/vec3.hpp>
+#include <unordered_set>
 
 class physics_system
 {
@@ -16,6 +17,7 @@ class physics_system
 	std::unordered_map<uuid, compute_shader*> compute_shaders_;
 	std::unordered_map<uuid, std::vector<rigid_body* >> compute_groups_;
 	std::unordered_map<uuid, bool> readback_pending_;
+	std::unordered_set<uuid> gpu_driven_nodes_;
 
 	unit_system* u_sys_;
 	static constexpr float simulation_speed_ = 20.0f;
@@ -42,6 +44,7 @@ public:
 
 	void register_in(compute_shader* c_shader);
 	void unregister(const uuid& c_uuid);
+   void set_gpu_driven_nodes(const std::unordered_set<uuid>& node_ids);
 	void sync_scene_positions(float alpha) const;
 	[[nodiscard]] size_t get_body_index(const uuid& id) const;
 	[[nodiscard]] GLuint get_render_ssbo() const;

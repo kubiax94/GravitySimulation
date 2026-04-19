@@ -96,6 +96,9 @@ void physics_system::compute_gpu(const float& dt) {
 			continue;
 
 		auto* compute = shader_it->second;
+		const bool requires_cpu_readback = std::ranges::any_of(bodies, [this](const rigid_body* body) {
+			return !body || !body->get_node() || !gpu_driven_nodes_.contains(body->get_node()->get_id());
+		});
 
 		{
 			auto section = frame_profiler::measure_active("fixed_update_gpu_upload_ssbo");
@@ -106,13 +109,16 @@ void physics_system::compute_gpu(const float& dt) {
 		}
 
 		std::vector<physics_data> gpu_result;
-		{
+		if (requires_cpu_readback) {
 			auto section = frame_profiler::measure_active("fixed_update_gpu_readback");
 			if (readback_pending_[shader_id])
 				compute->try_readback<physics_data>(0, gpu_result);
 		}
+		else {
+			readback_pending_[shader_id] = false;
+		}
 
-		{
+		if (requires_cpu_readback) {
 			auto section = frame_profiler::measure_active("fixed_update_gpu_apply_result");
 			const size_t count = std::min(bodies.size(), gpu_result.size());
 			for (size_t i = 0; i < count; ++i) {
@@ -131,11 +137,13 @@ void physics_system::compute_gpu(const float& dt) {
 			compute->use();
 			compute->set_uni_float("G", u_sys_->scaled_G());
 			compute->set_uni_float("dt", u_sys_->time(dt) * simulation_speed_);
-         compute->set_uni_float("rawDt", dt);
+			compute->set_uni_float("rawDt", dt);
 			compute->set_uni_float("simulationTime", simulation_time_);
 			compute->dispatch({groups_x, 1, 1});
-           compute->enqueue_readback<physics_data>(0);
-			readback_pending_[shader_id] = true;
+           if (requires_cpu_readback) {
+				compute->enqueue_readback<physics_data>(0);
+				readback_pending_[shader_id] = true;
+			}
 		}
 	}
 
@@ -159,7 +167,6 @@ bool physics_system::remove(rigid_body* rigid_body) {
 		rebuild_order_indices();
 		previous_positions_.erase(node_id);
 		current_positions_.erase(node_id);
-       readback_pending_.erase(rigid_body->get_compute_shader_id());
 		gpu_buffer_dirty_ = true;
 
 
@@ -174,10 +181,17 @@ void physics_system::register_in(compute_shader* c_shader) {
 	compute_shaders_[c_shader->get_id()] = c_shader;
 }
 
+void physics_system::set_gpu_driven_nodes(const std::unordered_set<uuid>& node_ids) {
+	gpu_driven_nodes_ = node_ids;
+}
+
 void physics_system::sync_scene_positions(float alpha) const {
     auto section = frame_profiler::measure_active("scene_sync_render_apply_positions");
 	for (const auto& id : order_id_)
 	{
+     if (gpu_driven_nodes_.contains(id))
+			continue;
+
 		auto entityIt = entities_.find(id);
 		auto prevIt = previous_positions_.find(id);
 		auto currIt = current_positions_.find(id);

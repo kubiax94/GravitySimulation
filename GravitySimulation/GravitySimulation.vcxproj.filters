@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <!-- GŁÓWNE KATEGORIE -->
@@ -200,6 +200,8 @@
     <ClCompile Include="simulation_state.cpp" />
     <ClCompile Include="Renderer.Core.cpp" />
     <ClCompile Include="cloth_scene.cpp" />
+    <ClCompile Include="galactic_scene.cpp" />
+    <ClCompile Include="galactic_stress_scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -308,6 +310,8 @@
     <ClInclude Include="render_pipeline.h" />
     <ClInclude Include="simulation_state.h" />
     <ClInclude Include="cloth_scene.h" />
+    <ClInclude Include="galactic_scene.h" />
+    <ClInclude Include="galactic_stress_scene.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -321,5 +325,6 @@
     <None Include="gravity_defor.glsl" />
     <None Include="GravitySimulation.vcxproj.copilot.tmp" />
     <None Include="cloth_simulation.glsl" />
+    <None Include="cloth_link.vs.shader" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@
 #include <glad/glad.h>
 #include "physics_data.h"
 #include "Shader.h"
+#include <cstddef>
 #include <vector>
 #include <cstring>
 
@@ -18,7 +19,10 @@ private:
 
 		std::vector<GLuint> pbo_ids;
 		std::vector<GLsync> pbo_syncs;
-		int pbo_next = 0;
+        int pbo_write_index = 0;
+        int pbo_read_index = 0;
+        size_t pbo_pending_count = 0;
+        std::vector<std::byte> latest_completed_result;
 
 		virtual ~ssbo_info() {
 			for (auto s : pbo_syncs) {
@@ -45,7 +49,10 @@ private:
         }
 
         info.pbo_syncs.clear();
-        info.pbo_next = 0;
+        info.pbo_write_index = 0;
+        info.pbo_read_index = 0;
+        info.pbo_pending_count = 0;
+        info.latest_completed_result.clear();
     }
 
 	template<typename T>
@@ -134,7 +141,7 @@ void compute_shader::enqueue_readback(GLuint binding) {
     auto* info = binding_data_.at(binding);
 
     if (info->pbo_ids.empty()) {
-        const int pbo_count = 2;
+        const int pbo_count = 4;
         info->pbo_ids.resize(pbo_count);
         info->pbo_syncs.resize(pbo_count, 0);
         glGenBuffers(pbo_count, info->pbo_ids.data());
@@ -143,23 +150,38 @@ void compute_shader::enqueue_readback(GLuint binding) {
             glBufferData(GL_PIXEL_PACK_BUFFER, sizeof(T) * info->size, nullptr, GL_STREAM_READ);
         }
         glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-        info->pbo_next = 0;
+        info->pbo_write_index = 0;
+        info->pbo_read_index = 0;
+        info->pbo_pending_count = 0;
+    }
+
+    if (info->pbo_pending_count == info->pbo_ids.size()) {
+        const int drop_index = info->pbo_read_index;
+        if (info->pbo_syncs[drop_index]) {
+            glDeleteSync(info->pbo_syncs[drop_index]);
+            info->pbo_syncs[drop_index] = 0;
+        }
+
+        info->pbo_read_index = (info->pbo_read_index + 1) % static_cast<int>(info->pbo_ids.size());
+        --info->pbo_pending_count;
     }
 
     GLuint ssbo = info->id;
-    GLuint pbo = info->pbo_ids[info->pbo_next];
+    const int write_index = info->pbo_write_index;
+    GLuint pbo = info->pbo_ids[write_index];
 
     glBindBuffer(GL_COPY_READ_BUFFER, ssbo);
     glBindBuffer(GL_COPY_WRITE_BUFFER, pbo);
     glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, 0, 0, sizeof(T) * info->size);
 
-    if (info->pbo_syncs[info->pbo_next]) {
-        glDeleteSync(info->pbo_syncs[info->pbo_next]);
-        info->pbo_syncs[info->pbo_next] = 0;
+    if (info->pbo_syncs[write_index]) {
+        glDeleteSync(info->pbo_syncs[write_index]);
+        info->pbo_syncs[write_index] = 0;
     }
-    info->pbo_syncs[info->pbo_next] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    info->pbo_syncs[write_index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
-    info->pbo_next = (info->pbo_next + 1) % static_cast<int>(info->pbo_ids.size());
+    info->pbo_write_index = (info->pbo_write_index + 1) % static_cast<int>(info->pbo_ids.size());
+    ++info->pbo_pending_count;
 
     glBindBuffer(GL_COPY_READ_BUFFER, 0);
     glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
@@ -169,11 +191,29 @@ template <typename T>
 void compute_shader::try_readback(GLuint binding, std::vector<T>& out) {
     if (!binding_data_.contains(binding)) { out.clear(); return; }
     auto* info = binding_data_.at(binding);
-    if (info->pbo_ids.empty()) { out.clear(); return; }
+    const auto copy_latest_completed = [&]() {
+        if (info->latest_completed_result.size() != sizeof(T) * info->size) {
+            out.clear();
+            return;
+        }
 
-    const int ready_index = (info->pbo_next + static_cast<int>(info->pbo_ids.size()) - 1) % static_cast<int>(info->pbo_ids.size());
+        out.resize(info->size);
+        memcpy(out.data(), info->latest_completed_result.data(), info->latest_completed_result.size());
+    };
+
+    if (info->pbo_ids.empty() || info->pbo_pending_count == 0) {
+        copy_latest_completed();
+        return;
+    }
+
+    const int ready_index = info->pbo_read_index;
     GLsync s = info->pbo_syncs[ready_index];
-    if (!s) { out.clear(); return; }
+    if (!s) {
+        info->pbo_read_index = (info->pbo_read_index + 1) % static_cast<int>(info->pbo_ids.size());
+        --info->pbo_pending_count;
+        copy_latest_completed();
+        return;
+    }
 
     GLenum res = glClientWaitSync(s, 0, 0);
     if (res == GL_ALREADY_SIGNALED || res == GL_CONDITION_SATISFIED) {
@@ -183,16 +223,20 @@ void compute_shader::try_readback(GLuint binding, std::vector<T>& out) {
         if (ptr) {
             out.resize(info->size);
             memcpy(out.data(), ptr, sizeof(T) * info->size);
+            info->latest_completed_result.resize(sizeof(T) * info->size);
+            memcpy(info->latest_completed_result.data(), ptr, info->latest_completed_result.size());
             glUnmapBuffer(GL_COPY_WRITE_BUFFER);
         } else {
-            out.clear();
+            copy_latest_completed();
         }
         glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 
         glDeleteSync(s);
         info->pbo_syncs[ready_index] = 0;
+        info->pbo_read_index = (info->pbo_read_index + 1) % static_cast<int>(info->pbo_ids.size());
+        --info->pbo_pending_count;
     } else {
-        out.clear();
+        copy_latest_completed();
     }
 }
 
