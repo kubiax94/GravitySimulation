@@ -26,6 +26,17 @@ struct render_frame_context {
 	bool use_gpu_positions = false;
 };
 
+enum class renderer_blend_mode {
+	opaque,
+	additive
+};
+
+enum class renderer_cull_mode {
+	back,
+	front,
+	none
+};
+
 class renderer : public transformable
 {
 private:
@@ -33,6 +44,9 @@ private:
 	Mesh* mesh_;
 
 	glm::vec3 visual_scale_ = glm::vec3(5.f);
+ renderer_blend_mode blend_mode_ = renderer_blend_mode::opaque;
+	renderer_cull_mode cull_mode_ = renderer_cull_mode::back;
+	bool depth_write_enabled_ = true;
 	bool gpu_driven_positions_ = false;
 	int gpu_physics_index_ = -1;
 
@@ -45,6 +59,12 @@ public:
     glm::mat4 get_visual_model_matrix_without_translation() const;
 	void initialize();
 	void set_visual_scale(const glm::vec3& scalar);
+    void set_blend_mode(renderer_blend_mode blend_mode);
+	[[nodiscard]] renderer_blend_mode get_blend_mode() const;
+	void set_cull_mode(renderer_cull_mode cull_mode);
+	[[nodiscard]] renderer_cull_mode get_cull_mode() const;
+	void set_depth_write_enabled(bool enabled);
+	[[nodiscard]] bool is_depth_write_enabled() const;
 	void attach_to(scene_node* n_node) override;
 	bool detach() override;
 	void draw(Camera* c, const std::function<void(shader&)>& pre_draw = nullptr) const;
@@ -52,7 +72,7 @@ public:
 	[[nodiscard]] uint64_t get_instance_revision(bool ignore_translation = false) const;
 	void set_gpu_driven_positions(bool enabled);
 	[[nodiscard]] bool uses_gpu_driven_positions() const;
-  void set_gpu_physics_index(int index);
+	void set_gpu_physics_index(int index);
 	[[nodiscard]] int get_gpu_physics_index() const;
 	shader* get_shader() const { return shader_; }
 	Mesh* get_mesh() const { return mesh_; }

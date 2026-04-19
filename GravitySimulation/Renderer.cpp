@@ -40,7 +40,6 @@ void renderer::draw(Camera* c, const std::function<void(shader&)>& pre_draw) con
 
 void renderer::draw(const render_frame_context& frame_context, const std::function<void(shader&)>& pre_draw) const
 {
-
 	shader_->use();
 	shader_->set_uni_int("useInstancing", 0);
  shader_->set_uni_int("useGpuPositions", frame_context.use_gpu_positions ? 1 : 0);
@@ -58,6 +57,7 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
 		shader_->set_uni_vec3("lightPos", frame_context.camera_position + glm::vec3(0.0f, 0.0f, 10.0f));
 		shader_->set_uni_vec3("lightColor", glm::vec3(1.0f, 0.85f, 0.6f));
 		shader_->set_uni_vec3("objectColor", glm::vec3(1.0f, 1.0f, 1.0f));
+       shader_->set_uni_float("time", static_cast<float>(glfwGetTime()));
 	}
 	catch(...) {}
 	if (pre_draw) pre_draw(*shader_);

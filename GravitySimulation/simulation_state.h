@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 
 #include "engine_state.h"
@@ -10,12 +11,23 @@
 
 class simulation_state : public engine_state
 {
+public:
+    enum class example_scene_kind {
+        fluid = 0,
+        cloth,
+        galactic,
+        galactic_stress
+    };
+
+private:
     std::unique_ptr<scene> scene_;
     Camera* cam_ = nullptr;
+    example_scene_kind scene_kind_ = example_scene_kind::fluid;
 
     render_pipeline render_pipeline_;
     bool previous_left_mouse_down_ = false;
     bool previous_escape_down_ = false;
+    std::array<bool, 4> previous_scene_switch_down_{};
     bool focus_active_ = false;
     float focus_elapsed_ = 0.f;
     float focus_duration_ = 0.85f;
@@ -30,9 +42,11 @@ class simulation_state : public engine_state
     void update_camera_focus(float dt);
     void cancel_camera_focus();
     void detach_camera_parent();
+    void switch_scene(engine& engine, example_scene_kind next_scene_kind);
 
 public:
     simulation_state() = default;
+    explicit simulation_state(example_scene_kind scene_kind);
     explicit simulation_state(std::unique_ptr<scene> scene);
 
     void on_enter(engine& engine) override;

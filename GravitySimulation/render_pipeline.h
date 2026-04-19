@@ -15,18 +15,30 @@ struct render_item {
 
 class render_pipeline
 {
+public:
     struct batch_key {
         shader* shader_ptr{};
         Mesh* mesh_ptr{};
+        renderer_blend_mode blend_mode = renderer_blend_mode::opaque;
+        renderer_cull_mode cull_mode = renderer_cull_mode::back;
+        bool depth_write_enabled = true;
 
         bool operator==(const batch_key& other) const {
-            return shader_ptr == other.shader_ptr && mesh_ptr == other.mesh_ptr;
+            return shader_ptr == other.shader_ptr
+                && mesh_ptr == other.mesh_ptr
+                && blend_mode == other.blend_mode
+                && cull_mode == other.cull_mode
+                && depth_write_enabled == other.depth_write_enabled;
         }
     };
 
     struct batch_key_hash {
         size_t operator()(const batch_key& key) const {
-            return std::hash<void*>{}(key.shader_ptr) ^ (std::hash<void*>{}(key.mesh_ptr) << 1);
+            return std::hash<void*>{}(key.shader_ptr)
+                ^ (std::hash<void*>{}(key.mesh_ptr) << 1)
+                ^ (static_cast<size_t>(key.blend_mode) << 2)
+                ^ (static_cast<size_t>(key.cull_mode) << 3)
+                ^ (static_cast<size_t>(key.depth_write_enabled) << 4);
         }
     };
 
@@ -39,6 +51,7 @@ class render_pipeline
       std::vector<int> instance_physics_indices;
     };
 
+private:
     std::vector<render_item> items_;
     std::vector<renderer*> cached_submission_;
     std::vector<cached_batch> cached_batches_;

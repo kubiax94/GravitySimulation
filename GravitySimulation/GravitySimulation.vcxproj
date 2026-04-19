@@ -261,6 +261,7 @@
     <None Include="sun.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="sun_halo.fs.shader" />
   </ItemGroup>
   <ItemGroup>
     <None Include="gravity_simulation.glsl">

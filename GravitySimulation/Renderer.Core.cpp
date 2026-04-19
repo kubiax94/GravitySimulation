@@ -26,6 +26,30 @@ void renderer::set_visual_scale(const glm::vec3& scalar) {
 	visual_scale_ = scalar;
 }
 
+void renderer::set_blend_mode(renderer_blend_mode blend_mode) {
+	blend_mode_ = blend_mode;
+}
+
+renderer_blend_mode renderer::get_blend_mode() const {
+	return blend_mode_;
+}
+
+void renderer::set_cull_mode(renderer_cull_mode cull_mode) {
+	cull_mode_ = cull_mode;
+}
+
+renderer_cull_mode renderer::get_cull_mode() const {
+	return cull_mode_;
+}
+
+void renderer::set_depth_write_enabled(bool enabled) {
+	depth_write_enabled_ = enabled;
+}
+
+bool renderer::is_depth_write_enabled() const {
+	return depth_write_enabled_;
+}
+
 type_id_t renderer::get_type_id() const
 {
 	return ::get_type_id<renderer>();

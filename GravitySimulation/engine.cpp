@@ -78,6 +78,17 @@ bool engine::init(int width, int height, const std::string& title) {
     return true;
 }
 
+void engine::apply_state_change(std::unique_ptr<engine_state> next_state) {
+    if (current_state_) {
+        current_state_->on_exit(*this);
+        current_state_.reset();
+    }
+
+    current_state_ = std::move(next_state);
+    if (current_state_)
+        current_state_->on_enter(*this);
+}
+
 void engine::run() {
     if (!window_ || !current_state_)
         return;
@@ -86,6 +97,7 @@ void engine::run() {
     bool toggle_vsync_pressed = false;
 
     while (!glfwWindowShouldClose(window_)) {
+        processing_frame_ = true;
         {
             auto timer = frame_profiler_.measure("frame_total");
             {
@@ -137,6 +149,14 @@ void engine::run() {
             }
         }
 
+        processing_frame_ = false;
+
+        if (pending_state_) {
+            apply_state_change(std::move(pending_state_));
+            if (!current_state_)
+                break;
+        }
+
         frame_profiler_.end_frame();
     }
 
@@ -158,12 +178,10 @@ void engine::shutdown() {
 }
 
 void engine::change_state(std::unique_ptr<engine_state> next_state) {
-    if (current_state_) {
-        current_state_->on_exit(*this);
-        current_state_.reset();
+    if (processing_frame_) {
+        pending_state_ = std::move(next_state);
+        return;
     }
 
-    current_state_ = std::move(next_state);
-    if (current_state_)
-        current_state_->on_enter(*this);
+    apply_state_change(std::move(next_state));
 }

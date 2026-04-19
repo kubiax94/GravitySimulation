@@ -16,8 +16,12 @@ class engine
     GLFWwindow* window_ = nullptr;
     sim::time time_;
     std::unique_ptr<engine_state> current_state_;
+    std::unique_ptr<engine_state> pending_state_;
     frame_profiler frame_profiler_;
     bool vsync_enabled_ = true;
+    bool processing_frame_ = false;
+
+    void apply_state_change(std::unique_ptr<engine_state> next_state);
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);

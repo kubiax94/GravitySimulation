@@ -46,6 +46,10 @@ public:
 	virtual void update();
 	virtual void draw();
 	void sync_render() const;
+    [[nodiscard]] virtual bool has_primary_light() const { return false; }
+	[[nodiscard]] virtual glm::vec3 get_primary_light_position() const { return glm::vec3(0.f); }
+	[[nodiscard]] virtual glm::vec3 get_primary_light_color() const { return glm::vec3(1.f); }
+	[[nodiscard]] virtual float get_primary_light_intensity() const { return 0.75f; }
   [[nodiscard]] Camera* get_main_camera() const { return main_camera_; }
   [[nodiscard]] scene_node* get_root_node() const { return root_; }
 	[[nodiscard]] size_t get_renderer_physics_index(const renderer* render) const;

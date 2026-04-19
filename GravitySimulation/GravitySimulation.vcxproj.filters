@@ -339,5 +339,6 @@
     <None Include="fluid_predict.glsl" />
     <None Include="gpu_fluid_system.vs.shader" />
     <None Include="gpu_fluid_system.fs.shader" />
+    <None Include="sun_halo.fs.shader" />
   </ItemGroup>
 </Project>

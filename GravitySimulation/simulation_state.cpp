@@ -1,14 +1,20 @@
 #include "simulation_state.h"
 
+#include <array>
 #include <cmath>
 #include <limits>
+#include <string>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/gtc/quaternion.hpp>
 
+#include "cloth_scene.h"
 #include "engine.h"
+#include "fluid_scene.h"
+#include "galactic_scene.h"
+#include "galactic_stress_scene.h"
 #include "gpu_fluid_system_component.h"
 #include "gpu_particle_system_component.h"
 #include "input_system.h"
@@ -23,6 +29,48 @@ struct focus_pick_result {
 float ease_out_cubic(float t) {
     const float inv = 1.f - glm::clamp(t, 0.f, 1.f);
     return 1.f - inv * inv * inv;
+}
+
+std::unique_ptr<scene> create_example_scene(simulation_state::example_scene_kind scene_kind, sim::time* time) {
+    switch (scene_kind) {
+    case simulation_state::example_scene_kind::fluid:
+        return std::make_unique<fluid_scene>(time);
+    case simulation_state::example_scene_kind::cloth:
+        return std::make_unique<cloth_scene>(time);
+    case simulation_state::example_scene_kind::galactic:
+        return std::make_unique<galactic_scene>(time);
+    case simulation_state::example_scene_kind::galactic_stress:
+        return std::make_unique<galactic_stress_scene>(time);
+    }
+
+    return std::make_unique<fluid_scene>(time);
+}
+
+const char* get_scene_name(simulation_state::example_scene_kind scene_kind) {
+    switch (scene_kind) {
+    case simulation_state::example_scene_kind::fluid:
+        return "Fluid";
+    case simulation_state::example_scene_kind::cloth:
+        return "Cloth";
+    case simulation_state::example_scene_kind::galactic:
+        return "Galactic";
+    case simulation_state::example_scene_kind::galactic_stress:
+        return "Galactic Stress";
+    }
+
+    return "Fluid";
+}
+
+std::string build_window_title(simulation_state::example_scene_kind scene_kind) {
+    return std::string("GravitySimulation - ") + get_scene_name(scene_kind)
+        + " [F1 Fluid | F2 Cloth | F3 Galactic | F4 Stress]";
+}
+
+bool poll_scene_switch_key(int glfw_key, bool& previous_down) {
+    const bool is_down = input_system::is_key_down(glfw_key);
+    const bool pressed = is_down && !previous_down;
+    previous_down = is_down;
+    return pressed;
 }
 
 float estimate_renderer_radius(const renderer& render) {
@@ -111,12 +159,19 @@ simulation_state::simulation_state(std::unique_ptr<scene> scene)
     : scene_(std::move(scene)) {
 }
 
+simulation_state::simulation_state(example_scene_kind scene_kind)
+    : scene_kind_(scene_kind) {
+}
+
 void simulation_state::on_enter(engine& engine) {
     if (!scene_)
-        scene_ = std::make_unique<scene>(&engine.get_time());
+        scene_ = create_example_scene(scene_kind_, &engine.get_time());
 
     scene_->init();
     cam_ = scene_->get_main_camera();
+
+    if (GLFWwindow* window = engine.get_window())
+        glfwSetWindowTitle(window, build_window_title(scene_kind_).c_str());
 }
 
 void simulation_state::on_exit(engine& engine) {
@@ -127,6 +182,20 @@ void simulation_state::on_exit(engine& engine) {
 void simulation_state::handle_input(engine& engine, float dt) {
     if (!cam_ || !scene_)
         return;
+
+    constexpr std::array<int, 4> scene_switch_keys = {
+        GLFW_KEY_F1,
+        GLFW_KEY_F2,
+        GLFW_KEY_F3,
+        GLFW_KEY_F4
+    };
+
+    for (size_t i = 0; i < scene_switch_keys.size(); ++i) {
+        if (poll_scene_switch_key(scene_switch_keys[i], previous_scene_switch_down_[i])) {
+            switch_scene(engine, static_cast<example_scene_kind>(i));
+            return;
+        }
+    }
 
     const bool left_mouse_down = input_system::is_button_down(GLFW_MOUSE_BUTTON_LEFT);
     const bool left_mouse_pressed = left_mouse_down && !previous_left_mouse_down_;
@@ -192,12 +261,22 @@ void simulation_state::render(engine& engine) {
 
     {
         auto section = profiler.measure("render_pipeline_flush");
+        const glm::vec3 light_position = scene_->has_primary_light()
+            ? scene_->get_primary_light_position()
+            : cam_->get_transform()->get_global_position() + glm::vec3(0.f, 100.f, 100.f);
+        const glm::vec3 light_color = scene_->has_primary_light()
+            ? scene_->get_primary_light_color()
+            : glm::vec3(1.0f, .8f, .3f);
+        const float light_intensity = scene_->has_primary_light()
+            ? scene_->get_primary_light_intensity()
+            : 0.75f;
+
         render_pipeline_.flush(cam_, scene_.get(), [&](shader& s) {
             s.set_uni_vec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f));
-            s.set_uni_vec3("lightColor", glm::vec3(1.0f, .8f, .3f));
+            s.set_uni_vec3("lightColor", light_color);
             s.set_uni_vec3("viewPos", cam_->get_transform()->get_global_position());
-            s.set_uni_vec3("lightPos", cam_->get_transform()->get_global_position() + glm::vec3(0.f, 100.f, 100.f));
-            s.set_uni_float("intensity", 0.75f);
+            s.set_uni_vec3("lightPos", light_position);
+            s.set_uni_float("intensity", light_intensity);
         });
     }
 
@@ -284,4 +363,11 @@ void simulation_state::detach_camera_parent() {
         cam_->get_node()->set_parent(scene_->get_root_node(), true);
 
     attached_camera_parent_ = nullptr;
+}
+
+void simulation_state::switch_scene(engine& engine, example_scene_kind next_scene_kind) {
+    if (next_scene_kind == scene_kind_)
+        return;
+
+    engine.change_state(std::make_unique<simulation_state>(next_scene_kind));
 }

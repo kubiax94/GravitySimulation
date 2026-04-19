@@ -17,6 +17,9 @@ struct planet_data
 };
 namespace simtest {
 
+constexpr float sun_visual_radius_scale = 0.42f;
+constexpr float sun_halo_scale_multiplier = 1.08f;
+
 	std::vector<planet_data> data = {
 	{"Mercury", 0.330e24f, 4879, 57.9e6f},
 	{"Venus", 4.87e24f, 12104, 108.2e6f},
@@ -113,6 +116,7 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 		auto* sun_node = s_to_init->create_scene_node("Sun");
         shader* planet_shader = assets.create_shader("galactic.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
 		shader* sun_shader = assets.create_shader("galactic.sun", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun.fs.shader");
+		shader* sun_halo_shader = assets.create_shader("galactic.sun.halo", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun_halo.fs.shader");
 
 		auto tmp = g_shape::generate_sphere();
 
@@ -122,6 +126,9 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
         auto* sphere_mesh = assets.create_mesh(*sphere_mesh_data);
 		
 		auto* sun_render = sun_node->add_component<renderer>(sun_node, sun_shader, sphere_mesh);
+		auto* sun_halo_node = s_to_init->create_scene_node("SunHalo");
+		sun_halo_node->set_parent(sun_node, false);
+		auto* sun_halo_render = sun_halo_node->add_component<renderer>(sun_halo_node, sun_halo_shader, sphere_mesh);
 
 		float sun_mass = u_sys.mass(1.9885e30f);
 		float dia_scale = 12756.f;
@@ -132,7 +139,12 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 			{ 0, 0, 0, sun_mass });
 
 		auto* s_rigid = sun_node->add_component<rigid_body>(sun_node, p_data);
-		sun_node->set_global_scale(glm::vec3(1391000/dia_scale));
+      const float sun_visual_scale = (1391000 / dia_scale) * sun_visual_radius_scale;
+		sun_node->set_global_scale(glm::vec3(sun_visual_scale));
+		sun_halo_node->set_scale(glm::vec3(sun_halo_scale_multiplier));
+		sun_halo_render->set_blend_mode(renderer_blend_mode::additive);
+		sun_halo_render->set_depth_write_enabled(false);
+       sun_halo_render->set_cull_mode(renderer_cull_mode::front);
 
 		//s_rigid->add_compute_buffor();
 

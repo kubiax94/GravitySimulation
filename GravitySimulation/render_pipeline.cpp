@@ -32,6 +32,43 @@ public:
 #include <unordered_map>
 
 namespace {
+struct pipeline_render_state {
+    renderer_blend_mode blend_mode = renderer_blend_mode::opaque;
+    renderer_cull_mode cull_mode = renderer_cull_mode::back;
+    bool depth_write_enabled = true;
+};
+
+void apply_pipeline_render_state(const pipeline_render_state& state) {
+    if (state.blend_mode == renderer_blend_mode::additive) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
+    }
+    else {
+        glDisable(GL_BLEND);
+    }
+
+    glDepthMask(state.depth_write_enabled ? GL_TRUE : GL_FALSE);
+
+    switch (state.cull_mode) {
+    case renderer_cull_mode::none:
+        glDisable(GL_CULL_FACE);
+        break;
+    case renderer_cull_mode::front:
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_FRONT);
+        break;
+    case renderer_cull_mode::back:
+    default:
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        break;
+    }
+}
+
+pipeline_render_state make_pipeline_render_state(renderer_blend_mode blend_mode, renderer_cull_mode cull_mode, bool depth_write_enabled) {
+    return pipeline_render_state{ blend_mode, cull_mode, depth_write_enabled };
+}
+
 render_frame_context build_frame_context(Camera* camera) {
     render_frame_context frame_context;
     if (!camera)
@@ -75,7 +112,13 @@ void render_pipeline::rebuild_cached_batches() {
     for (const auto& item : items_) {
         cached_submission_.push_back(item.render);
 
-        const batch_key key{ item.render->get_shader(), item.render->get_mesh() };
+        const batch_key key{
+            item.render->get_shader(),
+            item.render->get_mesh(),
+            item.render->get_blend_mode(),
+            item.render->get_cull_mode(),
+            item.render->is_depth_write_enabled()
+        };
         auto [it, inserted] = batch_indices.emplace(key, cached_batches_.size());
         if (inserted)
             cached_batches_.push_back({ key, {}, false, {}, {} });
@@ -149,6 +192,8 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
         return;
 
     const render_frame_context frame_context = build_frame_context(camera);
+    pipeline_render_state current_render_state{};
+    apply_pipeline_render_state(current_render_state);
 
     {
         auto section = frame_profiler::measure_active("render_pipeline_flush_build_batches");
@@ -167,6 +212,17 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
             auto& renders = batch.renders;
             if (renders.empty())
                 continue;
+
+            const pipeline_render_state batch_render_state = make_pipeline_render_state(
+                batch.key.blend_mode,
+                batch.key.cull_mode,
+                batch.key.depth_write_enabled);
+            if (batch_render_state.blend_mode != current_render_state.blend_mode
+                || batch_render_state.cull_mode != current_render_state.cull_mode
+                || batch_render_state.depth_write_enabled != current_render_state.depth_write_enabled) {
+                apply_pipeline_render_state(batch_render_state);
+                current_render_state = batch_render_state;
+            }
 
             if (renders.size() == 1) {
                 auto draw_section = frame_profiler::measure_active("render_pipeline_flush_draw_single");
@@ -223,6 +279,8 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
                   instance_manager_.draw_instanced(batch.key.shader_ptr, batch.key.mesh_ptr, renders, batch.instance_models, batch.instance_physics_indices, frame_context, physics_ssbo, instance_base_index, use_gpu_positions, pre_draw);
                 }
             }
+
+    apply_pipeline_render_state(pipeline_render_state{});
         }
     }
 }
