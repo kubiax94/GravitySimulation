@@ -208,6 +208,24 @@
       </PrecompiledHeader>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_compute_shader;wmain=__ignored_wmain_compute_shader;WinMain=__ignored_WinMain_compute_shader;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <ClCompile Include="..\GravitySimulation\gpu_fluid_system_component.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      </PrecompiledHeader>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </PrecompiledHeader>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+      </PrecompiledHeader>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </PrecompiledHeader>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="..\GravitySimulation\input_system.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
@@ -361,6 +379,9 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_uuid;wmain=__ignored_wmain_uuid;WinMain=__ignored_WinMain_uuid;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="ComputeShaderReadbackPerfTest.cpp" />
+    <ClCompile Include="GpuFluidSolverPerfTest.cpp" />
+    <ClCompile Include="GpuFluidSolverPerfTest1.cpp" />
+    <ClCompile Include="GpuFluidSolverPerfTest2.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

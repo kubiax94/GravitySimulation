@@ -203,6 +203,8 @@
     <ClCompile Include="galactic_scene.cpp" />
     <ClCompile Include="galactic_stress_scene.cpp" />
     <ClCompile Include="gpu_particle_system_component.cpp" />
+    <ClCompile Include="gpu_fluid_system_component.cpp" />
+    <ClCompile Include="fluid_scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -314,6 +316,10 @@
     <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_stress_scene.h" />
     <ClInclude Include="gpu_particle_system_component.h" />
+    <ClInclude Include="fluid_particle.h" />
+    <ClInclude Include="fluid_bounds.h" />
+    <ClInclude Include="gpu_fluid_system_component.h" />
+    <ClInclude Include="fluid_scene.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -330,5 +336,8 @@
     <None Include="cloth_link.vs.shader" />
     <None Include="gpu_particle_system.vs.shader" />
     <None Include="gpu_particle_system.fs.shader" />
+    <None Include="fluid_predict.glsl" />
+    <None Include="gpu_fluid_system.vs.shader" />
+    <None Include="gpu_fluid_system.fs.shader" />
   </ItemGroup>
 </Project>

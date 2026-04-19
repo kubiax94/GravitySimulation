@@ -17,6 +17,7 @@
 
 class renderer;
 class compute_shader;
+class gpu_fluid_system_component;
 class gpu_particle_system_component;
 
 class scene : public i_scene_manager
@@ -25,6 +26,7 @@ class scene : public i_scene_manager
 	Camera* main_camera_;
 	std::vector<Camera*> cameras_;
 	std::vector<renderer*> renderers_;
+   std::vector<gpu_fluid_system_component*> gpu_fluid_systems_;
    std::vector<gpu_particle_system_component*> gpu_particle_systems_;
 	sim::time* time_;
 	asset_manager asset_manager_;
@@ -49,6 +51,7 @@ public:
 	[[nodiscard]] size_t get_renderer_physics_index(const renderer* render) const;
 	[[nodiscard]] GLuint get_render_ssbo() const;
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
+   const std::vector<gpu_fluid_system_component*>& get_gpu_fluid_systems() const { return gpu_fluid_systems_; }
 	const std::vector<gpu_particle_system_component*>& get_gpu_particle_systems() const { return gpu_particle_systems_; }
 	unit_system* get_unit_system() const { return unit_sys_; }
 	asset_manager& get_asset_manager() { return asset_manager_; }

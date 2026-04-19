@@ -9,6 +9,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "engine.h"
+#include "gpu_fluid_system_component.h"
 #include "gpu_particle_system_component.h"
 #include "input_system.h"
 
@@ -201,6 +202,11 @@ void simulation_state::render(engine& engine) {
     }
 
     for (auto* system : scene_->get_gpu_particle_systems()) {
+        if (system)
+            system->draw(cam_);
+    }
+
+    for (auto* system : scene_->get_gpu_fluid_systems()) {
         if (system)
             system->draw(cam_);
     }

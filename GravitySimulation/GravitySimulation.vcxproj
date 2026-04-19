@@ -153,10 +153,12 @@
     <ClCompile Include="compute_group.cpp" />
     <ClCompile Include="compute_shader.cpp" />
     <ClCompile Include="engine.cpp" />
+    <ClCompile Include="fluid_scene.cpp" />
     <ClCompile Include="frame_profiler.cpp" />
     <ClCompile Include="galactic_scene.cpp" />
     <ClCompile Include="galactic_simulation_test.cpp" />
     <ClCompile Include="galactic_stress_scene.cpp" />
+    <ClCompile Include="gpu_fluid_system_component.cpp" />
     <ClCompile Include="gpu_particle_system_component.cpp" />
     <ClCompile Include="GravitySimulation.cpp" />
     <ClCompile Include="input_system.cpp" />
@@ -195,10 +197,14 @@
     <ClInclude Include="compute_shader.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="engine_state.h" />
+    <ClInclude Include="fluid_bounds.h" />
+    <ClInclude Include="fluid_particle.h" />
+    <ClInclude Include="fluid_scene.h" />
     <ClInclude Include="frame_profiler.h" />
     <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_simulation_test.h" />
     <ClInclude Include="galactic_stress_scene.h" />
+    <ClInclude Include="gpu_fluid_system_component.h" />
     <ClInclude Include="gpu_particle_system_component.h" />
     <ClInclude Include="input_system.h" />
     <ClInclude Include="instance_manager.h" />
@@ -240,6 +246,9 @@
     <None Include="default.vs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="fluid_predict.glsl" />
+    <None Include="gpu_fluid_system.fs.shader" />
+    <None Include="gpu_fluid_system.vs.shader" />
     <None Include="gpu_particle_system.fs.shader" />
     <None Include="gpu_particle_system.vs.shader" />
     <None Include="GravitySimulation.vcxproj.copilot.tmp" />
