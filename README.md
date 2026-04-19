@@ -3,13 +3,23 @@
 
 A modular, component-based 3D engine built from scratch in C++ with an OpenGL 4.6 rendering backend.  
 The repository includes a **Solar System gravity simulation** as a fully-working example scene that demonstrates how the engine's parts fit together.
-<img width="1708" height="757" alt="image" src="https://github.com/user-attachments/assets/9eddf905-d09b-423b-84e9-62cce289404a" />
-<img width="1285" height="753" alt="image" src="https://github.com/user-attachments/assets/05807d5b-f4df-43c8-bb7c-a2fc2120c118" />
 
-https://github.com/user-attachments/assets/9e9ff822-b78c-46fe-a886-e41e9fe412d9
-https://github.com/user-attachments/assets/86716b93-f516-44f6-a268-134ce153d508
+Cloth Simulation
+<img width="1924" height="932" alt="image" src="https://github.com/user-attachments/assets/b778e55c-0881-42b1-bdb0-171fffec4a52" />
 
----
+Particle system
+<img width="1898" height="892" alt="image" src="https://github.com/user-attachments/assets/1f4af843-c38d-47cc-a4ca-f4f2c34d7bb7" />
+
+Cloth Simulation Video
+https://github.com/user-attachments/assets/d60c10da-0a40-4f57-ba22-afa23e51e2a7
+
+Particle System Video
+https://github.com/user-attachments/assets/7a4f7264-bc39-4673-a578-41666a6a0235
+
+
+
+
+
 
 ## Engine Features
 
