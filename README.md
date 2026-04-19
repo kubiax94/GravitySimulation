@@ -7,7 +7,7 @@ The repository includes a **Solar System gravity simulation** as a fully-working
 Cloth Simulation
 <img width="1924" height="932" alt="image" src="https://github.com/user-attachments/assets/b778e55c-0881-42b1-bdb0-171fffec4a52" />
 
-Particle system
+Particle system 100k objects
 <img width="1898" height="892" alt="image" src="https://github.com/user-attachments/assets/1f4af843-c38d-47cc-a4ca-f4f2c34d7bb7" />
 
 Cloth Simulation Video
