@@ -435,3 +435,14 @@ Every frame thereafter follows the pattern: `handle_input → fixed_update (phys
 ### Lighting
 
 The Sun node is located via `find_scene_node("Sun")` and its world position is passed as `lightPos` to the Phong fragment shader on every draw call. Planets use `camera.fs.shader` (Phong diffuse + specular); the Sun itself uses `sun.fs.shader` which renders it as a fully emissive body regardless of the light position.
+
+---
+
+## TODO
+
+- [ ] **3D font rendering** — Displaying flat 2D text as a HUD/UI overlay is straightforward (bitmap font quads drawn in screen-space), but rendering text *inside* the 3D world is a more involved topic that needs further research before implementation.  Key considerations include:
+  - **Representation** — flat billboarded quads (always face the camera) vs. true 3D geometry (tessellated glyph outlines extruded to a mesh); the former is simpler and cheaper, the latter allows perspective-correct depth and shadows.
+  - **Glyph atlas generation** — pre-rasterised bitmap atlases (stb_truetype / FreeType) vs. Signed Distance Field (SDF) atlases that stay sharp when scaled.
+  - **Performance** — a naïve per-character draw call kills performance; batching all glyphs of a text node into a single instanced or merged mesh is mandatory.
+  - **Integration** — text nodes should fit into the existing component/scene-node system and share the `render_pipeline` batching path.
+  - Needs more research before implementation to avoid hard-to-fix performance regressions.
