@@ -26,6 +26,7 @@ protected:
 
 public:
 	virtual type_id_t get_type_id() const = 0;
+	virtual void update() {}
 
 	explicit component(scene_node* owner_node)
 		: owner_node_(owner_node) {

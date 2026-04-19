@@ -15,6 +15,7 @@
 
 
 class renderer;
+class compute_shader;
 
 class scene : public i_scene_manager
 {
@@ -39,6 +40,9 @@ public:
 	virtual void update();
 	virtual void draw();
 	void sync_render() const;
+  [[nodiscard]] Camera* get_main_camera() const { return main_camera_; }
+	[[nodiscard]] size_t get_renderer_physics_index(const renderer* render) const;
+	[[nodiscard]] GLuint get_render_ssbo() const;
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
 
 	void add_to_scene(scene_node* n_node) const;
@@ -47,6 +51,7 @@ public:
 
 	void register_in(component* comp) override;
 	void register_out(component* comp) override;
+	void register_compute_shader(compute_shader* c_shader);
 };
 
 #endif // !SCENE_H_

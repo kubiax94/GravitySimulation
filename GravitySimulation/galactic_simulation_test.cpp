@@ -35,7 +35,7 @@ namespace simtest {
 void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_renders, int count) {
     unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
 
-    shader* planet_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.fs.shader");
+    shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
 
     auto tmp = g_shape::generate_sphere();
     MeshData* sphere_mesh_data = new MeshData();
@@ -65,8 +65,8 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 		unit_system u_sys(1e24f, 1e6f, 3.872e6f / 3600.f);
 
 		auto* sun_node = s_to_init->create_scene_node("Sun");
-		shader* planet_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/camera.fs.shader");
-		shader* sun_shader = new shader("C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/lightsource.vs.shader", "C:/Users/Kubiaxx/source/repos/GravitySimulation/GravitySimulation/sun.fs.shader");
+     shader* planet_shader = new shader("GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+		shader* sun_shader = new shader("GravitySimulation/lightsource.vs.shader", "GravitySimulation/sun.fs.shader");
 
 		auto tmp = g_shape::generate_sphere();
 

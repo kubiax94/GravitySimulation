@@ -1,5 +1,7 @@
 #include "Mesh.h"
 
+#include <cstring>
+
 GLenum MeshTypeToGL(MeshType t)
 {
 	switch (t)
@@ -48,7 +50,8 @@ void Mesh::Init()
 void Mesh::InitInstanceBuffer() {
 	glGenBuffers(1, &instanceVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW);
+ instance_buffer_capacity_ = 1;
+ glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * instance_buffer_capacity_, nullptr, GL_STREAM_DRAW);
 
 	for (GLuint i = 0; i < 4; ++i) {
 		glVertexAttribPointer(2 + i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4) * i));
@@ -57,12 +60,34 @@ void Mesh::InitInstanceBuffer() {
 	}
 }
 
+bool Mesh::AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) const {
+	if (cached_instance_models_.size() != models.size())
+		return false;
+
+	if (models.empty())
+		return true;
+
+	return std::memcmp(cached_instance_models_.data(), models.data(), sizeof(glm::mat4) * models.size()) == 0;
+}
+
 void Mesh::UpdateInstanceModels(const std::vector<glm::mat4>& models)
 {
-	glBindVertexArray(VAO);
+ if (AreInstanceModelsUnchanged(models))
+		return;
+
 	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * models.size(), models.data(), GL_DYNAMIC_DRAW);
-	glBindVertexArray(0);
+
+	if (models.size() > instance_buffer_capacity_) {
+		while (instance_buffer_capacity_ < models.size())
+			instance_buffer_capacity_ *= 2;
+	}
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * instance_buffer_capacity_, nullptr, GL_STREAM_DRAW);
+
+	if (!models.empty())
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(glm::mat4) * models.size(), models.data());
+
+	cached_instance_models_ = models;
 }
 
 void Mesh::Draw()

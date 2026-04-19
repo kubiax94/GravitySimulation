@@ -95,25 +95,20 @@ MeshData g_shape::generate_grid_lines(const int size, float tileSize) {
 		for (int z = -size; z <= size; ++z) {
 			Vertex vert;
 			vert.Position = glm::vec3(x * tileSize, 0.f, z * tileSize);
-			vert.Normal = glm::vec3(0, 1, 0); // nieistotne tutaj
+			vert.Normal = glm::vec3(0, 1, 0);
 			grid.vertecies.push_back(vert);
 		}
 	}
 
-	// Tworzymy linie równoleg³e do osi X i Z
-
-	int lineCount = size * 2 + 1;
+	const int lineCount = size * 2 + 1;
 	for (int i = 0; i < lineCount; ++i) {
-		int offset = i * lineCount;
-
-		// linie pionowe
 		grid.indices.push_back(i);
 		grid.indices.push_back(i + lineCount * (lineCount - 1));
 
-		// linie poziome
 		grid.indices.push_back(i * lineCount);
 		grid.indices.push_back(i * lineCount + (lineCount - 1));
 	}
+
 	return grid;
 }
 

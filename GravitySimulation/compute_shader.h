@@ -31,6 +31,23 @@ private:
 		}
 	};
 
+    static void reset_async_readback_buffers(ssbo_info& info) {
+        for (auto& sync : info.pbo_syncs) {
+            if (sync) {
+                glDeleteSync(sync);
+                sync = 0;
+            }
+        }
+
+        if (!info.pbo_ids.empty()) {
+            glDeleteBuffers(static_cast<GLsizei>(info.pbo_ids.size()), info.pbo_ids.data());
+            info.pbo_ids.clear();
+        }
+
+        info.pbo_syncs.clear();
+        info.pbo_next = 0;
+    }
+
 	template<typename T>
 	struct ssbo_data : ssbo_info
 	{
@@ -43,6 +60,7 @@ private:
 public:
 	compute_shader(const char* compute_source);
 	~compute_shader() override;
+    GLuint get_ssbo_id(GLuint binding) const;
 
 	template<typename T>
 	void add_ssbo(const GLuint& binding, const std::vector<T>& data);
@@ -65,6 +83,11 @@ public:
 	template<typename T>
 	void update_ssbo(const GLuint& binding, const std::vector<T>& data);
 };
+
+inline GLuint compute_shader::get_ssbo_id(GLuint binding) const {
+    auto it = binding_data_.find(binding);
+    return it != binding_data_.end() && it->second ? it->second->id : 0;
+}
 
 template <typename T>
 void compute_shader::add_ssbo(const GLuint& binding, const std::vector<T>& data) {
@@ -148,7 +171,7 @@ void compute_shader::try_readback(GLuint binding, std::vector<T>& out) {
     auto* info = binding_data_.at(binding);
     if (info->pbo_ids.empty()) { out.clear(); return; }
 
-    const int ready_index = info->pbo_next;
+    const int ready_index = (info->pbo_next + static_cast<int>(info->pbo_ids.size()) - 1) % static_cast<int>(info->pbo_ids.size());
     GLsync s = info->pbo_syncs[ready_index];
     if (!s) { out.clear(); return; }
 
@@ -184,6 +207,9 @@ void compute_shader::update_ssbo(const GLuint& binding, const std::vector<T>& da
 
     auto* old_data = static_cast<ssbo_data<T>*>(binding_data_[binding]);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, old_data->id);
+
+   if (old_data->size != data.size())
+        reset_async_readback_buffers(*old_data);
 
     if (old_data->size < data.size())
     {

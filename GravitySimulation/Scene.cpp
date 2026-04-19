@@ -1,5 +1,7 @@
 #include "Scene.h"
 #include "Renderer.h"
+#include "compute_shader.h"
+#include "frame_profiler.h"
 
 scene_node* scene::create_scene_node(const std::string& n_name) {
 	auto* node = new scene_node(n_name, nullptr, this);
@@ -76,5 +78,34 @@ void scene::draw() {
 }
 
 void scene::sync_render() const {
-	physics_.sync_scene_positions(time_->interpolation_alpha());
+    float alpha = 0.f;
+	{
+		auto section = frame_profiler::measure_active("scene_sync_render_alpha");
+		alpha = time_->interpolation_alpha();
+	}
+
+	{
+		auto section = frame_profiler::measure_active("scene_sync_render_positions");
+		physics_.sync_scene_positions(alpha);
+	}
+
+	{
+		auto section = frame_profiler::measure_active("scene_sync_render_scene_graph");
+		root_->update();
+	}
+}
+
+size_t scene::get_renderer_physics_index(const renderer* render) const {
+	if (!render || !render->get_node())
+		return static_cast<size_t>(-1);
+
+	return physics_.get_body_index(render->get_node()->get_id());
+}
+
+GLuint scene::get_render_ssbo() const {
+	return physics_.get_render_ssbo();
+}
+
+void scene::register_compute_shader(compute_shader* c_shader) {
+	physics_.register_in(c_shader);
 }

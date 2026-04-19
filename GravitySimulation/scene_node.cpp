@@ -1,15 +1,14 @@
 ﻿#include "scene_node.h"
 
-void scene_node::set_dirty() {
-
-	//Dla uniknięcia przy masowych zmianach, trzeba to sprzwidzć.
-	if (dirty_transform_)
-		return;
-
+void scene_node::set_dirty(bool affect_non_translation) {
 	dirty_transform_ = true;
+	++transform_revision_;
+
+ if (affect_non_translation)
+		++orientation_revision_;
 
 	for (const auto& child : children_ | std::views::values)
-		child->set_dirty();
+		child->set_dirty(affect_non_translation);
 }
 
 scene_node::scene_node(const std::string& name, scene_node* parent) {
@@ -52,7 +51,24 @@ uuid scene_node::get_id() const {
 	return id_;
 }
 
+uint64_t scene_node::get_transform_revision() const {
+	return transform_revision_;
+}
+
+uint64_t scene_node::get_orientation_revision() const {
+	return orientation_revision_;
+}
+
 void scene_node::update() {
+   for (auto* comp : components_ | std::views::values) {
+		if (comp)
+			comp->update();
+	}
+
+	for (auto* child : children_ | std::views::values) {
+		if (child)
+			child->update();
+	}
 }
 
 void scene_node::draw() {
@@ -113,7 +129,7 @@ void scene_node::set_global_position(const glm::vec3& n_pos) {
 
 void scene_node::set_position(const glm::vec3& n_pos) {
 	transform_.setPosition(n_pos);
-	set_dirty();
+    set_dirty(false);
 }
 
 void scene_node::set_position(const float& x, const float& y, const float& z) {

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.9.34701.34
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11626.88 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GravitySimulation", "GravitySimulation\GravitySimulation.vcxproj", "{31A147CB-73AA-4C36-B3C0-101C4222F95B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PerformanceTests1", "PerformanceTests1\PerformanceTests1.vcxproj", "{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,14 @@ Global
 		{31A147CB-73AA-4C36-B3C0-101C4222F95B}.Release|x64.Build.0 = Release|x64
 		{31A147CB-73AA-4C36-B3C0-101C4222F95B}.Release|x86.ActiveCfg = Release|Win32
 		{31A147CB-73AA-4C36-B3C0-101C4222F95B}.Release|x86.Build.0 = Release|Win32
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Debug|x64.ActiveCfg = Debug|x64
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Debug|x64.Build.0 = Debug|x64
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Debug|x86.ActiveCfg = Debug|Win32
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Debug|x86.Build.0 = Debug|Win32
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Release|x64.ActiveCfg = Release|x64
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Release|x64.Build.0 = Release|x64
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Release|x86.ActiveCfg = Release|Win32
+		{F3079C99-44B3-CEC6-C1D0-E54F888F4D80}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

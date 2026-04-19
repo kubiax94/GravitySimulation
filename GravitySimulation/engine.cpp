@@ -1,5 +1,7 @@
 #include "engine.h"
 
+#include <iostream>
+
 #include <glad/glad.h>
 
 #include "engine_state.h"
@@ -38,7 +40,6 @@ bool engine::init(int width, int height, const std::string& title) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 8);
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
     window_ = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
@@ -55,7 +56,7 @@ bool engine::init(int width, int height, const std::string& title) {
         return false;
     }
 
-    glfwSwapInterval(1);
+    glfwSwapInterval(vsync_enabled_ ? 1 : 0);
     glfwFocusWindow(window_);
 
     glfwSetKeyCallback(window_, key_callback);
@@ -80,39 +81,53 @@ void engine::run() {
     if (!window_ || !current_state_)
         return;
 
+    frame_profiler::set_active(&frame_profiler_);
+    bool toggle_vsync_pressed = false;
+
     while (!glfwWindowShouldClose(window_)) {
         {
             auto timer = frame_profiler_.measure("frame_total");
-
             {
-                auto section = frame_profiler_.measure("poll_events");
-                glfwPollEvents();
-            }
+                auto cpu_section = frame_profiler_.measure("frame_cpu");
 
-            time_.update_time(static_cast<float>(glfwGetTime()));
-
-            {
-                auto section = frame_profiler_.measure("handle_input");
-                current_state_->handle_input(*this, time_.delta_time);
-            }
-
-            {
-                auto section = frame_profiler_.measure("fixed_update_total");
-                while (time_.should_fixed_update()) {
-                    auto fixed_section = frame_profiler_.measure("fixed_update_step");
-                    current_state_->fixed_update(*this, time_.fixed_delta_time);
-                    time_.reduce_accumulator();
+                {
+                    auto section = frame_profiler_.measure("poll_events");
+                    glfwPollEvents();
                 }
-            }
 
-            {
-                auto section = frame_profiler_.measure("update");
-                current_state_->update(*this, time_.delta_time);
-            }
+                const bool is_toggle_pressed = glfwGetKey(window_, GLFW_KEY_F8) == GLFW_PRESS;
+                if (is_toggle_pressed && !toggle_vsync_pressed) {
+                    vsync_enabled_ = !vsync_enabled_;
+                    glfwSwapInterval(vsync_enabled_ ? 1 : 0);
+                    std::cout << "[engine] vsync " << (vsync_enabled_ ? "on" : "off") << "\n";
+                }
+                toggle_vsync_pressed = is_toggle_pressed;
 
-            {
-                auto section = frame_profiler_.measure("render");
-                current_state_->render(*this);
+                time_.update_time(static_cast<float>(glfwGetTime()));
+
+                {
+                    auto section = frame_profiler_.measure("handle_input");
+                    current_state_->handle_input(*this, time_.delta_time);
+                }
+
+                {
+                    auto section = frame_profiler_.measure("fixed_update_total");
+                    while (time_.should_fixed_update()) {
+                        auto fixed_section = frame_profiler_.measure("fixed_update_step");
+                        current_state_->fixed_update(*this, time_.fixed_delta_time);
+                        time_.reduce_accumulator();
+                    }
+                }
+
+                {
+                    auto section = frame_profiler_.measure("update");
+                    current_state_->update(*this, time_.delta_time);
+                }
+
+                {
+                    auto section = frame_profiler_.measure("render");
+                    current_state_->render(*this);
+                }
             }
 
             {
@@ -123,6 +138,8 @@ void engine::run() {
 
         frame_profiler_.end_frame();
     }
+
+    frame_profiler::set_active(nullptr);
 }
 
 void engine::shutdown() {

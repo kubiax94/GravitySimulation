@@ -17,6 +17,7 @@ class engine
     sim::time time_;
     std::unique_ptr<engine_state> current_state_;
     frame_profiler frame_profiler_;
+    bool vsync_enabled_ = true;
 
     static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);

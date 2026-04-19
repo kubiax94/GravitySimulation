@@ -1,19 +1,37 @@
 ﻿#include "physics_system.h"
 #include <glm/gtx/string_cast.hpp>
 
+#include "frame_profiler.h"
+
 //float scale_mass = 1e24f; // masa Ziemi
 //float scale_distance = 1e6f; // 1mln km
 //float scale_time = 3.872e6f / 3600.f; // 1h
 
-std::vector<physics_data> physics_system::get_physics_data() const {
-    // avoid reallocating vector each frame: caller should reuse buffer when possible
+std::vector<physics_data> physics_system::get_physics_data(const std::vector<rigid_body*>& bodies) const {
     std::vector<physics_data> data;
-    data.reserve(order_id_.size());
+    data.reserve(bodies.size());
 
-    for (size_t i = 0; i < order_id_.size(); ++i)
-        data.push_back(*entities_.at(order_id_[i])->get_compute_data());
+    for (auto* body : bodies) {
+		if (body && body->get_compute_data())
+			data.push_back(*body->get_compute_data());
+	}
 
     return data;
+}
+
+void physics_system::rebuild_order_indices() {
+	order_index_.clear();
+	order_index_.reserve(order_id_.size());
+	for (size_t i = 0; i < order_id_.size(); ++i)
+		order_index_[order_id_[i]] = i;
+}
+
+void physics_system::sync_gpu_buffer(compute_shader* compute, const std::vector<rigid_body*>& bodies) {
+	if (!compute || !compute->is_vaild() || bodies.empty())
+		return;
+
+ auto gpu_data = get_physics_data(bodies);
+	compute->update_ssbo(0, gpu_data);
 }
 
 //FOR NOW IT'S CREATING BY DEFAULT COMPUTE SHADER WITH SSBO ATTACHED TO PHYCIS_DATA
@@ -22,18 +40,23 @@ physics_system::physics_system(unit_system* u_sys): u_sys_(u_sys) {
 	// store pointer to the default gravity compute shader so later calls use a valid object
 	gravity_simulation_comp_ = gravity_comp;
 	register_in(gravity_comp);
-	gravity_comp->add_ssbo(0, get_physics_data());
+  gravity_comp->add_ssbo(0, std::vector<physics_data>{});
 }
 
 bool physics_system::add(rigid_body* r_body) {
 	auto* node = r_body->get_node();
 
 	if (entities_.contains(node->get_id())) return false;
+ if (!compute_shaders_.contains(r_body->get_compute_shader_id()) && gravity_simulation_comp_)
+		r_body->set_compute_shader(gravity_simulation_comp_->get_id());
+
 	entities_[node->get_id()] = r_body;
 	order_id_.push_back(node->get_id());
+   rebuild_order_indices();
 	previous_positions_[node->get_id()] = r_body->get_position();
 	current_positions_[node->get_id()] = r_body->get_position();
 	compute_groups_[r_body->get_compute_shader_id()].push_back(r_body);
+	gpu_buffer_dirty_ = true;
 	
 
 	return true;
@@ -64,36 +87,59 @@ void physics_system::compute_cpu() {
 	}
 }
 
-void physics_system::compute_gpu() {
-    // reuse local buffer to avoid allocating every frame
-    static std::vector<physics_data> gpu_data;
-    gpu_data.clear();
-    gpu_data.reserve(order_id_.size());
-    for (size_t i = 0; i < order_id_.size(); ++i)
-        gpu_data.push_back(*entities_.at(order_id_[i])->get_compute_data());
+void physics_system::compute_gpu(const float& dt) {
+	constexpr GLuint local_size_x = 64;
 
-    gravity_simulation_comp_->update_ssbo(0, gpu_data);
+	for (auto& [shader_id, bodies] : compute_groups_) {
+		auto shader_it = compute_shaders_.find(shader_id);
+		if (shader_it == compute_shaders_.end() || !shader_it->second || !shader_it->second->is_vaild() || bodies.empty())
+			continue;
 
-    constexpr GLuint local_size_x = 64;
-    const GLuint groups_x = static_cast<GLuint>((gpu_data.size() + local_size_x - 1) / local_size_x);
-    gravity_simulation_comp_->dispatch({groups_x, 1, 1});
+		auto* compute = shader_it->second;
 
-    static std::vector<physics_data> gpu_result;
-    gravity_simulation_comp_->get_binding_data(0, gpu_result);
+		{
+			auto section = frame_profiler::measure_active("fixed_update_gpu_upload_ssbo");
+          if (gpu_buffer_dirty_) {
+				sync_gpu_buffer(compute, bodies);
+               readback_pending_[shader_id] = false;
+			}
+		}
 
-    if (!gpu_result.empty()) {
-        for (size_t i = 0; i < order_id_.size() && i < gpu_result.size(); ++i)
-        {
-            const auto& id = order_id_[i];
-            auto* body = entities_[id];
-            auto* p_data = body->get_compute_data();
-            if (p_data) {
-                previous_positions_[id] = current_positions_[id];
-                current_positions_[id] = glm::vec3(gpu_result[i].position);
-                *p_data = gpu_result[i];
-            }
-        }
-    }
+		std::vector<physics_data> gpu_result;
+		{
+			auto section = frame_profiler::measure_active("fixed_update_gpu_readback");
+			if (readback_pending_[shader_id])
+				compute->try_readback<physics_data>(0, gpu_result);
+		}
+
+		{
+			auto section = frame_profiler::measure_active("fixed_update_gpu_apply_result");
+			const size_t count = std::min(bodies.size(), gpu_result.size());
+			for (size_t i = 0; i < count; ++i) {
+				auto* body = bodies[i];
+				if (!body || !body->get_node() || !body->get_compute_data())
+					continue;
+
+				*body->get_compute_data() = gpu_result[i];
+				current_positions_[body->get_node()->get_id()] = gpu_result[i].position;
+			}
+		}
+
+		const GLuint groups_x = static_cast<GLuint>((bodies.size() + local_size_x - 1) / local_size_x);
+		{
+			auto section = frame_profiler::measure_active("fixed_update_gpu_dispatch");
+			compute->use();
+			compute->set_uni_float("G", u_sys_->scaled_G());
+			compute->set_uni_float("dt", u_sys_->time(dt) * simulation_speed_);
+         compute->set_uni_float("rawDt", dt);
+			compute->set_uni_float("simulationTime", simulation_time_);
+			compute->dispatch({groups_x, 1, 1});
+           compute->enqueue_readback<physics_data>(0);
+			readback_pending_[shader_id] = true;
+		}
+	}
+
+	gpu_buffer_dirty_ = false;
 }
 
 
@@ -102,9 +148,19 @@ bool physics_system::remove(rigid_body* rigid_body) {
 
 	if (entities_.contains(node_id))
 	{
+       auto group_it = compute_groups_.find(rigid_body->get_compute_shader_id());
+		if (group_it != compute_groups_.end()) {
+			auto& group = group_it->second;
+			group.erase(std::remove(group.begin(), group.end(), rigid_body), group.end());
+		}
+
 		entities_.erase(node_id);
+     order_id_.erase(std::remove(order_id_.begin(), order_id_.end(), node_id), order_id_.end());
+		rebuild_order_indices();
 		previous_positions_.erase(node_id);
 		current_positions_.erase(node_id);
+       readback_pending_.erase(rigid_body->get_compute_shader_id());
+		gpu_buffer_dirty_ = true;
 
 
 		return true;
@@ -119,8 +175,7 @@ void physics_system::register_in(compute_shader* c_shader) {
 }
 
 void physics_system::sync_scene_positions(float alpha) const {
-	const bool gpu_mode = gravity_simulation_comp_ && gravity_simulation_comp_->is_vaild();
-
+    auto section = frame_profiler::measure_active("scene_sync_render_apply_positions");
 	for (const auto& id : order_id_)
 	{
 		auto entityIt = entities_.find(id);
@@ -133,41 +188,69 @@ void physics_system::sync_scene_positions(float alpha) const {
 		if (!node)
 			continue;
 
-		const glm::vec3 position = gpu_mode
-			? currIt->second
-			: glm::mix(prevIt->second, currIt->second, alpha);
+     const glm::vec3 position = glm::mix(prevIt->second, currIt->second, alpha);
 
 		node->set_global_position(position);
 	}
 }
 
 void physics_system::update(const float& dt) {
+	simulation_time_ += dt;
 
+ for (const auto& id : order_id_) {
+		auto it = entities_.find(id);
+		if (it == entities_.end() || !it->second || !it->second->get_node())
+			continue;
 
-    //compute_cpu();
-    // Ensure we have a valid compute shader, bind it, then set uniforms and dispatch
-    if (gravity_simulation_comp_ && gravity_simulation_comp_->is_vaild()) {
-        gravity_simulation_comp_->use();
-        gravity_simulation_comp_->set_uni_float("G", u_sys_->scaled_G());
-        // pass delta time scaled exactly once
-        gravity_simulation_comp_->set_uni_float("dt", u_sys_->time(dt) * simulation_speed_);
-        // dispatch compute, GPU will integrate positions
-        compute_gpu();
-    }
-    else {
-        std::cerr << "physics_system::update: gravity_simulation_comp_ is null or not loaded\n";
-    }
+		previous_positions_[id] = current_positions_[id];
+	}
 
-	if (!gravity_simulation_comp_ || !gravity_simulation_comp_->is_vaild()) {
+	bool has_valid_gpu_group = false;
+	for (const auto& [shader_id, bodies] : compute_groups_) {
+		auto shader_it = compute_shaders_.find(shader_id);
+		if (shader_it != compute_shaders_.end() && shader_it->second && shader_it->second->is_vaild() && !bodies.empty()) {
+			has_valid_gpu_group = true;
+			break;
+		}
+	}
+
+	if (has_valid_gpu_group) {
+		auto section = frame_profiler::measure_active("fixed_update_gpu_total");
+		compute_gpu(dt);
+	}
+	else {
+		auto section = frame_profiler::measure_active("fixed_update_cpu_fallback");
 		for (auto& entity : entities_ | std::views::values)
 		{
 			const auto id = entity->get_node()->get_id();
-			previous_positions_[id] = current_positions_[id];
 			entity->integrate(dt);
 			current_positions_[id] = entity->get_position();
 		}
 	}
 
-	// advance frame counter for readback scheduling
 	++frame_idx_;
+}
+
+size_t physics_system::get_body_index(const uuid& id) const {
+	auto it = order_index_.find(id);
+	return it != order_index_.end() ? it->second : static_cast<size_t>(-1);
+}
+
+GLuint physics_system::get_render_ssbo() const {
+ compute_shader* active_shader = nullptr;
+	for (const auto& [shader_id, bodies] : compute_groups_) {
+		if (bodies.empty())
+			continue;
+
+		auto shader_it = compute_shaders_.find(shader_id);
+		if (shader_it == compute_shaders_.end() || !shader_it->second || !shader_it->second->is_vaild())
+			continue;
+
+		if (active_shader && active_shader != shader_it->second)
+			return 0;
+
+		active_shader = shader_it->second;
+	}
+
+	return active_shader ? active_shader->get_ssbo_id(0) : 0;
 }

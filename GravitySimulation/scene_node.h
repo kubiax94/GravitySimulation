@@ -49,8 +49,10 @@ private:
 	std::unordered_map<std::string, scene_node*> children_;
 	std::unordered_map<type_id_t, component*> components_;
 
-	transform transform_;
+   transform transform_;
 	mutable bool dirty_transform_ = true;
+	uint64_t transform_revision_ = 1;
+   uint64_t orientation_revision_ = 1;
 	mutable glm::mat4 global_matrix_model_ = transform_.get_local_model_matrix();
 
 	i_scene_manager* scene_manager_;
@@ -62,7 +64,7 @@ private:
 	std::vector<T*> find_node(const std::string& node_name,
 		search_options s_options, std::vector<T*>& result, const scene_node* last);
 
-	void set_dirty();
+  void set_dirty(bool affect_non_translation = true);
 
 
 public:
@@ -137,6 +139,8 @@ public:
 	void remove_component(component* component);
 
 	uuid get_id() const;
+	[[nodiscard]] uint64_t get_transform_revision() const;
+  [[nodiscard]] uint64_t get_orientation_revision() const;
 
 	~scene_node() override = default;
 	

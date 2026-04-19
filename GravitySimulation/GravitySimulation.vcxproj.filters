@@ -194,6 +194,12 @@
     <ClCompile Include="resource.cpp">
       <Filter>Resources</Filter>
     </ClCompile>
+    <ClCompile Include="engine.cpp" />
+    <ClCompile Include="frame_profiler.cpp" />
+    <ClCompile Include="render_pipeline.cpp" />
+    <ClCompile Include="simulation_state.cpp" />
+    <ClCompile Include="Renderer.Core.cpp" />
+    <ClCompile Include="cloth_scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -296,35 +302,24 @@
     <ClInclude Include="resource.h">
       <Filter>Resources</Filter>
     </ClInclude>
+    <ClInclude Include="engine.h" />
+    <ClInclude Include="engine_state.h" />
+    <ClInclude Include="frame_profiler.h" />
+    <ClInclude Include="render_pipeline.h" />
+    <ClInclude Include="simulation_state.h" />
+    <ClInclude Include="cloth_scene.h" />
   </ItemGroup>
   <ItemGroup>
-    <!-- SHADER RESOURCES -->
-    <CopyFileToFolders Include="camera.vs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="default.fs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="default.vs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="lightsource.fs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="lightsource.vs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="sun.fs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="gravity_simulation.glsl">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="gravity_defor.glsl">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
-    <CopyFileToFolders Include="camera.fs.shader">
-      <Filter>Resources\Shaders</Filter>
-    </CopyFileToFolders>
+    <None Include="camera.fs.shader" />
+    <None Include="camera.vs.shader" />
+    <None Include="default.fs.shader" />
+    <None Include="default.vs.shader" />
+    <None Include="lightsource.fs.shader" />
+    <None Include="lightsource.vs.shader" />
+    <None Include="sun.fs.shader" />
+    <None Include="gravity_simulation.glsl" />
+    <None Include="gravity_defor.glsl" />
+    <None Include="GravitySimulation.vcxproj.copilot.tmp" />
+    <None Include="cloth_simulation.glsl" />
   </ItemGroup>
 </Project>

@@ -30,8 +30,11 @@ class Mesh : public asset
 {
 	GLuint VAO{}, VBO{}, EBO{};
 	GLuint instanceVBO{};
+    size_t instance_buffer_capacity_ = 0;
+	std::vector<glm::mat4> cached_instance_models_;
 	void Init();
 	void InitInstanceBuffer();
+ [[nodiscard]] bool AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) const;
 	MeshData* meshData;
 
 public:
