@@ -14,9 +14,9 @@ uniform float time;
 float atmosphere_noise(vec3 p)
 {
     float n = 0.0;
-    n += 0.6 * sin(p.x * 4.2 + p.y * 2.3 + p.z * 3.1);
-    n += 0.3 * sin(-p.x * 7.6 + p.y * 5.1 + p.z * 4.4);
-    n += 0.1 * sin(p.x * 12.4 - p.y * 8.0 + p.z * 9.5);
+    n += 0.65 * sin(p.x * 2.3 + p.y * 1.7 + p.z * 2.1);
+    n += 0.25 * sin(-p.x * 4.4 + p.y * 3.2 + p.z * 3.7);
+    n += 0.10 * sin(p.x * 7.1 - p.y * 5.4 + p.z * 6.2);
     return 0.5 + 0.5 * n;
 }
 
@@ -26,25 +26,29 @@ void main()
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 lightDir = normalize(lightPos - FragPos);
 
-    float fresnel = pow(1.0 - max(dot(norm, viewDir), 0.0), 2.7);
-    float rim = smoothstep(0.08, 0.98, fresnel);
-    if (rim <= 0.001)
+    float fresnel = pow(1.0 - max(dot(norm, viewDir), 0.0), 4.6);
+    float rim = smoothstep(0.58, 0.995, fresnel);
+    if (rim <= 0.0005)
         discard;
 
-    float sunFacing = max(dot(norm, lightDir), 0.0);
-    float shellNoise = atmosphere_noise(norm * 8.0 + vec3(time * 0.18, -time * 0.12, time * 0.08));
-    float breakup = smoothstep(0.25, 0.92, shellNoise);
+    float sunFacingRaw = dot(norm, lightDir);
+    float sunFacing = smoothstep(-0.18, 0.85, sunFacingRaw);
+    float shellNoise = atmosphere_noise(norm * 3.2 + vec3(time * 0.05, -time * 0.04, time * 0.03));
+    float haze = mix(0.82, 1.12, shellNoise);
+    float forwardScatter = pow(max(dot(viewDir, lightDir), 0.0), 7.0);
 
-    float dayGlow = rim * (0.35 + 0.95 * pow(sunFacing, 1.25));
-    float twilight = rim * (1.0 - sunFacing) * 0.65;
+    float dayGlow = rim * (0.08 + 0.92 * sunFacing) * haze;
+    float twilight = rim * smoothstep(-0.55, 0.1, sunFacingRaw) * 0.08;
+    float sunBloom = rim * (0.18 + 1.45 * forwardScatter) * (0.35 + 0.65 * sunFacing);
 
-    vec3 coolColor = lightColor * vec3(0.32, 0.6, 1.25);
-    vec3 warmColor = lightColor * vec3(1.15, 0.65, 0.28);
-    vec3 color = coolColor * dayGlow * breakup;
-    color += warmColor * twilight * (0.45 + 0.55 * shellNoise);
+    vec3 coolColor = lightColor * vec3(0.18, 0.36, 0.82);
+    vec3 warmColor = lightColor * vec3(1.0, 0.62, 0.24);
+    vec3 color = coolColor * dayGlow * 0.35;
+    color += warmColor * sunBloom * haze * 0.9;
+    color += warmColor * twilight * (0.22 + 0.18 * shellNoise);
 
     if (dot(color, color) < 0.0002)
         discard;
 
-    FragColor = vec4(color * intensity * 0.9, 1.0);
+    FragColor = vec4(color * intensity * 0.32, 1.0);
 }

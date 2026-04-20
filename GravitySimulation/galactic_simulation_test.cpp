@@ -205,7 +205,7 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 		auto& assets = s_to_init->get_asset_manager();
 
 		auto* sun_node = s_to_init->create_scene_node("Sun");
-        shader* planet_shader = assets.create_shader("galactic.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+       shader* planet_shader = assets.create_shader("galactic.planets", "GravitySimulation/camera.vs.shader", "GravitySimulation/rocky_planet.fs.shader");
 		shader* gas_giant_shader = assets.create_shader("galactic.planets.gas_giant", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/gas_giant.fs.shader");
         shader* planet_atmosphere_shader = assets.create_shader("galactic.planets.atmosphere", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/planet_atmosphere.fs.shader");
         shader* ocean_surface_shader = assets.create_shader("galactic.planets.ocean.surface", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/planetary_ocean_surface.fs.shader");
@@ -297,7 +297,7 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 					std::move(ocean_particles),
 					ocean_bounds,
 					glm::vec3(0.f),
-					6.5f,
+					2.5f,
 					0.11f,
 					0.026f,
 					0.28f,

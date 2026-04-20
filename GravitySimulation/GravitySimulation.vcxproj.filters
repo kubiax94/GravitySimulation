@@ -344,5 +344,6 @@
     <None Include="gas_giant.fs.shader" />
     <None Include="planet_ocean.fs.shader" />
     <None Include="planetary_ocean_surface.fs.shader" />
+    <None Include="rocky_planet.fs.shader" />
   </ItemGroup>
 </Project>

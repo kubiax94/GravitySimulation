@@ -262,6 +262,7 @@
     <None Include="planetary_ocean_surface.fs.shader" />
     <None Include="planet_atmosphere.fs.shader" />
     <None Include="planet_ocean.fs.shader" />
+    <None Include="rocky_planet.fs.shader" />
     <None Include="sun.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
