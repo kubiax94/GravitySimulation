@@ -1,22 +1,10 @@
 #pragma once
-#include <string>
 
+#include "resource.h"
 #include "uuid.h"
 
-enum class asset_status : std::uint8_t
-{
-	LOADED,
-	UNLOADED,
-	FAILED
-};
-
-enum class asset_type : std::uint8_t
-{
-	SHADER,
-	MODEL,
-	MESH,
-	LIGHTING
-};
+using asset_status = resource_status;
+using asset_type = resource_type;
 
 enum class shader_type : std::uint8_t
 {
@@ -27,29 +15,23 @@ enum class shader_type : std::uint8_t
 
 class asset_manager;
 
-class asset
+class asset : public resource
 {
 	friend class asset_manager;
 
 protected:
 
 	uuid id_;
-	std::string name_;
-	asset_type type_;
-	asset_status status_ = asset_status::UNLOADED;
 
 public:
 	asset(asset_type type, const std::string& name="");
 	virtual ~asset() = default;
 
-    // Provide a default constructor implementation in header for simple assets
-    asset() = default;
+ asset();
 
 	const uuid& get_id() const { return id_; }
-	const std::string& get_name() const { return name_; }
-	asset_type get_type() const { return type_; }
-
-	void set_name(const std::string& name) { name_ = name; }
+   asset_type get_type() const { return static_cast<asset_type>(get_resource_type()); }
+	asset_status get_asset_status() const { return static_cast<asset_status>(get_resource_status()); }
 
 	virtual void cleanup() = 0;
 	virtual bool is_vaild() = 0;

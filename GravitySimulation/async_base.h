@@ -1,7 +1,12 @@
 #pragma once
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
 #include <future>
+#include <mutex>
 #include <optional>
+#include <stdexcept>
 
 enum class async_type
 {

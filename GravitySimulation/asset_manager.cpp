@@ -19,7 +19,7 @@ void asset_manager::remove_asset(const uuid& asset_id) {
 
 shader* asset_manager::create_shader(const std::string& name, const char* vertx_path, const char* frag_path) {
 	auto n_shader = std::make_unique<shader>(vertx_path, frag_path);
-	n_shader->name_ = name;
+ n_shader->set_name(name);
 	shader* n_shader_ptr = n_shader.get();
 	add_asset(std::move(n_shader));
 	return n_shader_ptr;
@@ -27,7 +27,7 @@ shader* asset_manager::create_shader(const std::string& name, const char* vertx_
 
 compute_shader* asset_manager::create_compute_shader(const std::string& name, const char* compute_path) {
 	auto n_shader = std::make_unique<compute_shader>(compute_path);
-	n_shader->name_ = name;
+ n_shader->set_name(name);
 	compute_shader* n_shader_ptr = n_shader.get();
 	add_asset(std::move(n_shader));
 	return n_shader_ptr;

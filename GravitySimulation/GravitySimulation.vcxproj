@@ -166,7 +166,6 @@
     <ClCompile Include="i_data_provider.cpp" />
     <ClCompile Include="Renderer.Core.cpp" />
     <ClCompile Include="render_pipeline.cpp" />
-    <ClCompile Include="resource.cpp" />
     <ClCompile Include="shader_group.cpp" />
     <ClCompile Include="simulation_state.cpp" />
     <ClCompile Include="ssbo_manager.cpp" />
