@@ -401,37 +401,57 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 				ocean_bounds.restitution = 0.02f;
 				ocean_bounds.damping = 0.995f;
               const auto terrain_profile = planet_terrain::make_rocky_planet_profile(planet.name);
-				auto ocean_particles = planet_terrain::create_ocean_seed_particles(planetary_ocean_particle_count, earth_ocean_base_radius, earth_ocean_shell_thickness, terrain_profile);
-				auto* ocean_system = new gpu_fluid_system_component(
+				planet_terrain::ocean_seed_generation_params ocean_seed_params;
+				ocean_seed_params.target_particle_count = planetary_ocean_particle_count;
+				ocean_seed_params.base_radius = earth_ocean_base_radius;
+				ocean_seed_params.shell_thickness = earth_ocean_shell_thickness;
+				ocean_seed_params.particle_radius = 0.026f;
+				ocean_seed_params.coverage = terrain_profile.ocean_coverage;
+				ocean_seed_params.primary_regions_only = true;
+				auto* ocean_seed_resource = assets.create_planetary_ocean_resource("galactic.earth.ocean.seed", terrain_profile, ocean_seed_params);
+                s_to_init->get_scene_loader().add_resource(*ocean_seed_resource, [
 					ocean_node,
 					ocean_compute_shader,
 					ocean_render_shader,
 					ocean_particle_mesh,
-					std::move(ocean_particles),
 					ocean_bounds,
-					glm::vec3(0.f),
-					1.5f,
-                  0.06f,
-					0.026f,
-                    0.3f,
-					0.016f,
-					0.62f,
-					0.34f,
-					6.2f,
-					3u,
-					5u);
-				ocean_node->add_component(ocean_system);
-				ocean_system->set_planetary_surface(glm::vec3(0.f), earth_ocean_base_radius, earth_ocean_shell_thickness, 4.2f);
-              ocean_system->set_planetary_flow_tuning(0.18f, 0.34f, 0.18f, 0.56f, 0.72f);
-				ocean_system->set_planetary_flood_guidance_strength(0.22f);
-				ocean_system->set_planetary_surface_layer_tuning(0.56f, 0.3f, 0.68f);
-              ocean_system->set_planetary_rotation_tuning(1.35f, 1.0f, 1.0f);
-              ocean_system->set_planetary_respawn_management(true, 12u);
-             ocean_system->set_planetary_water_coverage(terrain_profile.ocean_coverage);
-             ocean_system->set_planetary_surface_frame_node(ocean_node);
-				ocean_system->set_planetary_terrain_profile(terrain_profile);
-                ocean_system->set_debug_visualization_mode(fluid_debug_visualization_mode::none);
-				ocean_system->set_debug_readback_enabled(true, 20u);
+					terrain_profile
+				](resource& loaded_resource) {
+					auto* loaded_ocean_resource = dynamic_cast<planetary_ocean_resource*>(&loaded_resource);
+					if (!loaded_ocean_resource)
+						return;
+
+					auto* ocean_system = new gpu_fluid_system_component(
+						ocean_node,
+						ocean_compute_shader,
+						ocean_render_shader,
+						ocean_particle_mesh,
+						loaded_ocean_resource->get_particles(),
+						ocean_bounds,
+						glm::vec3(0.f),
+						1.5f,
+						0.06f,
+						0.026f,
+						0.3f,
+						0.016f,
+						0.62f,
+						0.34f,
+						6.2f,
+						3u,
+						5u);
+					ocean_node->add_component(ocean_system);
+					ocean_system->set_planetary_surface(glm::vec3(0.f), earth_ocean_base_radius, earth_ocean_shell_thickness, 4.2f);
+					ocean_system->set_planetary_flow_tuning(0.18f, 0.34f, 0.18f, 0.56f, 0.72f);
+					ocean_system->set_planetary_flood_guidance_strength(0.22f);
+					ocean_system->set_planetary_surface_layer_tuning(0.56f, 0.3f, 0.68f);
+					ocean_system->set_planetary_rotation_tuning(1.35f, 1.0f, 1.0f);
+					ocean_system->set_planetary_respawn_management(true, 12u);
+					ocean_system->set_planetary_water_coverage(terrain_profile.ocean_coverage);
+					ocean_system->set_planetary_surface_frame_node(ocean_node);
+					ocean_system->set_planetary_terrain_profile(terrain_profile);
+					ocean_system->set_debug_visualization_mode(fluid_debug_visualization_mode::none);
+					ocean_system->set_debug_readback_enabled(true, 20u);
+				});
 			}
 
 			if (planet.name == "Venus") {

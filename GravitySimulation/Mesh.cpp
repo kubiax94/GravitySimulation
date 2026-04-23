@@ -13,16 +13,29 @@ GLenum MeshTypeToGL(MeshType t)
 	}
 }
 
-Mesh::Mesh(MeshData& mdata) : asset(asset_type::MESH)
+Mesh::Mesh() : asset(asset_type::MESH), mesh_data_(std::make_shared<MeshData>())
 {
-	meshData = &mdata;
-	set_name("Mesh: " + get_id().to_string());
-	this->Init();
-	status_ = asset_status::LOADED;
+	set_name("Mesh: " + asset::get_id().to_string());
+}
+
+Mesh::Mesh(MeshData& mdata) : Mesh(std::make_shared<MeshData>(mdata))
+{
+}
+
+Mesh::Mesh(std::shared_ptr<MeshData> mdata) : asset(asset_type::MESH), mesh_data_(std::move(mdata))
+{
+  if (!mesh_data_)
+		mesh_data_ = std::make_shared<MeshData>();
+
+	set_name("Mesh: " + asset::get_id().to_string());
+	finalize();
 }
 
 void Mesh::Init()
 {
+ if (!HasValidMeshData())
+		return;
+
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -30,11 +43,11 @@ void Mesh::Init()
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * meshData->vertecies.size(), meshData->vertecies.data(),
+  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh_data_->vertecies.size(), mesh_data_->vertecies.data(),
 	             GL_STATIC_DRAW);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * meshData->indices.size(), meshData->indices.data(),
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mesh_data_->indices.size(), mesh_data_->indices.data(),
 	             GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Position));
@@ -45,6 +58,7 @@ void Mesh::Init()
 
 	InitInstanceBuffer();
 	glBindVertexArray(0);
+   gpu_initialized_ = true;
 }
 
 void Mesh::InitInstanceBuffer() {
@@ -79,6 +93,10 @@ bool Mesh::AreInstanceModelsUnchanged(const std::vector<glm::mat4>& models) cons
 
 bool Mesh::AreInstancePhysicsIndicesUnchanged(const std::vector<int>& indices) const {
 	return cached_instance_physics_indices_ == indices;
+}
+
+bool Mesh::HasValidMeshData() const {
+	return mesh_data_ && !mesh_data_->vertecies.empty() && !mesh_data_->indices.empty();
 }
 
 void Mesh::UpdateInstanceModels(const std::vector<glm::mat4>& models)
@@ -123,32 +141,80 @@ void Mesh::UpdateInstancePhysicsIndices(const std::vector<int>& indices)
 
 void Mesh::Draw()
 {
+ if (!gpu_initialized_ || !mesh_data_)
+		return;
+
 	glBindVertexArray(VAO);
-	glDrawElements(MeshTypeToGL(type), static_cast<GLsizei>(meshData->indices.size()), GL_UNSIGNED_INT, nullptr);
+   glDrawElements(MeshTypeToGL(type), static_cast<GLsizei>(mesh_data_->indices.size()), GL_UNSIGNED_INT, nullptr);
 	glBindVertexArray(0);
 }
 
 void Mesh::DrawInstanced(GLsizei instanceCount)
 {
-	if (instanceCount <= 0)
+ if (instanceCount <= 0 || !gpu_initialized_ || !mesh_data_)
 		return;
 
 	glBindVertexArray(VAO);
-	glDrawElementsInstanced(MeshTypeToGL(type), static_cast<GLsizei>(meshData->indices.size()), GL_UNSIGNED_INT, nullptr, instanceCount);
+   glDrawElementsInstanced(MeshTypeToGL(type), static_cast<GLsizei>(mesh_data_->indices.size()), GL_UNSIGNED_INT, nullptr, instanceCount);
 	glBindVertexArray(0);
 }
 
+void Mesh::set_mesh_data(const MeshData& mdata) {
+	mesh_data_ = std::make_shared<MeshData>(mdata);
+	gpu_initialized_ = false;
+	status_ = asset_status::UNLOADED;
+}
+
+void Mesh::set_mesh_data(MeshData&& mdata) {
+	mesh_data_ = std::make_shared<MeshData>(std::move(mdata));
+	gpu_initialized_ = false;
+	status_ = asset_status::UNLOADED;
+}
+
+void Mesh::set_mesh_data(std::shared_ptr<MeshData> mdata) {
+	mesh_data_ = std::move(mdata);
+	if (!mesh_data_)
+		mesh_data_ = std::make_shared<MeshData>();
+	gpu_initialized_ = false;
+	status_ = asset_status::UNLOADED;
+}
+
+const std::shared_ptr<MeshData>& Mesh::get_mesh_data() const {
+	return mesh_data_;
+}
+
+bool Mesh::finalize() {
+	cleanup();
+
+	if (!HasValidMeshData())
+		return false;
+
+	Init();
+	status_ = gpu_initialized_ ? asset_status::LOADED : asset_status::FAILED;
+	return gpu_initialized_;
+}
+
 bool Mesh::is_vaild() {
-    return status_ == asset_status::LOADED;
+ return status_ == asset_status::LOADED && gpu_initialized_;
 }
 
 void Mesh::cleanup() {
-    if (is_vaild()) {
-        glDeleteBuffers(1, &VBO);
-        glDeleteBuffers(1, &EBO);
-        glDeleteBuffers(1, &instanceVBO);
-      glDeleteBuffers(1, &instancePhysicsIndexVBO);
-        glDeleteVertexArrays(1, &VAO);
-        status_ = asset_status::UNLOADED;
-    }
+   if (VBO != 0)
+		glDeleteBuffers(1, &VBO);
+	if (EBO != 0)
+		glDeleteBuffers(1, &EBO);
+	if (instanceVBO != 0)
+		glDeleteBuffers(1, &instanceVBO);
+	if (instancePhysicsIndexVBO != 0)
+		glDeleteBuffers(1, &instancePhysicsIndexVBO);
+	if (VAO != 0)
+		glDeleteVertexArrays(1, &VAO);
+
+	VAO = 0;
+	VBO = 0;
+	EBO = 0;
+	instanceVBO = 0;
+	instancePhysicsIndexVBO = 0;
+	gpu_initialized_ = false;
+	status_ = asset_status::UNLOADED;
 }

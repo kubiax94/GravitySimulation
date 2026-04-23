@@ -202,6 +202,13 @@
     <ClCompile Include="gpu_particle_system_component.cpp" />
     <ClCompile Include="gpu_fluid_system_component.cpp" />
     <ClCompile Include="fluid_scene.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="procedural_mesh_resource.cpp" />
+    <ClCompile Include="scene_loader.cpp" />
+    <ClCompile Include="planetary_ocean_resource.cpp" />
+    <ClCompile Include="loading_feedback_presenter.cpp" />
+    <ClCompile Include="terrain_mesh_resource.cpp" />
+    <ClCompile Include="ray_cast.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -318,6 +325,16 @@
     <ClInclude Include="gpu_fluid_system_component.h" />
     <ClInclude Include="fluid_scene.h" />
     <ClInclude Include="planet_terrain.h" />
+    <ClInclude Include="texture.h" />
+    <ClInclude Include="procedural_mesh_resource.h" />
+    <ClInclude Include="scene_loader.h" />
+    <ClInclude Include="planetary_ocean_resource.h" />
+    <ClInclude Include="loading_feedback_presenter.h" />
+    <ClInclude Include="terrain_mesh_resource.h" />
+    <ClInclude Include="bounding_box.h" />
+    <ClInclude Include="spatial_query.h" />
+    <ClInclude Include="collision_layers.h" />
+    <ClInclude Include="ray_cast.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />

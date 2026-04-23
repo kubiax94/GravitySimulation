@@ -5,6 +5,7 @@
 
 #include "engine_state.h"
 #include "gpu_fluid_system_component.h"
+#include "loading_feedback_presenter.h"
 #include "render_pipeline.h"
 #include "Scene.h"
 #include "Shader.h"
@@ -43,15 +44,20 @@ private:
     unsigned int planetary_water_atlas_history_texture_ = 0;
     int planetary_water_atlas_width_ = 0;
     int planetary_water_atlas_height_ = 0;
+    shader* bounding_box_shader_ = nullptr;
+    Mesh* bounding_box_mesh_ = nullptr;
     bool previous_left_mouse_down_ = false;
     bool previous_escape_down_ = false;
     bool previous_terrain_debug_down_ = false;
+    bool previous_bounding_box_debug_down_ = false;
   bool previous_fluid_debug_next_down_ = false;
     bool previous_fluid_debug_prev_down_ = false;
     std::array<bool, 4> previous_scene_switch_down_{};
     int terrain_debug_mode_ = 5;
  fluid_debug_visualization_mode fluid_debug_mode_ = fluid_debug_visualization_mode::none;
     bool focus_active_ = false;
+    bool loading_feedback_active_ = false;
+    bool draw_bounding_boxes_ = false;
     float focus_elapsed_ = 0.f;
     float focus_duration_ = 1.8f;
     glm::vec3 focus_start_position_ = glm::vec3(0.f);
@@ -60,6 +66,7 @@ private:
     glm::vec3 focus_look_at_ = glm::vec3(0.f);
     scene_node* focus_target_node_ = nullptr;
     scene_node* attached_camera_parent_ = nullptr;
+    std::unique_ptr<loading_feedback_presenter> loading_feedback_presenter_;
 
     void try_begin_focus();
     void update_camera_focus(float dt);
@@ -78,6 +85,9 @@ private:
     void render_planetary_water_atlas_input(const gpu_fluid_system_component& system);
     void render_planetary_water_shell(const gpu_fluid_system_component& system, const glm::vec3& light_position, const glm::vec3& light_color, float light_intensity);
     void render_particle_surface_composite();
+    void initialize_bounding_box_debug_resources();
+    void render_bounding_boxes(engine& engine);
+    void update_loading_feedback(engine& engine);
 
 public:
     simulation_state() = default;
@@ -90,4 +100,5 @@ public:
     void fixed_update(engine& engine, float dt) override;
     void update(engine& engine, float dt) override;
     void render(engine& engine) override;
+  virtual std::unique_ptr<loading_feedback_presenter> create_loading_feedback_presenter(engine& engine);
 };

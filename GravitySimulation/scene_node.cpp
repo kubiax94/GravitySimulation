@@ -1,5 +1,7 @@
 ﻿#include "scene_node.h"
 
+#include "Renderer.h"
+
 void scene_node::set_dirty(bool affect_non_translation) {
 	dirty_transform_ = true;
 	++transform_revision_;
@@ -78,6 +80,26 @@ void scene_node::remove_component(component* component) {
 	components_.erase(component->get_type_id());
 }
 
+void scene_node::set_collision_layer(collision_layer layer) {
+	collision_layer_mask_ = to_collision_mask(layer);
+}
+
+void scene_node::set_collision_layer_mask(collision_mask_t layer_mask) {
+	collision_layer_mask_ = layer_mask;
+}
+
+collision_mask_t scene_node::get_collision_layer_mask() const {
+	return collision_layer_mask_;
+}
+
+void scene_node::set_collision_query_mask(collision_mask_t query_mask) {
+	collision_query_mask_ = query_mask;
+}
+
+collision_mask_t scene_node::get_collision_query_mask() const {
+	return collision_query_mask_;
+}
+
 uuid scene_node::get_id() const {
 	return id_;
 }
@@ -103,6 +125,31 @@ void scene_node::update() {
 }
 
 void scene_node::draw() {
+}
+
+bounding_box scene_node::get_subtree_world_bounding_box() const {
+	bounding_box bounds;
+
+   const auto renderer_it = components_.find(get_type_id<renderer>());
+	if (renderer_it != components_.end()) {
+		if (auto* node_renderer = dynamic_cast<renderer*>(renderer_it->second))
+			bounds.encapsulate(node_renderer->get_world_bounding_box());
+	}
+
+	for (const auto& child : children_ | std::views::values) {
+		if (child)
+			bounds.encapsulate(child->get_subtree_world_bounding_box());
+	}
+
+	return bounds;
+}
+
+bounding_box scene_node::get_local_subtree_bounding_box() const {
+	bounding_box world_bounds = get_subtree_world_bounding_box();
+	if (!world_bounds.valid)
+		return world_bounds;
+
+	return transform_bounding_box(world_bounds, glm::inverse(get_global_matrix_model()));
 }
 
 const glm::vec3& scene_node::get_position() const {

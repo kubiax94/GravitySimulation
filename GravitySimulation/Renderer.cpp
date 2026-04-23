@@ -31,6 +31,21 @@ render_frame_context build_frame_context(Camera* camera) {
 
 	return frame_context;
 }
+
+bounding_box build_mesh_local_bounding_box(const Mesh* mesh, const glm::vec3& visual_scale) {
+	bounding_box bounds;
+	if (!mesh)
+		return bounds;
+
+	const auto& mesh_data = mesh->get_mesh_data();
+	if (!mesh_data)
+		return bounds;
+
+	for (const auto& vertex : mesh_data->vertecies)
+		bounds.encapsulate(vertex.Position * visual_scale);
+
+	return bounds;
+}
 }
 
 void renderer::draw(Camera* c, const std::function<void(shader&)>& pre_draw) const
@@ -66,4 +81,12 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
 	if (frame_context.use_gpu_positions && frame_context.physics_ssbo != 0)
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
 
+}
+
+bounding_box renderer::get_local_bounding_box() const {
+	return build_mesh_local_bounding_box(mesh_, visual_scale_ * renderer_scale);
+}
+
+bounding_box renderer::get_world_bounding_box() const {
+	return transform_bounding_box(get_local_bounding_box(), get_visual_model_matrix());
 }

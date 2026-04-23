@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
+#include <functional>
 #include <limits>
 #include <numeric>
 #include <queue>
@@ -12,9 +14,11 @@
 
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include "Mesh.h"
 #include "Shader.h"
 #include "fluid_particle.h"
 
@@ -326,6 +330,52 @@ struct ocean_flood_state
     std::vector<flooded_ocean_region> regions;
 };
 
+struct ocean_seed_generation_params
+{
+    size_t target_particle_count = 0u;
+    float base_radius = 1.0f;
+    float shell_thickness = 0.1f;
+    float particle_radius = 0.026f;
+    float coverage = -1.0f;
+    size_t candidate_count = 0u;
+    bool primary_regions_only = false;
+};
+
+struct ocean_seed_generation_result
+{
+    std::vector<fluid_particle> particles;
+    ocean_basin_graph basin_graph;
+    ocean_flood_state flood_state;
+    float resolved_shell_thickness = 0.0f;
+    float water_surface_radius = 0.0f;
+    float flooded_volume_ratio = 0.0f;
+    size_t effective_target_count = 0u;
+};
+
+using ocean_generation_progress_callback = std::function<void(float)>;
+
+enum class cube_face : std::uint8_t
+{
+    positive_x,
+    negative_x,
+    positive_y,
+    negative_y,
+    positive_z,
+    negative_z
+};
+
+struct terrain_patch_generation_params
+{
+    cube_face face = cube_face::positive_y;
+    uint32_t resolution = 32u;
+    glm::vec2 patch_min = glm::vec2(0.0f);
+    glm::vec2 patch_max = glm::vec2(1.0f);
+    float base_radius = 1.0f;
+    bool apply_displacement = true;
+};
+
+using terrain_generation_progress_callback = std::function<void(float)>;
+
 struct ocean_flood_debug_point
 {
     glm::vec3 normal = glm::vec3(0.f, 1.f, 0.f);
@@ -424,6 +474,94 @@ inline float terrain_surface_displacement_profiled(const glm::vec3& n, const roc
     const float displacement = (land_relief + ocean_shelf + mountain_relief) * profile.displacement_strength;
     const float max_upward_displacement = profile.displacement_strength * (0.55f + 0.40f * relief_strength);
     return glm::clamp(displacement, -profile.displacement_strength * 0.08f, max_upward_displacement);
+}
+
+inline glm::vec3 cube_face_point(cube_face face, const glm::vec2& patch_uv) {
+    const glm::vec2 cube_uv = glm::clamp(patch_uv, glm::vec2(0.0f), glm::vec2(1.0f)) * 2.0f - glm::vec2(1.0f);
+
+    switch (face) {
+    case cube_face::positive_x:
+        return glm::vec3(1.0f, -cube_uv.y, -cube_uv.x);
+    case cube_face::negative_x:
+        return glm::vec3(-1.0f, -cube_uv.y, cube_uv.x);
+    case cube_face::positive_y:
+        return glm::vec3(cube_uv.x, 1.0f, cube_uv.y);
+    case cube_face::negative_y:
+        return glm::vec3(cube_uv.x, -1.0f, -cube_uv.y);
+    case cube_face::positive_z:
+        return glm::vec3(cube_uv.x, -cube_uv.y, 1.0f);
+    case cube_face::negative_z:
+        return glm::vec3(-cube_uv.x, -cube_uv.y, -1.0f);
+    }
+
+    return glm::vec3(cube_uv.x, 1.0f, cube_uv.y);
+}
+
+inline glm::vec3 terrain_patch_surface_normal(cube_face face, const glm::vec2& patch_uv) {
+    return glm::normalize(cube_face_point(face, patch_uv));
+}
+
+inline glm::vec3 terrain_patch_surface_position(cube_face face, const glm::vec2& patch_uv, float base_radius, const rocky_planet_profile& profile, bool apply_displacement) {
+    const glm::vec3 normal = terrain_patch_surface_normal(face, patch_uv);
+    const float displacement = apply_displacement ? terrain_surface_displacement_profiled(normal, profile) : 0.0f;
+    return normal * (base_radius + displacement);
+}
+
+inline MeshData generate_terrain_patch_mesh(
+    const terrain_patch_generation_params& params,
+    const rocky_planet_profile& profile,
+    const terrain_generation_progress_callback& progress_callback = {}) {
+    MeshData mesh_data;
+    const auto report_progress = [&](float value) {
+        if (progress_callback)
+            progress_callback(glm::clamp(value, 0.0f, 1.0f));
+    };
+
+    const uint32_t resolution = std::max<uint32_t>(1u, params.resolution);
+    const uint32_t vertex_count_per_axis = resolution + 1u;
+    mesh_data.vertecies.reserve(static_cast<size_t>(vertex_count_per_axis) * static_cast<size_t>(vertex_count_per_axis));
+    mesh_data.indices.reserve(static_cast<size_t>(resolution) * static_cast<size_t>(resolution) * 6u);
+    report_progress(0.0f);
+
+    const glm::vec2 patch_span = params.patch_max - params.patch_min;
+    for (uint32_t y = 0u; y <= resolution; ++y) {
+        const float fy = static_cast<float>(y) / static_cast<float>(resolution);
+        for (uint32_t x = 0u; x <= resolution; ++x) {
+            const float fx = static_cast<float>(x) / static_cast<float>(resolution);
+            const glm::vec2 local_uv(fx, fy);
+            const glm::vec2 patch_uv = params.patch_min + patch_span * local_uv;
+
+            Vertex vertex{};
+            vertex.Position = terrain_patch_surface_position(params.face, patch_uv, params.base_radius, profile, params.apply_displacement);
+            vertex.Normal = terrain_patch_surface_normal(params.face, patch_uv);
+            vertex.TextCoords = local_uv;
+            mesh_data.vertecies.push_back(vertex);
+        }
+
+        report_progress(glm::mix(0.0f, 0.82f, static_cast<float>(y + 1u) / static_cast<float>(vertex_count_per_axis)));
+    }
+
+    for (uint32_t y = 0u; y < resolution; ++y) {
+        for (uint32_t x = 0u; x < resolution; ++x) {
+            const uint32_t i0 = y * vertex_count_per_axis + x;
+            const uint32_t i1 = i0 + 1u;
+            const uint32_t i2 = i0 + vertex_count_per_axis;
+            const uint32_t i3 = i2 + 1u;
+
+            mesh_data.indices.push_back(i0);
+            mesh_data.indices.push_back(i2);
+            mesh_data.indices.push_back(i1);
+
+            mesh_data.indices.push_back(i1);
+            mesh_data.indices.push_back(i2);
+            mesh_data.indices.push_back(i3);
+        }
+
+        report_progress(glm::mix(0.82f, 1.0f, static_cast<float>(y + 1u) / static_cast<float>(resolution)));
+    }
+
+    report_progress(1.0f);
+    return mesh_data;
 }
 
 inline std::vector<std::array<int, ocean_fill_neighbor_count>> build_fill_sample_neighbors(const std::vector<ocean_fill_sample>& samples) {
@@ -948,6 +1086,67 @@ inline ocean_flood_state build_ocean_flood_state(float base_radius, float shell_
     return build_ocean_flood_state(build_ocean_basin_graph(base_radius, profile, sample_count), base_radius, shell_thickness, particle_radius, coverage);
 }
 
+inline ocean_flood_state filter_to_primary_ocean_regions(
+    const ocean_basin_graph& basin_graph,
+    const ocean_flood_state& flood_state,
+    float shell_thickness) {
+    if (flood_state.regions.size() <= 1u)
+        return flood_state;
+
+    std::vector<float> region_scores(flood_state.regions.size(), 0.0f);
+    float best_score = 0.0f;
+    size_t best_region_index = 0u;
+    for (size_t region_index = 0; region_index < flood_state.regions.size(); ++region_index) {
+        const auto& region = flood_state.regions[region_index];
+        if (region.sample_indices.empty())
+            continue;
+
+        float depth_sum = 0.0f;
+        for (const size_t sample_index : region.sample_indices) {
+            const auto& sample = basin_graph.samples[sample_index];
+            depth_sum += glm::clamp(
+                region.water_surface_radius - sample.floor_radius,
+                0.0f,
+                glm::max(shell_thickness, 0.0001f));
+        }
+
+        const float average_depth = depth_sum / static_cast<float>(region.sample_indices.size());
+        const float score = static_cast<float>(region.sample_indices.size()) * (0.35f + average_depth / glm::max(shell_thickness, 0.0001f));
+        region_scores[region_index] = score;
+        if (score > best_score) {
+            best_score = score;
+            best_region_index = region_index;
+        }
+    }
+
+    ocean_flood_state filtered_state;
+    filtered_state.water_surface_radius = flood_state.water_surface_radius;
+    filtered_state.basin_region_indices.assign(flood_state.basin_region_indices.size(), -1);
+    filtered_state.sample_region_indices.assign(flood_state.sample_region_indices.size(), -1);
+
+    const float score_threshold = best_score * 0.18f;
+    const size_t sample_threshold = std::max<size_t>(32u, flood_state.regions[best_region_index].sample_indices.size() / 10u);
+    for (size_t region_index = 0; region_index < flood_state.regions.size(); ++region_index) {
+        const auto& region = flood_state.regions[region_index];
+        const bool keep_region = region_index == best_region_index
+            || (region.sample_indices.size() >= sample_threshold && region_scores[region_index] >= score_threshold);
+        if (!keep_region)
+            continue;
+
+        const int filtered_region_index = static_cast<int>(filtered_state.regions.size());
+        filtered_state.regions.push_back(region);
+        for (const size_t sample_index : region.sample_indices)
+            filtered_state.sample_region_indices[sample_index] = filtered_region_index;
+        for (const size_t basin_index : region.basin_indices)
+            filtered_state.basin_region_indices[basin_index] = filtered_region_index;
+    }
+
+    if (filtered_state.regions.empty())
+        return flood_state;
+
+    return filtered_state;
+}
+
 inline std::vector<ocean_flood_debug_point> build_ocean_flood_debug_points(const rocky_planet_profile& profile, size_t point_count = ocean_flood_debug_point_capacity, size_t sample_count = 1536u) {
     const auto basin_graph = build_ocean_basin_graph(1.0f, profile, sample_count);
     const auto flood_state = build_ocean_flood_state(basin_graph, 1.0f, 0.1f, 0.01f, profile.ocean_coverage);
@@ -1035,68 +1234,93 @@ inline fluid_particle make_ocean_particle(const glm::vec3& normal, float radius,
     return particle;
 }
 
-inline std::vector<fluid_particle> create_ocean_seed_particles(size_t target_count, float base_radius, float shell_thickness, const rocky_planet_profile& profile, float particle_radius = 0.026f) {
-    std::vector<fluid_particle> particles;
+inline ocean_seed_generation_result generate_ocean_seed_data(
+    const ocean_seed_generation_params& params,
+    const rocky_planet_profile& profile,
+    const ocean_generation_progress_callback& progress_callback = {}) {
+    ocean_seed_generation_result result;
+    const auto report_progress = [&](float value) {
+        if (progress_callback)
+            progress_callback(glm::clamp(value, 0.0f, 1.0f));
+    };
 
-    shell_thickness = resolved_ocean_shell_thickness(shell_thickness, particle_radius);
+    report_progress(0.0f);
 
-    const size_t candidate_count = std::max(target_count * profile.ocean_candidate_multiplier, target_count + 1u);
-    const auto basin_graph = build_ocean_basin_graph(base_radius, profile, candidate_count);
-    const auto flood_state = build_ocean_flood_state(basin_graph, base_radius, shell_thickness, particle_radius, profile.ocean_coverage);
-    const float water_surface_radius = flood_state.water_surface_radius;
-    const float max_surface_radius = base_radius + shell_thickness;
-    const double shell_capacity_volume_proxy = compute_shell_capacity_volume_proxy(basin_graph, max_surface_radius);
-    const double flooded_volume_proxy = compute_ocean_volume_proxy(basin_graph, flood_state, max_surface_radius);
-    const float flooded_volume_ratio = shell_capacity_volume_proxy > 0.0
+    const float coverage = params.coverage >= 0.0f
+        ? glm::clamp(params.coverage, 0.0f, 1.0f)
+        : glm::clamp(profile.ocean_coverage, 0.0f, 1.0f);
+
+    result.resolved_shell_thickness = resolved_ocean_shell_thickness(params.shell_thickness, params.particle_radius);
+    const size_t candidate_count = params.candidate_count > 0u
+        ? params.candidate_count
+        : std::max(params.target_particle_count * profile.ocean_candidate_multiplier, params.target_particle_count + 1u);
+    result.basin_graph = build_ocean_basin_graph(params.base_radius, profile, candidate_count);
+    report_progress(0.28f);
+    result.flood_state = build_ocean_flood_state(
+        result.basin_graph,
+        params.base_radius,
+        result.resolved_shell_thickness,
+        params.particle_radius,
+        coverage);
+    if (params.primary_regions_only)
+        result.flood_state = filter_to_primary_ocean_regions(result.basin_graph, result.flood_state, result.resolved_shell_thickness);
+    report_progress(0.45f);
+
+    result.water_surface_radius = result.flood_state.water_surface_radius;
+    const float max_surface_radius = params.base_radius + result.resolved_shell_thickness;
+    const double shell_capacity_volume_proxy = compute_shell_capacity_volume_proxy(result.basin_graph, max_surface_radius);
+    const double flooded_volume_proxy = compute_ocean_volume_proxy(result.basin_graph, result.flood_state, max_surface_radius);
+    result.flooded_volume_ratio = shell_capacity_volume_proxy > 0.0
         ? glm::clamp(static_cast<float>(flooded_volume_proxy / shell_capacity_volume_proxy), 0.0f, 1.0f)
         : 0.0f;
-    const size_t effective_target_count = target_count > 0u
-        ? std::max<size_t>(256u, static_cast<size_t>(std::round(static_cast<double>(target_count) * static_cast<double>(glm::clamp(flooded_volume_ratio, 0.02f, 1.0f)))))
+    result.effective_target_count = params.target_particle_count > 0u
+        ? std::max<size_t>(256u, static_cast<size_t>(std::round(static_cast<double>(params.target_particle_count) * static_cast<double>(glm::clamp(result.flooded_volume_ratio, 0.02f, 1.0f)))))
         : 0u;
-    particles.reserve(effective_target_count);
-    const float angular_jitter = glm::clamp((particle_radius / glm::max(base_radius, 0.0001f)) * 1.35f, 0.00075f, 0.032f);
+    result.particles.reserve(result.effective_target_count);
+    const float angular_jitter = glm::clamp((params.particle_radius / glm::max(params.base_radius, 0.0001f)) * 1.35f, 0.00075f, 0.032f);
+    report_progress(0.55f);
 
     const auto region_order = [&]() {
-        std::vector<size_t> ordered(flood_state.regions.size());
+        std::vector<size_t> ordered(result.flood_state.regions.size());
         for (size_t i = 0; i < ordered.size(); ++i)
             ordered[i] = i;
         std::sort(ordered.begin(), ordered.end(), [&](size_t lhs, size_t rhs) {
-            return flood_state.regions[lhs].minimum_floor_radius < flood_state.regions[rhs].minimum_floor_radius;
+            return result.flood_state.regions[lhs].minimum_floor_radius < result.flood_state.regions[rhs].minimum_floor_radius;
         });
         return ordered;
     }();
 
     size_t total_flooded_samples = 0u;
-    for (const flooded_ocean_region& region : flood_state.regions)
+    for (const flooded_ocean_region& region : result.flood_state.regions)
         total_flooded_samples += region.sample_indices.size();
 
-    std::vector<size_t> region_allocations(flood_state.regions.size(), 0u);
+    std::vector<size_t> region_allocations(result.flood_state.regions.size(), 0u);
     size_t allocated_particles = 0u;
     if (total_flooded_samples > 0u) {
         for (const size_t region_index : region_order) {
-            const size_t sample_count_in_region = flood_state.regions[region_index].sample_indices.size();
+            const size_t sample_count_in_region = result.flood_state.regions[region_index].sample_indices.size();
             const size_t allocation = std::min(
                 sample_count_in_region,
-                static_cast<size_t>(std::round(static_cast<double>(effective_target_count) * static_cast<double>(sample_count_in_region) / static_cast<double>(total_flooded_samples))));
+                static_cast<size_t>(std::round(static_cast<double>(result.effective_target_count) * static_cast<double>(sample_count_in_region) / static_cast<double>(total_flooded_samples))));
             region_allocations[region_index] = allocation;
             allocated_particles += allocation;
         }
 
         for (const size_t region_index : region_order) {
-            if (allocated_particles >= effective_target_count)
+            if (allocated_particles >= result.effective_target_count)
                 break;
-            if (region_allocations[region_index] == 0u && !flood_state.regions[region_index].sample_indices.empty()) {
+            if (region_allocations[region_index] == 0u && !result.flood_state.regions[region_index].sample_indices.empty()) {
                 region_allocations[region_index] = 1u;
                 ++allocated_particles;
             }
         }
 
-        while (allocated_particles < effective_target_count) {
+        while (allocated_particles < result.effective_target_count) {
             bool added_any = false;
             for (const size_t region_index : region_order) {
-                if (allocated_particles >= effective_target_count)
+                if (allocated_particles >= result.effective_target_count)
                     break;
-                if (region_allocations[region_index] >= flood_state.regions[region_index].sample_indices.size())
+                if (region_allocations[region_index] >= result.flood_state.regions[region_index].sample_indices.size())
                     continue;
 
                 ++region_allocations[region_index];
@@ -1109,14 +1333,18 @@ inline std::vector<fluid_particle> create_ocean_seed_particles(size_t target_cou
         }
     }
 
+    report_progress(0.62f);
+
+    const float weighted_sampling_start = 0.62f;
+    const float weighted_sampling_end = 0.9f;
     for (const size_t region_index : region_order) {
-        const auto& region_samples = flood_state.regions[region_index].sample_indices;
+        const auto& region_samples = result.flood_state.regions[region_index].sample_indices;
         const size_t allocation = std::min(region_allocations[region_index], region_samples.size());
         std::vector<float> cumulative_weights(region_samples.size(), 0.0f);
         float total_weight = 0.0f;
         for (size_t sample_slot = 0; sample_slot < region_samples.size(); ++sample_slot) {
-            const ocean_fill_sample& sample = basin_graph.samples[region_samples[sample_slot]];
-            const float depth01 = ocean_seed_depth01(sample.floor_radius, water_surface_radius, shell_thickness);
+            const ocean_fill_sample& sample = result.basin_graph.samples[region_samples[sample_slot]];
+            const float depth01 = ocean_seed_depth01(sample.floor_radius, result.water_surface_radius, result.resolved_shell_thickness);
             const float weight = 0.08f + std::pow(depth01, 1.6f) * 3.4f;
             total_weight += weight;
             cumulative_weights[sample_slot] = total_weight;
@@ -1129,34 +1357,55 @@ inline std::vector<fluid_particle> create_ocean_seed_particles(size_t target_cou
                 selection_index = static_cast<size_t>(std::lower_bound(cumulative_weights.begin(), cumulative_weights.end(), target) - cumulative_weights.begin());
                 selection_index = std::min(selection_index, region_samples.size() - 1u);
             }
-            const ocean_fill_sample& sample = basin_graph.samples[region_samples[selection_index]];
-            const float depth01 = ocean_seed_depth01(sample.floor_radius, water_surface_radius, shell_thickness);
+            const ocean_fill_sample& sample = result.basin_graph.samples[region_samples[selection_index]];
+            const float depth01 = ocean_seed_depth01(sample.floor_radius, result.water_surface_radius, result.resolved_shell_thickness);
             const float shell_fill = glm::clamp(0.1f + depth01 * 0.22f + seed_hash01(region_index * 4099u + i * 17u) * 0.34f, 0.08f, 0.68f);
-            const float radius = glm::mix(sample.floor_radius, water_surface_radius, shell_fill);
+            const float radius = glm::mix(sample.floor_radius, result.water_surface_radius, shell_fill);
             const glm::vec3 seed_normal = jitter_ocean_seed_normal(sample.normal, angular_jitter, region_index * 8191u + i * 131u);
-            particles.push_back(make_ocean_particle(seed_normal, radius, depth01, profile.ocean_motion_scale));
+            result.particles.push_back(make_ocean_particle(seed_normal, radius, depth01, profile.ocean_motion_scale));
+
+            if (result.effective_target_count > 0u) {
+                const float region_fill_ratio = static_cast<float>(result.particles.size()) / static_cast<float>(result.effective_target_count);
+                report_progress(glm::mix(weighted_sampling_start, weighted_sampling_end, glm::clamp(region_fill_ratio, 0.0f, 1.0f)));
+            }
         }
     }
 
-    const size_t fallback_count = effective_target_count > particles.size() ? effective_target_count - particles.size() : 0u;
+    const size_t fallback_count = result.effective_target_count > result.particles.size() ? result.effective_target_count - result.particles.size() : 0u;
     std::vector<size_t> flooded_sample_indices;
     flooded_sample_indices.reserve(total_flooded_samples);
-    for (const flooded_ocean_region& region : flood_state.regions)
+    for (const flooded_ocean_region& region : result.flood_state.regions)
         flooded_sample_indices.insert(flooded_sample_indices.end(), region.sample_indices.begin(), region.sample_indices.end());
 
     for (size_t i = 0; i < fallback_count; ++i) {
         if (flooded_sample_indices.empty())
             break;
 
-        const size_t selection_index = static_cast<size_t>(seed_hash01(i * 313u + particles.size() * 17u) * static_cast<float>(flooded_sample_indices.size()));
-        const ocean_fill_sample& sample = basin_graph.samples[flooded_sample_indices[std::min(selection_index, flooded_sample_indices.size() - 1u)]];
-        const float depth01 = ocean_seed_depth01(sample.floor_radius, water_surface_radius, shell_thickness);
-        const float radius = glm::clamp(glm::mix(sample.floor_radius, water_surface_radius, 0.12f + seed_hash01(i * 911u + 5u) * 0.4f), sample.floor_radius, water_surface_radius);
+        const size_t selection_index = static_cast<size_t>(seed_hash01(i * 313u + result.particles.size() * 17u) * static_cast<float>(flooded_sample_indices.size()));
+        const ocean_fill_sample& sample = result.basin_graph.samples[flooded_sample_indices[std::min(selection_index, flooded_sample_indices.size() - 1u)]];
+        const float depth01 = ocean_seed_depth01(sample.floor_radius, result.water_surface_radius, result.resolved_shell_thickness);
+        const float radius = glm::clamp(glm::mix(sample.floor_radius, result.water_surface_radius, 0.12f + seed_hash01(i * 911u + 5u) * 0.4f), sample.floor_radius, result.water_surface_radius);
         const glm::vec3 seed_normal = jitter_ocean_seed_normal(sample.normal, angular_jitter, i * 65537u + 29u);
-        particles.push_back(make_ocean_particle(seed_normal, radius, depth01 * 0.85f, profile.ocean_motion_scale * 0.25f));
+        result.particles.push_back(make_ocean_particle(seed_normal, radius, depth01 * 0.85f, profile.ocean_motion_scale * 0.25f));
+
+        if (fallback_count > 0u) {
+            const float fallback_ratio = static_cast<float>(i + 1u) / static_cast<float>(fallback_count);
+            report_progress(glm::mix(0.9f, 0.98f, glm::clamp(fallback_ratio, 0.0f, 1.0f)));
+        }
     }
 
-    return particles;
+    report_progress(1.0f);
+    return result;
+}
+
+inline std::vector<fluid_particle> create_ocean_seed_particles(size_t target_count, float base_radius, float shell_thickness, const rocky_planet_profile& profile, float particle_radius = 0.026f) {
+    ocean_seed_generation_params params;
+    params.target_particle_count = target_count;
+    params.base_radius = base_radius;
+    params.shell_thickness = shell_thickness;
+    params.particle_radius = particle_radius;
+    params.coverage = profile.ocean_coverage;
+    return generate_ocean_seed_data(params, profile).particles;
 }
 
 inline void apply_ocean_flood_debug(shader& rocky_shader, const rocky_planet_profile& profile) {

@@ -6,6 +6,7 @@
 #include <functional>
 
 #ifdef RENDERER_HEADLESS
+#include "bounding_box.h"
 #include "transformable.h"
 
 class shader;
@@ -15,6 +16,7 @@ class Camera;
 #include "Shader.h"
 #include "Mesh.h"
 #include "Camera.h"
+#include "bounding_box.h"
 #endif
 
 struct render_frame_context {
@@ -75,6 +77,8 @@ public:
 	[[nodiscard]] bool uses_gpu_driven_positions() const;
 	void set_gpu_physics_index(int index);
 	[[nodiscard]] int get_gpu_physics_index() const;
+  [[nodiscard]] bounding_box get_local_bounding_box() const;
+	[[nodiscard]] bounding_box get_world_bounding_box() const;
 	shader* get_shader() const { return shader_; }
 	Mesh* get_mesh() const { return mesh_; }
 };

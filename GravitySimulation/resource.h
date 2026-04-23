@@ -30,6 +30,7 @@ class resource : public async_base<bool>
 	resource_type type_ = resource_type::UNKNOWN;
 	resource_status status_ = resource_status::UNLOADED;
 	std::string name_;
+	std::string source_path_;
 
     resource_status get_status_() const {
 		return status_;
@@ -86,6 +87,14 @@ class resource : public async_base<bool>
 
 	void set_name(const std::string& name) {
 		name_ = name;
+	}
+
+	const std::string& get_source_path() const {
+		return source_path_;
+	}
+
+	void set_source_path(const std::string& source_path) {
+		source_path_ = source_path;
 	}
 };
 

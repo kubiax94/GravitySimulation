@@ -79,9 +79,14 @@ void scene::init() {
 		}
 
 	}
+
+	if (!scene_loader_.is_started() && scene_loader_.get_total_resources() > 0u)
+		scene_loader_.start();
 }
 
 void scene::update() {
+   scene_loader_.update();
+
 	const float dt = time_->fixed_delta_time;
     std::unordered_set<uuid> gpu_driven_nodes;
 	gpu_driven_nodes.reserve(renderers_.size());

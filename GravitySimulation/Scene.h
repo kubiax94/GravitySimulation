@@ -13,6 +13,7 @@
 #include "Time.h"
 #include "asset_manager.h"
 #include "physics_system.h"
+#include "scene_loader.h"
 
 
 class renderer;
@@ -30,6 +31,7 @@ class scene : public i_scene_manager
    std::vector<gpu_particle_system_component*> gpu_particle_systems_;
 	sim::time* time_;
 	asset_manager asset_manager_;
+	scene_loader scene_loader_;
 
 	unit_system* unit_sys_;
 	physics_system physics_;
@@ -62,6 +64,8 @@ public:
 	[[nodiscard]] float get_simulation_speed() const { return physics_.get_simulation_speed(); }
 	asset_manager& get_asset_manager() { return asset_manager_; }
 	const asset_manager& get_asset_manager() const { return asset_manager_; }
+	scene_loader& get_scene_loader() { return scene_loader_; }
+	const scene_loader& get_scene_loader() const { return scene_loader_; }
 
 	void add_to_scene(scene_node* n_node) const;
 	[[nodiscard]] scene_node* create_scene_node(const std::string& n_name);

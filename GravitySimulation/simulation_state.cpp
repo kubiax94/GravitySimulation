@@ -20,6 +20,8 @@
 #include "gpu_fluid_system_component.h"
 #include "gpu_particle_system_component.h"
 #include "input_system.h"
+#include "ray_cast.h"
+#include "spatial_query.h"
 
 namespace {
 struct focus_pick_result {
@@ -153,6 +155,34 @@ MeshData create_fullscreen_quad_mesh() {
     return data;
 }
 
+MeshData create_bounding_box_line_mesh() {
+    MeshData data;
+    const glm::vec3 corners[] = {
+        {-0.5f, -0.5f, -0.5f},
+        { 0.5f, -0.5f, -0.5f},
+        {-0.5f,  0.5f, -0.5f},
+        { 0.5f,  0.5f, -0.5f},
+        {-0.5f, -0.5f,  0.5f},
+        { 0.5f, -0.5f,  0.5f},
+        {-0.5f,  0.5f,  0.5f},
+        { 0.5f,  0.5f,  0.5f}
+    };
+
+    for (const auto& corner : corners) {
+        Vertex vertex{};
+        vertex.Position = corner;
+        vertex.Normal = glm::vec3(0.f, 1.f, 0.f);
+        data.vertecies.push_back(vertex);
+    }
+
+    data.indices = {
+        0u, 1u, 1u, 3u, 3u, 2u, 2u, 0u,
+        4u, 5u, 5u, 7u, 7u, 6u, 6u, 4u,
+        0u, 4u, 1u, 5u, 2u, 6u, 3u, 7u
+    };
+    return data;
+}
+
 float estimate_renderer_radius(const renderer& render) {
     const glm::mat4 model = render.get_visual_model_matrix_without_translation();
     return std::max({
@@ -196,42 +226,22 @@ std::optional<focus_pick_result> pick_renderer_from_mouse(const scene& scene_con
     const float aspect = static_cast<float>(window_width) / static_cast<float>(window_height);
     const glm::mat4 view = camera.GetViewMatrix();
     const glm::mat4 projection = camera.GetProjectionMatrix(aspect);
+    const glm::mat4 inverse_view_projection = glm::inverse(projection * view);
+    const world_ray pick_ray = make_world_ray_from_screen(glm::vec2(mouse_pos.x, mouse_pos.y), glm::ivec2(window_width, window_height), inverse_view_projection);
 
-    float best_score = std::numeric_limits<float>::max();
-    std::optional<focus_pick_result> best_pick;
+    ray_cast picker(pick_ray);
+    if (!picker.cast(scene_context))
+        return std::nullopt;
 
-    for (auto* render : scene_context.get_renderers()) {
-        if (!render || !render->get_node() || !render->get_mesh() || render->get_mesh()->type == MeshType::LINES)
-            continue;
+    const ray_cast_hit* closest_hit = picker.get_closest_hit();
+    if (!closest_hit || !closest_hit->render)
+        return std::nullopt;
 
-        const glm::vec3 world_position = render->get_node()->get_global_position();
-        const glm::vec4 clip = projection * view * glm::vec4(world_position, 1.f);
-        if (clip.w <= 0.0001f)
-            continue;
-
-        const glm::vec3 ndc = glm::vec3(clip) / clip.w;
-        if (ndc.z < -1.f || ndc.z > 1.f)
-            continue;
-
-        const glm::vec2 screen(
-            (ndc.x * 0.5f + 0.5f) * static_cast<float>(window_width),
-            (1.f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(window_height));
-        const glm::vec2 delta = screen - glm::vec2(mouse_pos.x, mouse_pos.y);
-        const float distance_sq = glm::dot(delta, delta);
-
-        const float world_radius = estimate_renderer_radius(*render);
-        const float projected_radius = std::max(10.f, world_radius * 160.f / std::max(clip.w, 1.f));
-        if (distance_sq > projected_radius * projected_radius)
-            continue;
-
-        const float score = distance_sq + (ndc.z + 1.f) * 250.f;
-        if (score < best_score) {
-            best_score = score;
-            best_pick = focus_pick_result{ render, world_position, world_radius };
-        }
-    }
-
-    return best_pick;
+    return focus_pick_result{
+        closest_hit->render,
+        closest_hit->bounds.get_center(),
+        estimate_renderer_radius(*closest_hit->render)
+    };
 }
 
 float compute_particle_surface_detail_blend(const scene& scene_context, Camera& camera) {
@@ -777,9 +787,13 @@ void simulation_state::on_enter(engine& engine) {
     if (!scene_)
         scene_ = create_example_scene(scene_kind_, &engine.get_time());
 
+    loading_feedback_presenter_ = create_loading_feedback_presenter(engine);
+    loading_feedback_active_ = false;
     scene_->init();
+    initialize_bounding_box_debug_resources();
     initialize_particle_surface_composite_resources();
     cam_ = scene_->get_main_camera();
+    update_loading_feedback(engine);
 
     for (auto* system : scene_->get_gpu_fluid_systems()) {
         if (system)
@@ -791,6 +805,10 @@ void simulation_state::on_enter(engine& engine) {
 }
 
 void simulation_state::on_exit(engine& engine) {
+ if (scene_ && loading_feedback_presenter_ && loading_feedback_active_)
+        loading_feedback_presenter_->on_loading_complete(engine, *scene_, scene_->get_scene_loader());
+    loading_feedback_presenter_.reset();
+    loading_feedback_active_ = false;
     cam_ = nullptr;
     release_scene_depth_texture();
     release_planetary_water_atlas_resources();
@@ -817,6 +835,9 @@ void simulation_state::handle_input(engine& engine, float dt) {
 
     if (poll_toggle_key(GLFW_KEY_H, previous_terrain_debug_down_))
         terrain_debug_mode_ = (terrain_debug_mode_ + 1) % 6;
+
+    if (poll_toggle_key(GLFW_KEY_B, previous_bounding_box_debug_down_))
+        draw_bounding_boxes_ = !draw_bounding_boxes_;
 
     bool fluid_debug_mode_changed = false;
     if (poll_toggle_key(GLFW_KEY_J, previous_fluid_debug_next_down_)) {
@@ -869,6 +890,8 @@ void simulation_state::fixed_update(engine& engine, float dt) {
 void simulation_state::update(engine& engine, float dt) {
     if (!scene_)
         return;
+
+    update_loading_feedback(engine);
 
     auto section = engine.get_frame_profiler().measure("scene_sync_render");
     scene_->sync_render();
@@ -970,6 +993,110 @@ void simulation_state::render(engine& engine) {
 
         system->draw(cam_, system->requires_scene_depth_texture() ? scene_depth_texture_ : 0);
     }
+
+    render_bounding_boxes(engine);
+
+    if (loading_feedback_presenter_)
+        loading_feedback_presenter_->render(engine, *scene_, scene_->get_scene_loader());
+}
+
+void simulation_state::initialize_bounding_box_debug_resources() {
+    if (!scene_)
+        return;
+
+    auto& assets = scene_->get_asset_manager();
+    if (!bounding_box_shader_)
+        bounding_box_shader_ = assets.create_shader("debug.bounding_box", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
+
+    if (!bounding_box_mesh_) {
+        static MeshData bounding_box_line_mesh = create_bounding_box_line_mesh();
+        bounding_box_mesh_ = assets.create_mesh(bounding_box_line_mesh);
+        if (bounding_box_mesh_)
+            bounding_box_mesh_->type = MeshType::LINES;
+    }
+}
+
+void simulation_state::render_bounding_boxes(engine& engine) {
+    if (!draw_bounding_boxes_ || !scene_ || !cam_ || !bounding_box_shader_ || !bounding_box_mesh_)
+        return;
+
+    render_frame_context frame_context;
+    if (GLFWwindow* window = engine.get_window()) {
+        int framebuffer_width = 0;
+        int framebuffer_height = 0;
+        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+        const float aspect = framebuffer_height == 0 ? 1.0f : static_cast<float>(framebuffer_width) / static_cast<float>(framebuffer_height);
+        frame_context.projection = cam_->GetProjectionMatrix(aspect);
+        frame_context.view = cam_->GetViewMatrix();
+        frame_context.camera_position = cam_->get_node()->get_global_position();
+    }
+
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    for (auto* render : scene_->get_renderers()) {
+        if (!render || !render->get_node())
+            continue;
+
+        const bounding_box world_bounds = render->get_node()->get_subtree_world_bounding_box();
+        if (!world_bounds.valid)
+            continue;
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), world_bounds.get_center());
+        model = glm::scale(model, world_bounds.get_size());
+
+        bounding_box_shader_->use();
+        bounding_box_shader_->set_uni_int("useInstancing", 0);
+        bounding_box_shader_->set_uni_int("useGpuPositions", 0);
+        bounding_box_shader_->set_uni_int("instanceBaseIndex", 0);
+        bounding_box_shader_->set_uni_int("physicsBodyIndex", -1);
+        bounding_box_shader_->set_uniform_mat4("view", frame_context.view);
+        bounding_box_shader_->set_uniform_mat4("projection", frame_context.projection);
+        bounding_box_shader_->set_uniform_mat4("model", model);
+        bounding_box_shader_->set_uni_vec3("viewPos", frame_context.camera_position);
+        bounding_box_shader_->set_uni_vec3("lightPos", frame_context.camera_position + glm::vec3(0.0f, 0.0f, 10.0f));
+        bounding_box_shader_->set_uni_vec3("lightColor", glm::vec3(0.25f, 0.95f, 0.35f));
+        bounding_box_shader_->set_uni_vec3("objectColor", glm::vec3(0.25f, 0.95f, 0.35f));
+        bounding_box_mesh_->Draw();
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glEnable(GL_CULL_FACE);
+}
+
+void simulation_state::update_loading_feedback(engine& engine) {
+    if (!scene_ || !loading_feedback_presenter_)
+        return;
+
+    auto& loader = scene_->get_scene_loader();
+    if (!loader.is_started())
+        return;
+
+    if (!loading_feedback_active_) {
+        loading_feedback_presenter_->on_loading_begin(engine, *scene_, loader);
+        loading_feedback_active_ = true;
+    }
+
+    if (loader.is_failed()) {
+        loading_feedback_presenter_->on_loading_failed(engine, *scene_, loader);
+        loading_feedback_active_ = false;
+        return;
+    }
+
+    if (loader.is_completed()) {
+        loading_feedback_presenter_->on_loading_complete(engine, *scene_, loader);
+        loading_feedback_active_ = false;
+        return;
+    }
+
+    loading_feedback_presenter_->on_loading_update(engine, *scene_, loader);
+}
+
+std::unique_ptr<loading_feedback_presenter> simulation_state::create_loading_feedback_presenter(engine& engine) {
+    return std::make_unique<window_title_loading_feedback>(build_window_title(scene_kind_));
 }
 
 void simulation_state::try_begin_focus() {

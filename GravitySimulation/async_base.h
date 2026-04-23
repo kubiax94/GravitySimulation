@@ -55,6 +55,17 @@ protected:
 	std::chrono::steady_clock::time_point start_time_;
 	std::chrono::microseconds max_execution_time_{ std::chrono::hours(1) };
 
+	void report_progress(float value) {
+		const float clamped = std::clamp(value, 0.0f, 1.0f);
+		progress_ = clamped;
+		if (on_progress_)
+			on_progress_(clamped);
+	}
+
+	void advance_progress(float delta) {
+		report_progress(progress_.load() + delta);
+	}
+
 	bool should_continue_execution() {
 		if (should_cancel_) return false;
 
@@ -79,8 +90,8 @@ public:
 	virtual ResultType execute_task() = 0;
 
 	std::future<ResultType> execute_async(async_priority priority = async_priority::MEDIUM) {
-		if (is_processing())
-			return std::move(future_);
+        if (is_processing())
+			return std::future<ResultType>();
 
 		priority_ = priority;
 		status_ = async_status::PROCESSING;
@@ -113,7 +124,7 @@ public:
 				throw;
 			}
 		});
-		return std::move(future_);
+      return std::future<ResultType>();
 
 	}
 
@@ -145,6 +156,7 @@ public:
 	void set_timeout(const std::chrono::milliseconds& timeout) { max_execution_time_ = timeout; }
 	void set_cancellation_condition(const std::function<bool()>& condition) { should_continue_ = condition; }
 	void set_priority(const async_priority& priority) { priority_ = priority; }
+	void set_progress_callback(const std::function<void(float)>& callback) { on_progress_ = callback; }
 
 	bool is_completed() const { return status_ == async_status::COMPLETED; }
 	bool is_canceled() const { return status_ == async_status::CANCELLED; }
@@ -198,11 +210,13 @@ public:
 				return std::nullopt;
 			}
 		}
+
+		return std::nullopt;
 	}
 
 private:
 	ResultType execution_with_control() {
-		if (!should_continue_)
+      if (should_continue_ && !should_continue_())
 		{
 			throw std::runtime_error("Operation was cancelled before execution");
 		}

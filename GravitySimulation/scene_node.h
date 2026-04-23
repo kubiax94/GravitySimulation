@@ -1,9 +1,12 @@
 ﻿#pragma once
 
 #include <iostream>
+#include <cstdint>
 #include <unordered_map>
 #include <ranges>
 
+#include "bounding_box.h"
+#include "collision_layers.h"
 #include "Transform.h"
 #include "Component.h"
 
@@ -48,6 +51,8 @@ private:
 
 	std::unordered_map<std::string, scene_node*> children_;
 	std::unordered_map<type_id_t, component*> components_;
+	collision_mask_t collision_layer_mask_ = to_collision_mask(collision_layer::default_layer);
+	collision_mask_t collision_query_mask_ = collision_mask_all;
 
    transform transform_;
 	mutable bool dirty_transform_ = true;
@@ -104,6 +109,8 @@ public:
 
 	virtual void update();
 	virtual void draw();
+	[[nodiscard]] bounding_box get_subtree_world_bounding_box() const;
+	[[nodiscard]] bounding_box get_local_subtree_bounding_box() const;
 
 	const transform& get_transform() const;
 	void set_transform(const transform& new_transform);
@@ -139,6 +146,11 @@ public:
 	void set_scale(const float& x, const float& y, const float& z) override;
 
 	void remove_component(component* component);
+	void set_collision_layer(collision_layer layer);
+	void set_collision_layer_mask(collision_mask_t layer_mask);
+	[[nodiscard]] collision_mask_t get_collision_layer_mask() const;
+	void set_collision_query_mask(collision_mask_t query_mask);
+	[[nodiscard]] collision_mask_t get_collision_query_mask() const;
 
 	uuid get_id() const;
 	[[nodiscard]] uint64_t get_transform_revision() const;

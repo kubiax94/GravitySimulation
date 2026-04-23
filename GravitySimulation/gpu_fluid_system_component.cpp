@@ -123,66 +123,6 @@ void report_planetary_hydrology_debug(
     std::cout << stream.str() << std::endl;
 }
 
-planet_terrain::ocean_flood_state filter_to_primary_ocean_regions(
-    const planet_terrain::ocean_basin_graph& basin_graph,
-    const planet_terrain::ocean_flood_state& flood_state,
-    float shell_thickness) {
-    if (flood_state.regions.size() <= 1u)
-        return flood_state;
-
-    std::vector<float> region_scores(flood_state.regions.size(), 0.0f);
-    float best_score = 0.0f;
-    size_t best_region_index = 0u;
-    for (size_t region_index = 0; region_index < flood_state.regions.size(); ++region_index) {
-        const auto& region = flood_state.regions[region_index];
-        if (region.sample_indices.empty())
-            continue;
-
-        float depth_sum = 0.0f;
-        for (const size_t sample_index : region.sample_indices) {
-            const auto& sample = basin_graph.samples[sample_index];
-            depth_sum += glm::clamp(
-                region.water_surface_radius - sample.floor_radius,
-                0.0f,
-                glm::max(shell_thickness, 0.0001f));
-        }
-
-        const float average_depth = depth_sum / static_cast<float>(region.sample_indices.size());
-        const float score = static_cast<float>(region.sample_indices.size()) * (0.35f + average_depth / glm::max(shell_thickness, 0.0001f));
-        region_scores[region_index] = score;
-        if (score > best_score) {
-            best_score = score;
-            best_region_index = region_index;
-        }
-    }
-
-    planet_terrain::ocean_flood_state filtered_state;
-    filtered_state.water_surface_radius = flood_state.water_surface_radius;
-    filtered_state.basin_region_indices.assign(flood_state.basin_region_indices.size(), -1);
-    filtered_state.sample_region_indices.assign(flood_state.sample_region_indices.size(), -1);
-
-    const float score_threshold = best_score * 0.18f;
-    const size_t sample_threshold = std::max<size_t>(32u, flood_state.regions[best_region_index].sample_indices.size() / 10u);
-    for (size_t region_index = 0; region_index < flood_state.regions.size(); ++region_index) {
-        const auto& region = flood_state.regions[region_index];
-        const bool keep_region = region_index == best_region_index
-            || (region.sample_indices.size() >= sample_threshold && region_scores[region_index] >= score_threshold);
-        if (!keep_region)
-            continue;
-
-        const int filtered_region_index = static_cast<int>(filtered_state.regions.size());
-        filtered_state.regions.push_back(region);
-        for (const size_t sample_index : region.sample_indices)
-            filtered_state.sample_region_indices[sample_index] = filtered_region_index;
-        for (const size_t basin_index : region.basin_indices)
-            filtered_state.basin_region_indices[basin_index] = filtered_region_index;
-    }
-
-    if (filtered_state.regions.empty())
-        return flood_state;
-
-    return filtered_state;
-}
 }
 
 gpu_fluid_system_component::gpu_fluid_system_component(scene_node* owner,
@@ -441,14 +381,18 @@ void gpu_fluid_system_component::rebuild_planetary_flood_guidance() {
     if (!planetary_surface_enabled_ || !planetary_terrain_enabled_ || planetary_water_coverage_ <= 0.0f)
         return;
 
-    const auto basin_graph = planet_terrain::build_ocean_basin_graph(planetary_radius_, planetary_terrain_profile_, planetary_flood_guidance_sample_count);
-    const auto raw_flood_state = planet_terrain::build_ocean_flood_state(
-        basin_graph,
-        planetary_radius_,
-        planetary_shell_thickness_,
-        particle_radius_,
-        planetary_water_coverage_);
-    const auto flood_state = filter_to_primary_ocean_regions(basin_graph, raw_flood_state, planetary_shell_thickness_);
+    planet_terrain::ocean_seed_generation_params params;
+    params.target_particle_count = particle_count_;
+    params.base_radius = planetary_radius_;
+    params.shell_thickness = planetary_shell_thickness_;
+    params.particle_radius = particle_radius_;
+    params.coverage = planetary_water_coverage_;
+    params.candidate_count = planetary_flood_guidance_sample_count;
+    params.primary_regions_only = true;
+
+    const auto ocean_seed_data = planet_terrain::generate_ocean_seed_data(params, planetary_terrain_profile_);
+    const auto& basin_graph = ocean_seed_data.basin_graph;
+    const auto& flood_state = ocean_seed_data.flood_state;
 
     if (basin_graph.samples.empty())
         return;
