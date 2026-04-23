@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -174,7 +174,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\GravitySimulation\asset.cpp">
+        <ClCompile Include="..\GravitySimulation\aabb_collider.cpp">`r`n      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />`r`n      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />`r`n      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />`r`n      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />`r`n    </ClCompile>`r`n<ClCompile Include="..\GravitySimulation\asset.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -454,7 +454,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="pch.h" />`r`n    <ClInclude Include="..\GravitySimulation\aabb_collider.h" />`r`n    <ClInclude Include="..\GravitySimulation\collider.h" />
     <ClInclude Include="..\GravitySimulation\spatial_query.h" />
     <ClInclude Include="..\GravitySimulation\ray_cast.h" />
     <ClInclude Include="..\GravitySimulation\collision_layers.h" />
@@ -466,3 +466,4 @@
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
+

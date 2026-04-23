@@ -116,6 +116,10 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+    <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
+    <MinimalRebuild>false</MinimalRebuild>
+    <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,6 +136,10 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+    <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
+    <MinimalRebuild>false</MinimalRebuild>
+    <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,11 +152,13 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c" />
     <ClCompile Include="asset.cpp" />
+    <ClCompile Include="aabb_collider.cpp" />
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="async_base.cpp" />
     <ClCompile Include="base_manager.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="cloth_scene.cpp" />
+    <ClCompile Include="collision_debug_scene.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="compute_group.cpp" />
     <ClCompile Include="compute_shader.cpp" />
@@ -181,11 +191,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="asset.h" />
+    <ClInclude Include="aabb_collider.h" />
     <ClInclude Include="asset_manager.h" />
     <ClInclude Include="async_base.h" />
     <ClInclude Include="base_manager.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="cloth_scene.h" />
+    <ClInclude Include="collision_data.h" />
+    <ClInclude Include="collision_debug_logger_component.h" />
+    <ClInclude Include="collision_contact_data.h" />
+    <ClInclude Include="collision_debug_scene.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="compute_group.h" />
     <ClInclude Include="compute_shader.h" />
@@ -238,6 +253,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="sun.fs.shader">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="collision_resolve.glsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="collision_debug_gravity.glsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

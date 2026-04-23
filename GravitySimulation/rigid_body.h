@@ -29,6 +29,7 @@ public:
 	void apply_to_scene() const;
 
 	void set_position(const glm::vec3& n_pos);
+   void set_velocity(const glm::vec3& velocity);
 	void set_mass(const float& n_mass) const;
 
 	glm::vec3 get_position() const;

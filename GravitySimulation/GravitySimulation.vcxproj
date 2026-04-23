@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -116,6 +116,10 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -132,6 +136,10 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <ProgramDataBaseFileName>$(IntDir)$(ProjectName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,12 +151,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c" />
+    <ClCompile Include="aabb_collider.cpp" />
     <ClCompile Include="asset.cpp" />
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="async_base.cpp" />
     <ClCompile Include="base_manager.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="cloth_scene.cpp" />
+    <ClCompile Include="collision_debug_scene.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="compute_group.cpp" />
     <ClCompile Include="compute_shader.cpp" />
@@ -192,6 +202,7 @@
     <ClCompile Include="unit_system.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aabb_collider.h" />
     <ClInclude Include="asset.h" />
     <ClInclude Include="asset_manager.h" />
     <ClInclude Include="async_base.h" />
@@ -199,6 +210,12 @@
     <ClInclude Include="bounding_box.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="cloth_scene.h" />
+    <ClInclude Include="collider.h" />
+    <ClInclude Include="collision_contact_data.h" />
+    <ClInclude Include="collision_data.h" />
+    <ClInclude Include="collision_debug_logger_component.h" />
+    <ClInclude Include="collision_debug_scene.h" />
+    <ClInclude Include="collision_event.h" />
     <ClInclude Include="collision_layers.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="compute_group.h" />
@@ -257,6 +274,9 @@
     </None>
     <None Include="cloth_link.vs.shader" />
     <None Include="cloth_simulation.glsl" />
+    <None Include="collision_debug_gravity.glsl" />
+    <None Include="collision_detect.glsl" />
+    <None Include="collision_resolve.glsl" />
     <None Include="cosmic_background_particles.glsl" />
     <None Include="default.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

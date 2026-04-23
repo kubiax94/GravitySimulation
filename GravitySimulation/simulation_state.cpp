@@ -12,6 +12,8 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "cloth_scene.h"
+#include "collision_debug_scene.h"
+#include "collider.h"
 #include "engine.h"
 #include "fluid_scene.h"
 #include "galactic_scene.h"
@@ -58,6 +60,8 @@ std::unique_ptr<scene> create_example_scene(simulation_state::example_scene_kind
         return std::make_unique<galactic_scene>(time);
     case simulation_state::example_scene_kind::galactic_stress:
         return std::make_unique<galactic_stress_scene>(time);
+   case simulation_state::example_scene_kind::collision_debug:
+        return std::make_unique<collision_debug_scene>(time);
     }
 
     return std::make_unique<fluid_scene>(time);
@@ -73,6 +77,8 @@ const char* get_scene_name(simulation_state::example_scene_kind scene_kind) {
         return "Galactic";
     case simulation_state::example_scene_kind::galactic_stress:
         return "Galactic Stress";
+   case simulation_state::example_scene_kind::collision_debug:
+        return "Collision Debug";
     }
 
     return "Fluid";
@@ -80,7 +86,7 @@ const char* get_scene_name(simulation_state::example_scene_kind scene_kind) {
 
 std::string build_window_title(simulation_state::example_scene_kind scene_kind) {
     return std::string("GravitySimulation - ") + get_scene_name(scene_kind)
-        + " [F1 Fluid | F2 Cloth | F3 Galactic | F4 Stress]";
+        + " [F1 Fluid | F2 Cloth | F3 Galactic | F4 Stress | F6 Collision]";
 }
 
 bool poll_scene_switch_key(int glfw_key, bool& previous_down) {
@@ -181,6 +187,50 @@ MeshData create_bounding_box_line_mesh() {
         0u, 4u, 1u, 5u, 2u, 6u, 3u, 7u
     };
     return data;
+}
+
+MeshData create_line_segment_mesh() {
+    MeshData data;
+    Vertex start{};
+    start.Position = glm::vec3(0.0f, 0.0f, 0.0f);
+    start.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+    Vertex end{};
+    end.Position = glm::vec3(0.0f, 0.0f, 1.0f);
+    end.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
+    data.vertecies = { start, end };
+    data.indices = { 0u, 1u };
+    return data;
+}
+
+void draw_debug_mesh(shader& debug_shader, Mesh& debug_mesh, const render_frame_context& frame_context, const glm::mat4& model, const glm::vec3& color) {
+    debug_shader.use();
+    debug_shader.set_uni_int("useInstancing", 0);
+    debug_shader.set_uni_int("useGpuPositions", 0);
+    debug_shader.set_uni_int("instanceBaseIndex", 0);
+    debug_shader.set_uni_int("physicsBodyIndex", -1);
+    debug_shader.set_uniform_mat4("view", frame_context.view);
+    debug_shader.set_uniform_mat4("projection", frame_context.projection);
+    debug_shader.set_uniform_mat4("model", model);
+    debug_shader.set_uni_vec3("viewPos", frame_context.camera_position);
+    debug_shader.set_uni_vec3("lightPos", frame_context.camera_position + glm::vec3(0.0f, 0.0f, 10.0f));
+    debug_shader.set_uni_vec3("lightColor", color);
+    debug_shader.set_uni_vec3("objectColor", color);
+    debug_mesh.Draw();
+}
+
+render_frame_context build_debug_frame_context(engine& engine, Camera& camera) {
+    render_frame_context frame_context;
+    if (GLFWwindow* window = engine.get_window()) {
+        int framebuffer_width = 0;
+        int framebuffer_height = 0;
+        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+        const float aspect = framebuffer_height == 0 ? 1.0f : static_cast<float>(framebuffer_width) / static_cast<float>(framebuffer_height);
+        frame_context.projection = camera.GetProjectionMatrix(aspect);
+        frame_context.view = camera.GetViewMatrix();
+        frame_context.camera_position = camera.get_node()->get_global_position();
+    }
+
+    return frame_context;
 }
 
 float estimate_renderer_radius(const renderer& render) {
@@ -819,11 +869,12 @@ void simulation_state::handle_input(engine& engine, float dt) {
     if (!cam_ || !scene_)
         return;
 
-    constexpr std::array<int, 4> scene_switch_keys = {
+    constexpr std::array<int, 5> scene_switch_keys = {
         GLFW_KEY_F1,
         GLFW_KEY_F2,
         GLFW_KEY_F3,
-        GLFW_KEY_F4
+        GLFW_KEY_F4,
+     GLFW_KEY_F6
     };
 
     for (size_t i = 0; i < scene_switch_keys.size(); ++i) {
@@ -838,6 +889,9 @@ void simulation_state::handle_input(engine& engine, float dt) {
 
     if (poll_toggle_key(GLFW_KEY_B, previous_bounding_box_debug_down_))
         draw_bounding_boxes_ = !draw_bounding_boxes_;
+
+    if (poll_toggle_key(GLFW_KEY_N, previous_collision_debug_down_))
+        draw_collision_debug_ = !draw_collision_debug_;
 
     bool fluid_debug_mode_changed = false;
     if (poll_toggle_key(GLFW_KEY_J, previous_fluid_debug_next_down_)) {
@@ -995,6 +1049,7 @@ void simulation_state::render(engine& engine) {
     }
 
     render_bounding_boxes(engine);
+    render_collision_debug(engine);
 
     if (loading_feedback_presenter_)
         loading_feedback_presenter_->render(engine, *scene_, scene_->get_scene_loader());
@@ -1014,22 +1069,20 @@ void simulation_state::initialize_bounding_box_debug_resources() {
         if (bounding_box_mesh_)
             bounding_box_mesh_->type = MeshType::LINES;
     }
+
+    if (!collision_contact_mesh_) {
+        static MeshData collision_contact_line_mesh = create_line_segment_mesh();
+        collision_contact_mesh_ = assets.create_mesh(collision_contact_line_mesh);
+        if (collision_contact_mesh_)
+            collision_contact_mesh_->type = MeshType::LINES;
+    }
 }
 
 void simulation_state::render_bounding_boxes(engine& engine) {
     if (!draw_bounding_boxes_ || !scene_ || !cam_ || !bounding_box_shader_ || !bounding_box_mesh_)
         return;
 
-    render_frame_context frame_context;
-    if (GLFWwindow* window = engine.get_window()) {
-        int framebuffer_width = 0;
-        int framebuffer_height = 0;
-        glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
-        const float aspect = framebuffer_height == 0 ? 1.0f : static_cast<float>(framebuffer_width) / static_cast<float>(framebuffer_height);
-        frame_context.projection = cam_->GetProjectionMatrix(aspect);
-        frame_context.view = cam_->GetViewMatrix();
-        frame_context.camera_position = cam_->get_node()->get_global_position();
-    }
+    const render_frame_context frame_context = build_debug_frame_context(engine, *cam_);
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
@@ -1047,19 +1100,64 @@ void simulation_state::render_bounding_boxes(engine& engine) {
         glm::mat4 model = glm::translate(glm::mat4(1.0f), world_bounds.get_center());
         model = glm::scale(model, world_bounds.get_size());
 
-        bounding_box_shader_->use();
-        bounding_box_shader_->set_uni_int("useInstancing", 0);
-        bounding_box_shader_->set_uni_int("useGpuPositions", 0);
-        bounding_box_shader_->set_uni_int("instanceBaseIndex", 0);
-        bounding_box_shader_->set_uni_int("physicsBodyIndex", -1);
-        bounding_box_shader_->set_uniform_mat4("view", frame_context.view);
-        bounding_box_shader_->set_uniform_mat4("projection", frame_context.projection);
-        bounding_box_shader_->set_uniform_mat4("model", model);
-        bounding_box_shader_->set_uni_vec3("viewPos", frame_context.camera_position);
-        bounding_box_shader_->set_uni_vec3("lightPos", frame_context.camera_position + glm::vec3(0.0f, 0.0f, 10.0f));
-        bounding_box_shader_->set_uni_vec3("lightColor", glm::vec3(0.25f, 0.95f, 0.35f));
-        bounding_box_shader_->set_uni_vec3("objectColor", glm::vec3(0.25f, 0.95f, 0.35f));
-        bounding_box_mesh_->Draw();
+        draw_debug_mesh(*bounding_box_shader_, *bounding_box_mesh_, frame_context, model, glm::vec3(0.25f, 0.95f, 0.35f));
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glEnable(GL_CULL_FACE);
+}
+
+void simulation_state::render_collision_debug(engine& engine) {
+    if (!draw_collision_debug_ || !scene_ || !cam_ || !bounding_box_shader_ || !bounding_box_mesh_ || !collision_contact_mesh_)
+        return;
+
+    const render_frame_context frame_context = build_debug_frame_context(engine, *cam_);
+
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    for (auto* collider_component : scene_->get_colliders()) {
+        if (!collider_component || !collider_component->is_enabled())
+            continue;
+
+        const bounding_box world_bounds = collider_component->get_world_bounds();
+        if (!world_bounds.valid)
+            continue;
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), world_bounds.get_center());
+        model = glm::scale(model, world_bounds.get_size());
+        const glm::vec3 color = collider_component->is_trigger()
+            ? glm::vec3(0.95f, 0.75f, 0.2f)
+            : glm::vec3(0.2f, 0.75f, 0.95f);
+        draw_debug_mesh(*bounding_box_shader_, *bounding_box_mesh_, frame_context, model, color);
+    }
+
+    for (const auto& contact : scene_->get_solid_collision_contacts()) {
+        if (!contact.is_valid())
+            continue;
+
+        const glm::vec3 start = contact.overlap_bounds.get_center();
+        const float line_length = glm::max(contact.penetration_depth, 0.001f);
+        const glm::vec3 end = start + contact.normal * line_length;
+        const glm::vec3 delta = end - start;
+        const float scale = glm::length(delta);
+        if (scale <= 0.000001f)
+            continue;
+
+        glm::mat4 model = glm::translate(glm::mat4(1.0f), start);
+        const glm::vec3 direction = delta / scale;
+        const glm::vec3 up = std::abs(glm::dot(direction, glm::vec3(0.f, 1.f, 0.f))) > 0.999f
+            ? glm::vec3(1.f, 0.f, 0.f)
+            : glm::vec3(0.f, 1.f, 0.f);
+        const glm::vec3 tangent = glm::normalize(glm::cross(up, direction));
+        const glm::vec3 bitangent = glm::normalize(glm::cross(direction, tangent));
+        model[0] = glm::vec4(tangent * 0.05f, 0.f);
+        model[1] = glm::vec4(bitangent * 0.05f, 0.f);
+        model[2] = glm::vec4(direction * scale, 0.f);
+        draw_debug_mesh(*bounding_box_shader_, *collision_contact_mesh_, frame_context, model, glm::vec3(0.95f, 0.2f, 0.35f));
     }
 
     glDepthMask(GL_TRUE);

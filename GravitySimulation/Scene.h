@@ -17,6 +17,7 @@
 
 
 class renderer;
+class collider;
 class compute_shader;
 class gpu_fluid_system_component;
 class gpu_particle_system_component;
@@ -57,11 +58,18 @@ public:
 	[[nodiscard]] size_t get_renderer_physics_index(const renderer* render) const;
 	[[nodiscard]] GLuint get_render_ssbo() const;
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
+   const std::vector<collider*>& get_colliders() const { return physics_.get_colliders(); }
+ const std::vector<collision_pair>& get_collision_pairs() const { return physics_.get_collision_pairs(); }
+   const std::vector<solid_collision_contact>& get_solid_collision_contacts() const { return physics_.get_solid_collision_contacts(); }
+ const std::vector<collision_event>& get_collision_enter_events() const { return physics_.get_collision_enter_events(); }
+	const std::vector<collision_event>& get_collision_stay_events() const { return physics_.get_collision_stay_events(); }
+	const std::vector<collision_event>& get_collision_exit_events() const { return physics_.get_collision_exit_events(); }
    const std::vector<gpu_fluid_system_component*>& get_gpu_fluid_systems() const { return gpu_fluid_systems_; }
 	const std::vector<gpu_particle_system_component*>& get_gpu_particle_systems() const { return gpu_particle_systems_; }
 	unit_system* get_unit_system() const { return unit_sys_; }
    void set_simulation_speed(float speed) { physics_.set_simulation_speed(speed); }
 	[[nodiscard]] float get_simulation_speed() const { return physics_.get_simulation_speed(); }
+   void register_compute_shader(compute_shader* c_shader, physics_gpu_stage stage);
 	asset_manager& get_asset_manager() { return asset_manager_; }
 	const asset_manager& get_asset_manager() const { return asset_manager_; }
 	scene_loader& get_scene_loader() { return scene_loader_; }

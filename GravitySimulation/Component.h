@@ -2,6 +2,7 @@
 #ifndef COMPONENT_H
 #define COMPONENT_H
 
+#include "collision_event.h"
 #include "scene_node.h"
 
 using type_id_t = std::size_t;
@@ -27,6 +28,9 @@ protected:
 public:
 	virtual type_id_t get_type_id() const = 0;
 	virtual void update() {}
+	virtual void on_collision_enter(const collision_event& event) {}
+	virtual void on_collision_stay(const collision_event& event) {}
+	virtual void on_collision_exit(const collision_event& event) {}
 
 	explicit component(scene_node* owner_node)
 		: owner_node_(owner_node) {

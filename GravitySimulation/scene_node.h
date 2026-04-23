@@ -54,10 +54,10 @@ private:
 	collision_mask_t collision_layer_mask_ = to_collision_mask(collision_layer::default_layer);
 	collision_mask_t collision_query_mask_ = collision_mask_all;
 
-   transform transform_;
+	transform transform_;
 	mutable bool dirty_transform_ = true;
 	uint64_t transform_revision_ = 1;
-   uint64_t orientation_revision_ = 1;
+	uint64_t orientation_revision_ = 1;
 	mutable glm::mat4 global_matrix_model_ = transform_.get_local_model_matrix();
 
 	i_scene_manager* scene_manager_;
@@ -109,6 +109,9 @@ public:
 
 	virtual void update();
 	virtual void draw();
+  virtual void on_collision_enter(const collision_event& event);
+	virtual void on_collision_stay(const collision_event& event);
+	virtual void on_collision_exit(const collision_event& event);
 	[[nodiscard]] bounding_box get_subtree_world_bounding_box() const;
 	[[nodiscard]] bounding_box get_local_subtree_bounding_box() const;
 

@@ -11,10 +11,12 @@
 class scene;
 class scene_node;
 class renderer;
+class collider;
 
 struct ray_cast_hit
 {
     scene_node* node = nullptr;
+    collider* collider_component = nullptr;
     renderer* render = nullptr;
     bounding_box bounds;
     glm::vec3 point = glm::vec3(0.0f);

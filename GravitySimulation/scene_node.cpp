@@ -127,6 +127,27 @@ void scene_node::update() {
 void scene_node::draw() {
 }
 
+void scene_node::on_collision_enter(const collision_event& event) {
+	for (auto* comp : components_ | std::views::values) {
+		if (comp)
+			comp->on_collision_enter(event);
+	}
+}
+
+void scene_node::on_collision_stay(const collision_event& event) {
+	for (auto* comp : components_ | std::views::values) {
+		if (comp)
+			comp->on_collision_stay(event);
+	}
+}
+
+void scene_node::on_collision_exit(const collision_event& event) {
+	for (auto* comp : components_ | std::views::values) {
+		if (comp)
+			comp->on_collision_exit(event);
+	}
+}
+
 bounding_box scene_node::get_subtree_world_bounding_box() const {
 	bounding_box bounds;
 

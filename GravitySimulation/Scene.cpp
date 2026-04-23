@@ -1,9 +1,48 @@
 #include "Scene.h"
 #include "Renderer.h"
+#include "aabb_collider.h"
+#include "collider.h"
 #include "compute_shader.h"
 #include "frame_profiler.h"
 #include "gpu_fluid_system_component.h"
 #include "gpu_particle_system_component.h"
+
+namespace {
+void sync_renderer_aabb_collider(renderer& render) {
+	auto* node = render.get_node();
+	if (!node)
+		return;
+
+	auto* aabb = node->find_component<aabb_collider>();
+  if (aabb && !aabb->is_auto_generated())
+		return;
+
+	if (!aabb) {
+		auto* existing_collider = node->find_component<collider>();
+		if (existing_collider && !existing_collider->is_auto_generated())
+			return;
+	}
+
+	const uint64_t renderer_revision = render.get_instance_revision(true);
+	const bounding_box local_bounds = render.get_local_bounding_box();
+	if (!local_bounds.valid)
+		return;
+
+	if (!aabb) {
+		aabb = node->add_component<aabb_collider>(node, local_bounds);
+		if (!aabb)
+			return;
+       aabb->set_auto_generated(true);
+	}
+
+	if (aabb->get_source_revision() == renderer_revision)
+		return;
+
+   aabb->set_auto_generated(true);
+	aabb->set_local_bounds(local_bounds);
+	aabb->set_source_revision(renderer_revision);
+}
+}
 
 scene_node* scene::create_scene_node(const std::string& n_name) {
 	auto* node = new scene_node(n_name, nullptr, this);
@@ -17,11 +56,17 @@ scene_node* scene::find_scene_node(const std::string& n_name) const {
 }
 
 void scene::register_in(component* comp) {
+ auto* collider_component = dynamic_cast<collider*>(comp);
 	const type_id_t t_id = comp->get_type_id();
-	if (t_id == rigid_body::type_id())
+  if (t_id == get_type_id<renderer>()) {
+		auto* render = static_cast<renderer*>(comp);
+		renderers_.push_back(render);
+     sync_renderer_aabb_collider(*render);
+	}
+	else if (t_id == rigid_body::type_id())
 		physics_.add(static_cast<rigid_body*>(comp)); //NOLINT(cppcoreguidelines-pro-type-static-cast-downcast)
-	else if (t_id == get_type_id<renderer>())
-		renderers_.push_back(static_cast<renderer*>(comp));
+   else if (collider_component)
+		physics_.add(collider_component);
    else if (t_id == gpu_fluid_system_component::type_id())
 		gpu_fluid_systems_.push_back(static_cast<gpu_fluid_system_component*>(comp));
    else if (t_id == gpu_particle_system_component::type_id())
@@ -32,8 +77,12 @@ void scene::register_out(component* comp) {
 	if (!comp)
 		return;
 
+ auto* collider_component = dynamic_cast<collider*>(comp);
 	const type_id_t t_id = comp->get_type_id();
-	if (t_id == get_type_id<renderer>()) {
+  if (collider_component) {
+		physics_.remove(collider_component);
+	}
+	else if (t_id == get_type_id<renderer>()) {
 		auto* r = static_cast<renderer*>(comp);
 		renderers_.erase(std::remove(renderers_.begin(), renderers_.end(), r), renderers_.end());
 	}
@@ -91,7 +140,11 @@ void scene::update() {
     std::unordered_set<uuid> gpu_driven_nodes;
 	gpu_driven_nodes.reserve(renderers_.size());
 	for (const auto* render : renderers_) {
-		if (!render || !render->uses_gpu_driven_positions() || !render->get_node())
+     if (!render || !render->get_node())
+			continue;
+
+      sync_renderer_aabb_collider(*const_cast<renderer*>(render));
+      if (!render->uses_gpu_driven_positions())
 			continue;
 
 		gpu_driven_nodes.insert(render->get_node()->get_id());
@@ -145,4 +198,8 @@ GLuint scene::get_render_ssbo() const {
 
 void scene::register_compute_shader(compute_shader* c_shader) {
 	physics_.register_in(c_shader);
+}
+
+void scene::register_compute_shader(compute_shader* c_shader, physics_gpu_stage stage) {
+	physics_.register_in(c_shader, stage);
 }

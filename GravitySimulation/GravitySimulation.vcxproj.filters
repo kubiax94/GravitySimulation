@@ -209,6 +209,8 @@
     <ClCompile Include="loading_feedback_presenter.cpp" />
     <ClCompile Include="terrain_mesh_resource.cpp" />
     <ClCompile Include="ray_cast.cpp" />
+    <ClCompile Include="aabb_collider.cpp" />
+    <ClCompile Include="collision_debug_scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -335,6 +337,13 @@
     <ClInclude Include="spatial_query.h" />
     <ClInclude Include="collision_layers.h" />
     <ClInclude Include="ray_cast.h" />
+    <ClInclude Include="collider.h" />
+    <ClInclude Include="aabb_collider.h" />
+    <ClInclude Include="collision_event.h" />
+    <ClInclude Include="collision_debug_scene.h" />
+    <ClInclude Include="collision_data.h" />
+    <ClInclude Include="collision_contact_data.h" />
+    <ClInclude Include="collision_debug_logger_component.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -374,5 +383,8 @@
     <None Include="planetary_water_atlas_temporal.fs.shader" />
     <None Include="cosmic_background_particles.glsl" />
     <None Include="solar_halo_particles.glsl" />
+    <None Include="collision_detect.glsl" />
+    <None Include="collision_resolve.glsl" />
+    <None Include="collision_debug_gravity.glsl" />
   </ItemGroup>
 </Project>

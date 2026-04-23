@@ -72,6 +72,11 @@ void rigid_body::set_position(const glm::vec3& n_pos) {
 	p_data_->position = glm::vec4(n_pos, mass);
 }
 
+void rigid_body::set_velocity(const glm::vec3& velocity) {
+	float mass = get_mass();
+	p_data_->velocity = glm::vec4(velocity, mass);
+}
+
 bool rigid_body::detach() {
 	if (auto* s_manager = owner_node_->get_scene_manager())
 		s_manager->register_out(this);

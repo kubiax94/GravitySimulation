@@ -18,7 +18,8 @@ public:
         fluid = 0,
         cloth,
         galactic,
-        galactic_stress
+        galactic_stress,
+        collision_debug
     };
 
 private:
@@ -46,18 +47,21 @@ private:
     int planetary_water_atlas_height_ = 0;
     shader* bounding_box_shader_ = nullptr;
     Mesh* bounding_box_mesh_ = nullptr;
+    Mesh* collision_contact_mesh_ = nullptr;
     bool previous_left_mouse_down_ = false;
     bool previous_escape_down_ = false;
     bool previous_terrain_debug_down_ = false;
     bool previous_bounding_box_debug_down_ = false;
+    bool previous_collision_debug_down_ = false;
   bool previous_fluid_debug_next_down_ = false;
     bool previous_fluid_debug_prev_down_ = false;
-    std::array<bool, 4> previous_scene_switch_down_{};
+    std::array<bool, 5> previous_scene_switch_down_{};
     int terrain_debug_mode_ = 5;
  fluid_debug_visualization_mode fluid_debug_mode_ = fluid_debug_visualization_mode::none;
     bool focus_active_ = false;
     bool loading_feedback_active_ = false;
     bool draw_bounding_boxes_ = false;
+    bool draw_collision_debug_ = false;
     float focus_elapsed_ = 0.f;
     float focus_duration_ = 1.8f;
     glm::vec3 focus_start_position_ = glm::vec3(0.f);
@@ -87,6 +91,7 @@ private:
     void render_particle_surface_composite();
     void initialize_bounding_box_debug_resources();
     void render_bounding_boxes(engine& engine);
+    void render_collision_debug(engine& engine);
     void update_loading_feedback(engine& engine);
 
 public:
