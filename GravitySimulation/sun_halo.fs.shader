@@ -18,36 +18,65 @@ float halo_noise(vec3 p)
     return 0.5 + 0.5 * n;
 }
 
+float fbm_halo(vec3 p)
+{
+    float value = 0.0;
+    float amplitude = 0.58;
+    float frequency = 1.0;
+
+    for (int i = 0; i < 4; ++i) {
+        value += amplitude * halo_noise(p * frequency);
+        frequency *= 1.95;
+        amplitude *= 0.5;
+        p = p.yzx + vec3(0.41, -0.27, 0.36);
+    }
+
+    return value;
+}
+
 void main()
 {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
 
     float ndotV = max(dot(norm, viewDir), 0.0);
-    float rim = pow(1.0 - ndotV, 3.0);
-    rim = smoothstep(0.24, 0.98, rim);
-    if (rim <= 0.001)
+    float limb = 1.0 - ndotV;
+    float rim = smoothstep(0.08, 0.92, pow(limb, 1.45));
+    float outerFade = smoothstep(0.02, 0.88, limb);
+    if (outerFade <= 0.001)
         discard;
 
     float azimuth = atan(norm.z, norm.x);
     float latitude = norm.y;
-    float flowA = max(sin(azimuth * 4.5 + time * 0.9 + latitude * 7.0), 0.0);
-    float flowB = max(sin(azimuth * 7.5 - time * 1.25 - latitude * 9.0), 0.0);
-    float loopMask = pow(max(flowA, flowB), 8.0);
+    float shellNoise = fbm_halo(norm * 6.8 + vec3(time * 0.42, -time * 0.24, time * 0.18));
+    float fineNoise = fbm_halo(norm * 12.5 + vec3(-time * 0.65, time * 0.36, time * 0.27));
+    float plumeA = max(sin(azimuth * 5.0 + time * 0.74 + latitude * 4.8 + shellNoise * 2.6), 0.0);
+    float plumeB = max(sin(azimuth * 8.0 - time * 1.08 - latitude * 6.3 + fineNoise * 3.1), 0.0);
+    float prominenceMask = pow(max(plumeA, plumeB), 12.0);
+    float prominenceBreakup = smoothstep(0.42, 0.94, fineNoise);
+    float prominences = pow(rim, 1.35) * prominenceMask * prominenceBreakup;
 
-    float shellNoise = halo_noise(norm * 8.5 + vec3(time * 1.15, -time * 0.7, time * 0.35));
-    float breakup = smoothstep(0.42, 0.92, shellNoise);
-    float tongues = rim * rim * loopMask * breakup;
+    float innerBloom = smoothstep(0.02, 0.34, limb) * (0.55 + 0.45 * shellNoise);
+    float midCorona = smoothstep(0.10, 0.72, limb) * (0.35 + 0.65 * fineNoise);
+    float outerCorona = pow(outerFade, 1.25) * (0.28 + 0.72 * shellNoise);
 
-    float outerCorona = rim * (0.25 + 0.75 * shellNoise);
-    vec3 flareColor = lightColor * vec3(1.55, 0.82, 0.28);
-    vec3 hotColor = lightColor * vec3(2.0, 1.18, 0.42);
+    vec3 softColor = lightColor * vec3(1.18, 0.88, 0.42);
+    vec3 flareColor = lightColor * vec3(1.65, 0.72, 0.20);
+    vec3 hotColor = lightColor * vec3(2.1, 1.08, 0.34);
 
-    vec3 color = flareColor * outerCorona * (0.45 + 0.2 * sin(time * 1.2 + azimuth * 3.5));
-    color += mix(flareColor, hotColor, 0.65) * tongues * 1.7;
+    vec3 color = softColor * innerBloom * 0.18;
+    color += mix(softColor, flareColor, 0.48 + 0.28 * shellNoise) * midCorona * 0.24;
+    color += mix(flareColor, hotColor, 0.55 + 0.35 * fineNoise) * outerCorona * 0.14;
+    color += mix(flareColor, hotColor, 0.75) * prominences * (0.34 + 0.18 * shellNoise);
 
-    if (dot(color, color) < 0.0005)
+    float alpha = innerBloom * 0.12
+        + midCorona * 0.16
+        + outerCorona * 0.08
+        + prominences * 0.22;
+    alpha = clamp(alpha, 0.0, 0.42);
+
+    if (dot(color, color) < 0.0005 || alpha <= 0.001)
         discard;
 
-    FragColor = vec4(color * intensity, 1.0);
+    FragColor = vec4(color * intensity, alpha);
 }

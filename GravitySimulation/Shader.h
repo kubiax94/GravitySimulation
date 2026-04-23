@@ -40,8 +40,11 @@ public:
 	void set_uni_vec2(const std::string& u_name, const float& x, const float& y);
 	void set_uni_vec3(const std::string& u_name, const glm::vec3& n_vec3);
 	void set_uni_vec3(const std::string& u_name, const float& x, const float& y, const float& z);
+	void set_uni_vec3_array(const std::string& u_name, const glm::vec3* values, int count);
+	void set_uni_int_array(const std::string& u_name, const int* values, int count);
 	void set_uni_vec4(const std::string& u_name, const glm::vec4& n_vec4);
 	void set_uni_vec4(const std::string& u_name, const float& x, const float& y, const float& z, const float& a);
+	void set_uni_vec4_array(const std::string& u_name, const glm::vec4* values, int count);
 
 	void set_uniform_mat4(const std::string& u_name, const glm::mat4& n_mat4);
 

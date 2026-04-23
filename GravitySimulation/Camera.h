@@ -34,7 +34,7 @@ private:
 	void RecalculateProjection();
 	void RecalculateView();
    void sync_angles_to_transform();
-   static constexpr float near_plane_ = 1.0f;
+   static constexpr float near_plane_ = 0.05f;
 	static constexpr float far_plane_ = 50000.0f;
 	bool rotating_with_mouse_ = false;
 

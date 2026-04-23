@@ -87,8 +87,14 @@ public:
 	template <typename T>
 	void get_binding_data(GLuint bind, std::vector<T>& out);
 
+    template <typename T>
+    void get_binding_data_indices(GLuint bind, const std::vector<size_t>& indices, std::vector<T>& out);
+
 	template<typename T>
 	void update_ssbo(const GLuint& binding, const std::vector<T>& data);
+
+    template<typename T>
+    void update_ssbo_indices(const GLuint& binding, const std::vector<size_t>& indices, const std::vector<T>& data);
 };
 
 inline GLuint compute_shader::get_ssbo_id(GLuint binding) const {
@@ -132,6 +138,39 @@ void compute_shader::get_binding_data(GLuint bind, std::vector<T>& out) {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, info->id);
     out.resize(count);
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(T) * count, out.data());
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+template <typename T>
+void compute_shader::get_binding_data_indices(GLuint bind, const std::vector<size_t>& indices, std::vector<T>& out) {
+    if (!binding_data_.contains(bind) || indices.empty()) {
+        out.clear();
+        return;
+    }
+
+    auto* info = binding_data_.at(bind);
+    out.resize(indices.size());
+
+    use();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, info->id);
+
+    size_t range_start = 0u;
+    while (range_start < indices.size()) {
+        size_t range_end = range_start + 1u;
+        while (range_end < indices.size() && indices[range_end] == indices[range_end - 1u] + 1u)
+            ++range_end;
+
+        const size_t first_index = indices[range_start];
+        const size_t range_count = range_end - range_start;
+        glGetBufferSubData(
+            GL_SHADER_STORAGE_BUFFER,
+            static_cast<GLintptr>(sizeof(T) * first_index),
+            static_cast<GLsizeiptr>(sizeof(T) * range_count),
+            out.data() + range_start);
+
+        range_start = range_end;
+    }
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }
 
@@ -268,5 +307,35 @@ void compute_shader::update_ssbo(const GLuint& binding, const std::vector<T>& da
 
     old_data->data = data;
     old_data->size = data.size();
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+}
+
+template<typename T>
+void compute_shader::update_ssbo_indices(const GLuint& binding, const std::vector<size_t>& indices, const std::vector<T>& data) {
+    if (!binding_data_.contains(binding) || indices.empty() || indices.size() != data.size())
+        return;
+
+    use();
+
+    auto* old_data = static_cast<ssbo_data<T>*>(binding_data_[binding]);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, old_data->id);
+
+    size_t range_start = 0u;
+    while (range_start < indices.size()) {
+        size_t range_end = range_start + 1u;
+        while (range_end < indices.size() && indices[range_end] == indices[range_end - 1u] + 1u)
+            ++range_end;
+
+        const size_t first_index = indices[range_start];
+        const size_t range_count = range_end - range_start;
+        glBufferSubData(
+            GL_SHADER_STORAGE_BUFFER,
+            static_cast<GLintptr>(sizeof(T) * first_index),
+            static_cast<GLsizeiptr>(sizeof(T) * range_count),
+            data.data() + range_start);
+
+        range_start = range_end;
+    }
+
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 }

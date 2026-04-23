@@ -8,6 +8,9 @@
 class galactic_scene final : public scene
 {
     std::vector<renderer*> planet_renderers_;
+    scene_node* camera_node_ = nullptr;
+    scene_node* background_star_node_ = nullptr;
+    scene_node* background_galaxy_node_ = nullptr;
 
     void initialize_scene_content();
 

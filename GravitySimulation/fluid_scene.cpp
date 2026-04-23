@@ -15,7 +15,7 @@ constexpr int fluid_particles_x = 32;
 constexpr int fluid_particles_y = 32;
 constexpr int fluid_particles_z = 32;
 constexpr float particle_spacing = 0.38f;
-constexpr float particle_size = .5f;
+constexpr float particle_size = .2f;
 constexpr float camera_height = 10.f;
 constexpr float camera_distance = 24.f;
 
@@ -87,7 +87,7 @@ void fluid_scene::initialize_scene_content() {
     static MeshData particle_data = create_particle_point_mesh();
     fluid_mesh_ = assets.create_mesh(particle_data);
     fluid_mesh_->type = MeshType::POINTS;
-    fluid_shader_ = assets.create_shader("fluid.points", "GravitySimulation/gpu_fluid_system.vs.shader", "GravitySimulation/gpu_fluid_system.fs.shader");
+    fluid_shader_ = assets.create_shader("fluid.points", "GravitySimulation/gpu_fluid_system.vs.shader", "GravitySimulation/gpu_fluid_system_surface.fs.shader");
     fluid_compute_shader_ = assets.create_compute_shader("fluid.predict", "GravitySimulation/fluid_predict.glsl");
 
     fluid_bounds bounds;
@@ -96,7 +96,7 @@ void fluid_scene::initialize_scene_content() {
     bounds.restitution = 0.18f;
     bounds.damping = 0.98f;
 
-    fluid_node_->add_component<gpu_fluid_system_component>(
+    auto* fluid_system = fluid_node_->add_component<gpu_fluid_system_component>(
         fluid_node_,
         fluid_compute_shader_,
         fluid_shader_,
@@ -114,6 +114,8 @@ void fluid_scene::initialize_scene_content() {
         6.0f,
         3u,
         5u);
+    fluid_system->set_debug_visualization_mode(fluid_debug_visualization_mode::flow_direction);
+    fluid_system->set_debug_readback_enabled(true, 20u);
 
     fluid_node_->set_global_position(glm::vec3(0.f));
 }

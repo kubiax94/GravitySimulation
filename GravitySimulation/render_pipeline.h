@@ -16,6 +16,20 @@ struct render_item {
 class render_pipeline
 {
 public:
+    struct particle_surface_targets {
+        GLuint framebuffer = 0;
+        GLuint blur_framebuffer = 0;
+        GLuint coverage_texture = 0;
+        GLuint coverage_ping_texture = 0;
+        GLuint coverage_blur_texture = 0;
+        GLuint depth_texture = 0;
+        GLuint front_depth_texture = 0;
+        GLuint front_depth_ping_texture = 0;
+        GLuint front_depth_blur_texture = 0;
+        int width = 0;
+        int height = 0;
+    };
+
     struct batch_key {
         shader* shader_ptr{};
         Mesh* mesh_ptr{};
@@ -56,15 +70,25 @@ private:
     std::vector<renderer*> cached_submission_;
     std::vector<cached_batch> cached_batches_;
     instance_manager instance_manager_;
+    particle_surface_targets particle_surface_targets_;
+    GLint particle_surface_previous_framebuffer_ = 0;
+    GLint particle_surface_previous_viewport_[4] = { 0, 0, 0, 0 };
+    bool particle_surface_pass_active_ = false;
 
     [[nodiscard]] static bool is_render_valid(const renderer* render);
     void rebuild_cached_batches();
     [[nodiscard]] bool can_reuse_cached_batches() const;
     void update_cached_batch_instances(cached_batch& batch, bool use_gpu_positions) const;
+    void ensure_particle_surface_targets(int width, int height);
 
 public:
     void begin_frame();
     void submit(renderer* render);
     void submit(const render_item& item);
     void flush(Camera* camera, const scene* scene_context, const std::function<void(shader&)>& pre_draw = nullptr);
+    bool begin_particle_surface_input_pass(int width, int height);
+    void end_particle_surface_input_pass();
+    [[nodiscard]] const particle_surface_targets& get_particle_surface_targets() const { return particle_surface_targets_; }
+    void release_particle_surface_targets();
+    ~render_pipeline();
 };

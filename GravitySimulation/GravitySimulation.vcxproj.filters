@@ -320,6 +320,7 @@
     <ClInclude Include="fluid_bounds.h" />
     <ClInclude Include="gpu_fluid_system_component.h" />
     <ClInclude Include="fluid_scene.h" />
+    <ClInclude Include="planet_terrain.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -345,5 +346,19 @@
     <None Include="planet_ocean.fs.shader" />
     <None Include="planetary_ocean_surface.fs.shader" />
     <None Include="rocky_planet.fs.shader" />
+    <None Include="planet_clouds.fs.shader" />
+    <None Include="rocky_planet.vs.shader" />
+    <None Include="particle_surface_composite.vs.shader" />
+    <None Include="particle_surface_composite.fs.shader" />
+    <None Include="particle_surface_blur.fs.shader" />
+    <None Include="gpu_fluid_system_surface.fs.shader" />
+    <None Include="planetary_water_atlas_input.vs.shader" />
+    <None Include="planetary_water_atlas_input.fs.shader" />
+    <None Include="planetary_water_shell.vs.shader" />
+    <None Include="planetary_water_shell.fs.shader" />
+    <None Include="planetary_water_atlas_blur.fs.shader" />
+    <None Include="planetary_water_atlas_temporal.fs.shader" />
+    <None Include="cosmic_background_particles.glsl" />
+    <None Include="solar_halo_particles.glsl" />
   </ItemGroup>
 </Project>

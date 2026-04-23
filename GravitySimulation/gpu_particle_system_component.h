@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <glm/vec3.hpp>
+
 #include "compute_shader.h"
 #include "physics_data.h"
 #include "transformable.h"
@@ -21,6 +23,13 @@ class gpu_particle_system_component final : public transformable
     float simulation_time_ = 0.f;
     float particle_size_ = 3.5f;
     float simulation_speed_ = 20.0f;
+    glm::vec3 particle_color_ = glm::vec3(1.0f, 0.55f, 0.18f);
+    float particle_alpha_ = 1.0f;
+    float particle_glow_strength_ = 1.0f;
+    float particle_size_jitter_ = 0.0f;
+    int particle_visual_mode_ = 0;
+    bool additive_blend_enabled_ = false;
+    bool depth_write_enabled_ = true;
     bool initialized_ = false;
     size_t particle_count_ = 0;
 
@@ -49,4 +58,11 @@ public:
 
     [[nodiscard]] size_t get_particle_count() const { return particle_count_; }
     [[nodiscard]] GLuint get_ssbo_id() const;
+    void set_particle_color(const glm::vec3& color) { particle_color_ = color; }
+    void set_particle_alpha(float alpha) { particle_alpha_ = alpha; }
+    void set_particle_glow_strength(float glow_strength) { particle_glow_strength_ = glow_strength; }
+    void set_particle_size_jitter(float jitter) { particle_size_jitter_ = jitter; }
+    void set_particle_visual_mode(int mode) { particle_visual_mode_ = mode; }
+    void set_additive_blend_enabled(bool enabled) { additive_blend_enabled_ = enabled; }
+    void set_depth_write_enabled(bool enabled) { depth_write_enabled_ = enabled; }
 };

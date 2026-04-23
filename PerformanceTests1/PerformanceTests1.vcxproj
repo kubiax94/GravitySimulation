@@ -211,19 +211,15 @@
     <ClCompile Include="..\GravitySimulation\gpu_fluid_system_component.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_gpu_fluid_system_component;wmain=__ignored_wmain_gpu_fluid_system_component;WinMain=__ignored_WinMain_gpu_fluid_system_component;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\GravitySimulation\input_system.cpp">
@@ -259,19 +255,15 @@
     <ClCompile Include="..\GravitySimulation\physics_system.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">main=__ignored_main_physics_system;wmain=__ignored_wmain_physics_system;WinMain=__ignored_WinMain_physics_system;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">main=__ignored_main_physics_system;wmain=__ignored_wmain_physics_system;WinMain=__ignored_WinMain_physics_system;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">main=__ignored_main_physics_system;wmain=__ignored_wmain_physics_system;WinMain=__ignored_WinMain_physics_system;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">../GravitySimulation;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_physics_system;wmain=__ignored_wmain_physics_system;WinMain=__ignored_WinMain_physics_system;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\GravitySimulation\Renderer.cpp">
@@ -379,6 +371,8 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">main=__ignored_main_uuid;wmain=__ignored_wmain_uuid;WinMain=__ignored_WinMain_uuid;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="ComputeShaderReadbackPerfTest.cpp" />
+    <ClCompile Include="GpuFluidPlanetaryRespawnPerfTest.cpp" />
+    <ClCompile Include="GpuFluidPlanetaryRespawnPerfTest1.cpp" />
     <ClCompile Include="GpuFluidSolverPerfTest.cpp" />
     <ClCompile Include="GpuFluidSolverPerfTest1.cpp" />
     <ClCompile Include="GpuFluidSolverPerfTest2.cpp" />
@@ -389,11 +383,33 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PerformanceTests1.cpp" />
-    <ClCompile Include="PhysicsSystemAddPerfTest.cpp" />
-    <ClCompile Include="PhysicsSystemAddPerfTest1.cpp" />
+    <ClCompile Include="PhysicsSystemAddPerfTest.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="PhysicsSystemAddPerfTest1.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="RendererInstancingMatrixPerfGenerated.cpp" />
     <ClCompile Include="RendererInstancingPerfTest.cpp" />
     <ClCompile Include="RenderPipelineFlushPerfTest1.cpp" />
+    <ClCompile Include="..\GravitySimulation\rigid_body.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    </ClCompile>
+    <ClCompile Include="..\GravitySimulation\unit_system.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />

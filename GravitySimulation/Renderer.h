@@ -28,6 +28,7 @@ struct render_frame_context {
 
 enum class renderer_blend_mode {
 	opaque,
+    alpha,
 	additive
 };
 

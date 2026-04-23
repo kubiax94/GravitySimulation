@@ -43,6 +43,10 @@ void apply_pipeline_render_state(const pipeline_render_state& state) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);
     }
+  else if (state.blend_mode == renderer_blend_mode::alpha) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
     else {
         glDisable(GL_BLEND);
     }
@@ -167,6 +171,159 @@ bool render_pipeline::can_reuse_cached_batches() const {
     }
 
     return true;
+}
+
+void render_pipeline::ensure_particle_surface_targets(int width, int height) {
+    if (width <= 0 || height <= 0)
+        return;
+
+    if (particle_surface_targets_.framebuffer == 0)
+        glGenFramebuffers(1, &particle_surface_targets_.framebuffer);
+    if (particle_surface_targets_.blur_framebuffer == 0)
+        glGenFramebuffers(1, &particle_surface_targets_.blur_framebuffer);
+    if (particle_surface_targets_.coverage_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.coverage_texture);
+    if (particle_surface_targets_.coverage_ping_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.coverage_ping_texture);
+    if (particle_surface_targets_.coverage_blur_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.coverage_blur_texture);
+    if (particle_surface_targets_.depth_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.depth_texture);
+    if (particle_surface_targets_.front_depth_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.front_depth_texture);
+    if (particle_surface_targets_.front_depth_ping_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.front_depth_ping_texture);
+    if (particle_surface_targets_.front_depth_blur_texture == 0)
+        glGenTextures(1, &particle_surface_targets_.front_depth_blur_texture);
+
+    if (particle_surface_targets_.width == width && particle_surface_targets_.height == height)
+        return;
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.coverage_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.coverage_ping_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.coverage_blur_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.depth_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.front_depth_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.front_depth_ping_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, particle_surface_targets_.front_depth_blur_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    particle_surface_targets_.width = width;
+    particle_surface_targets_.height = height;
+}
+
+bool render_pipeline::begin_particle_surface_input_pass(int width, int height) {
+    ensure_particle_surface_targets(width, height);
+    if (particle_surface_targets_.framebuffer == 0
+        || particle_surface_targets_.coverage_texture == 0
+        || particle_surface_targets_.depth_texture == 0)
+        return false;
+
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &particle_surface_previous_framebuffer_);
+    glGetIntegerv(GL_VIEWPORT, particle_surface_previous_viewport_);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, particle_surface_targets_.framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, particle_surface_targets_.coverage_texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, particle_surface_targets_.front_depth_texture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, particle_surface_targets_.depth_texture, 0);
+
+    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, draw_buffers);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        glBindFramebuffer(GL_FRAMEBUFFER, particle_surface_previous_framebuffer_);
+        return false;
+    }
+
+    glViewport(0, 0, width, height);
+    const float coverage_clear[4] = { 0.f, 0.f, 0.f, 0.f };
+    const float front_depth_clear[4] = { 1.f, 0.f, 0.f, 1.f };
+    glClearBufferfv(GL_COLOR, 0, coverage_clear);
+    glClearBufferfv(GL_COLOR, 1, front_depth_clear);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    particle_surface_pass_active_ = true;
+    return true;
+}
+
+void render_pipeline::end_particle_surface_input_pass() {
+    if (!particle_surface_pass_active_)
+        return;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(particle_surface_previous_framebuffer_));
+    glViewport(
+        particle_surface_previous_viewport_[0],
+        particle_surface_previous_viewport_[1],
+        particle_surface_previous_viewport_[2],
+        particle_surface_previous_viewport_[3]);
+    particle_surface_pass_active_ = false;
+}
+
+void render_pipeline::release_particle_surface_targets() {
+    if (particle_surface_targets_.framebuffer != 0)
+        glDeleteFramebuffers(1, &particle_surface_targets_.framebuffer);
+    if (particle_surface_targets_.blur_framebuffer != 0)
+        glDeleteFramebuffers(1, &particle_surface_targets_.blur_framebuffer);
+    if (particle_surface_targets_.coverage_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.coverage_texture);
+    if (particle_surface_targets_.coverage_ping_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.coverage_ping_texture);
+    if (particle_surface_targets_.coverage_blur_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.coverage_blur_texture);
+    if (particle_surface_targets_.depth_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.depth_texture);
+    if (particle_surface_targets_.front_depth_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.front_depth_texture);
+    if (particle_surface_targets_.front_depth_ping_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.front_depth_ping_texture);
+    if (particle_surface_targets_.front_depth_blur_texture != 0)
+        glDeleteTextures(1, &particle_surface_targets_.front_depth_blur_texture);
+
+    particle_surface_targets_ = {};
+    particle_surface_pass_active_ = false;
+}
+
+render_pipeline::~render_pipeline() {
+    release_particle_surface_targets();
 }
 
 void render_pipeline::begin_frame() {

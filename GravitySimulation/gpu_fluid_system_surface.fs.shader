@@ -26,7 +26,14 @@ in vec3 PlanetaryCenterWorldPos;
 flat in float PlanetarySolidRadiusWorld;
 flat in float ParticleRadiusWorld;
 in float WaterDepth01;
+in float WaterColumnDepth01;
+in float WaterSurfaceBand01;
+in float SurfaceCarrierWeight;
 flat in float RenderFloodMask;
+flat in vec2 SurfaceSpriteAxisMajor;
+flat in vec2 SurfaceSpriteAxisMinor;
+flat in vec2 SurfaceSpriteScale;
+flat in float SurfaceCapsuleBlend;
 
 vec3 build_debug_color() {
     vec3 baseColor = particleColor;
@@ -80,6 +87,35 @@ vec3 build_debug_color() {
         return mix(vec3(0.08, 0.18, 0.42), vec3(1.0, 0.38, 0.24), nearSurface);
     }
 
+    if (debugVisualizationMode == 7) {
+        float strength = smoothstep(0.0005, 0.08, DebugColorData.x);
+        return mix(vec3(0.08, 0.12, 0.22), vec3(0.98, 0.34, 0.18), strength);
+    }
+
+    if (debugVisualizationMode == 8) {
+        float strength = smoothstep(0.00005, 0.01, DebugColorData.x);
+        return mix(vec3(0.06, 0.10, 0.18), vec3(0.28, 0.92, 1.0), strength);
+    }
+
+    if (debugVisualizationMode == 9) {
+        float speed = length(DebugColorData);
+        if (speed <= 0.0001)
+            return baseColor * 0.45;
+
+        vec3 direction = normalize(DebugColorData);
+        vec3 absDirection = abs(direction);
+        vec3 directionColor;
+        if (absDirection.x >= absDirection.y && absDirection.x >= absDirection.z)
+            directionColor = direction.x >= 0.0 ? vec3(1.0, 0.24, 0.24) : vec3(0.78, 0.18, 0.88);
+        else if (absDirection.y >= absDirection.z)
+            directionColor = direction.y >= 0.0 ? vec3(0.24, 1.0, 0.34) : vec3(1.0, 0.82, 0.18);
+        else
+            directionColor = direction.z >= 0.0 ? vec3(0.20, 0.56, 1.0) : vec3(0.18, 1.0, 1.0);
+
+        float strength = smoothstep(0.0005, 0.08, speed);
+        return mix(baseColor * 0.38, directionColor, 0.18 + strength * 0.82);
+    }
+
     return baseColor;
 }
 
@@ -93,6 +129,25 @@ float sample_scene_depth() {
         return 1.0;
 
     return texelFetch(sceneDepthTexture, pixel_coord, 0).r;
+}
+
+float normalize_axis_length(vec2 axis) {
+    return max(length(axis), 0.000001);
+}
+
+float compute_surface_input_metric(vec2 centered) {
+    vec2 majorAxis = SurfaceSpriteAxisMajor / normalize_axis_length(SurfaceSpriteAxisMajor);
+    vec2 minorAxis = SurfaceSpriteAxisMinor / normalize_axis_length(SurfaceSpriteAxisMinor);
+    vec2 aligned = vec2(dot(centered, majorAxis), dot(centered, minorAxis));
+    vec2 safeScale = max(SurfaceSpriteScale, vec2(0.52));
+    vec2 ellipseCoords = vec2(aligned.x / safeScale.x, aligned.y / safeScale.y);
+    float ellipseMetric = dot(ellipseCoords, ellipseCoords);
+
+    float capsuleHalfSpan = max(safeScale.x - safeScale.y, 0.0);
+    float capsuleAxis = max(abs(aligned.x) - capsuleHalfSpan, 0.0);
+    vec2 capsuleCoords = vec2(capsuleAxis / max(safeScale.y, 0.52), aligned.y / max(safeScale.y, 0.52));
+    float capsuleMetric = dot(capsuleCoords, capsuleCoords);
+    return mix(ellipseMetric, capsuleMetric, clamp(SurfaceCapsuleBlend, 0.0, 1.0));
 }
 
 void main() {
@@ -162,12 +217,20 @@ void main() {
 
     vec2 centered = gl_PointCoord * 2.0 - 1.0;
     float radiusSq = dot(centered, centered);
-    if (radiusSq > 1.0)
+    float surfaceMetric = radiusSq;
+    if (simulationMode == 1 && surfaceInputPass != 0)
+        surfaceMetric = compute_surface_input_metric(centered);
+
+    if (surfaceMetric > 1.0)
         discard;
 
     const float scene_depth = sample_scene_depth();
-    float z = sqrt(max(1.0 - radiusSq, 0.0));
-    vec3 sphereViewPos = CenterViewPos + vec3(centered * particleRadius, z * particleRadius);
+    float zMetric = simulationMode == 1 && surfaceInputPass != 0 ? surfaceMetric : radiusSq;
+    float z = sqrt(max(1.0 - min(zMetric, 1.0), 0.0));
+    float depthScale = simulationMode == 1 && surfaceInputPass != 0
+        ? mix(0.015, 0.045, clamp(SurfaceCarrierWeight, 0.0, 1.0))
+        : 1.0;
+    vec3 sphereViewPos = CenterViewPos + vec3(centered * particleRadius, z * particleRadius * depthScale);
     vec4 clipPos = projection * vec4(sphereViewPos, 1.0);
     float ndcDepth = clipPos.z / clipPos.w;
     gl_FragDepth = ndcDepth * 0.5 + 0.5;
@@ -179,13 +242,15 @@ void main() {
     vec3 color = build_debug_color() * (0.5 + 0.5 * z);
     if (simulationMode == 1 && surfaceInputPass != 0) {
         float floodMask = clamp(RenderFloodMask, 0.0, 1.0);
-        if (floodMask < 0.22 && WaterDepth01 < 0.08)
+        float columnDepth = clamp(WaterColumnDepth01, 0.0, 1.0);
+        float surfaceBand = clamp(WaterSurfaceBand01, 0.0, 1.0);
+        float carrierWeight = clamp(SurfaceCarrierWeight, 0.0, 1.0);
+        if (carrierWeight < 0.01)
             discard;
-        float splat = pow(max(1.0 - radiusSq, 0.0), 0.82);
-        float core = smoothstep(1.0, 0.0, radiusSq);
-        float depthInfluence = 0.28 + WaterDepth01 * 0.72;
-        float maskInfluence = smoothstep(0.18, 0.82, floodMask);
-        float coverage = clamp(max(splat, core * 0.86) * depthInfluence * maskInfluence, 0.0, 1.0);
+        float splat = pow(max(1.0 - surfaceMetric, 0.0), 0.82);
+        float core = smoothstep(1.0, 0.0, surfaceMetric * 0.94);
+        float shellSuppression = 1.0 - smoothstep(0.18, 0.62, clamp(WaterDepth01, 0.0, 1.0));
+        float coverage = clamp(max(splat * 0.72, core) * carrierWeight * shellSuppression, 0.0, 1.0);
         if (coverage < 0.01)
             discard;
         FrontDepthOutput = vec4(gl_FragDepth, 0.0, 0.0, 1.0);
@@ -211,5 +276,3 @@ void main() {
     FrontDepthOutput = vec4(0.0, 0.0, 0.0, 1.0);
     FragColor = vec4(color, 1.0);
 }
-
-

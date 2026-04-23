@@ -224,6 +224,14 @@ void shader::set_uni_vec3(const std::string& u_name, const float& x, const float
     if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
     glUniform3f(registered_uniforms_[u_name], x, y, z);
 }
+void shader::set_uni_vec3_array(const std::string& u_name, const glm::vec3* values, int count) {
+    if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
+    glUniform3fv(registered_uniforms_[u_name], count, &values[0][0]);
+}
+void shader::set_uni_int_array(const std::string& u_name, const int* values, int count) {
+    if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
+    glUniform1iv(registered_uniforms_[u_name], count, values);
+}
 void shader::set_uni_vec4(const std::string& u_name, const glm::vec4& n_vec4) {
     if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
     glUniform4fv(registered_uniforms_[u_name], 1, &n_vec4[0]);
@@ -231,6 +239,10 @@ void shader::set_uni_vec4(const std::string& u_name, const glm::vec4& n_vec4) {
 void shader::set_uni_vec4(const std::string& u_name, const float& x, const float& y, const float& z, const float& a) {
     if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
     glUniform4f(registered_uniforms_[u_name], x, y, z, a);
+}
+void shader::set_uni_vec4_array(const std::string& u_name, const glm::vec4* values, int count) {
+    if (!registered_uniforms_.contains(u_name)) register_uniform(u_name);
+    glUniform4fv(registered_uniforms_[u_name], count, &values[0][0]);
 }
 
 void shader::set_uniform_mat4(const std::string &u_name, const glm::mat4& n_mat4) {

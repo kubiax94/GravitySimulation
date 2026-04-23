@@ -29,26 +29,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -211,6 +211,7 @@
     <ClInclude Include="i_data_provider.h" />
     <ClInclude Include="physics_buffer.h" />
     <ClInclude Include="physics_data.h" />
+    <ClInclude Include="planet_terrain.h" />
     <ClInclude Include="render_pipeline.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="shader_group.h" />
@@ -240,6 +241,7 @@
     </None>
     <None Include="cloth_link.vs.shader" />
     <None Include="cloth_simulation.glsl" />
+    <None Include="cosmic_background_particles.glsl" />
     <None Include="default.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -250,6 +252,7 @@
     <None Include="gas_giant.fs.shader" />
     <None Include="gpu_fluid_system.fs.shader" />
     <None Include="gpu_fluid_system.vs.shader" />
+    <None Include="gpu_fluid_system_surface.fs.shader" />
     <None Include="gpu_particle_system.fs.shader" />
     <None Include="gpu_particle_system.vs.shader" />
     <None Include="GravitySimulation.vcxproj.copilot.tmp" />
@@ -259,10 +262,22 @@
     <None Include="lightsource.vs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="particle_surface_blur.fs.shader" />
+    <None Include="particle_surface_composite.fs.shader" />
+    <None Include="particle_surface_composite.vs.shader" />
     <None Include="planetary_ocean_surface.fs.shader" />
+    <None Include="planetary_water_atlas_blur.fs.shader" />
+    <None Include="planetary_water_atlas_input.fs.shader" />
+    <None Include="planetary_water_atlas_input.vs.shader" />
+    <None Include="planetary_water_atlas_temporal.fs.shader" />
+    <None Include="planetary_water_shell.fs.shader" />
+    <None Include="planetary_water_shell.vs.shader" />
     <None Include="planet_atmosphere.fs.shader" />
+    <None Include="planet_clouds.fs.shader" />
     <None Include="planet_ocean.fs.shader" />
     <None Include="rocky_planet.fs.shader" />
+    <None Include="rocky_planet.vs.shader" />
+    <None Include="solar_halo_particles.glsl" />
     <None Include="sun.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

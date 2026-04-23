@@ -98,11 +98,30 @@ void gpu_particle_system_component::draw(Camera* camera) const {
     render_shader_->set_uniform_mat4("view", camera->GetViewMatrix());
     render_shader_->set_uniform_mat4("projection", camera->GetProjectionMatrix(build_aspect_ratio()));
     render_shader_->set_uni_float("particleSize", particle_size_);
-    render_shader_->set_uni_vec3("particleColor", glm::vec3(1.0f, 0.55f, 0.18f));
+    render_shader_->set_uni_vec3("particleColor", particle_color_);
+    render_shader_->set_uni_float("particleAlpha", particle_alpha_);
+    render_shader_->set_uni_float("particleGlowStrength", particle_glow_strength_);
+    render_shader_->set_uni_float("particleSizeJitter", particle_size_jitter_);
+    render_shader_->set_uni_int("particleVisualMode", particle_visual_mode_);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glDepthMask(depth_write_enabled_ ? GL_TRUE : GL_FALSE);
+    if (additive_blend_enabled_ || particle_alpha_ < 0.999f) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, additive_blend_enabled_ ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA);
+    }
+    else {
+        glDisable(GL_BLEND);
+    }
 
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, physics_binding_, ssbo);
     render_mesh_->DrawInstanced(static_cast<GLsizei>(particle_count_));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, physics_binding_, 0);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_PROGRAM_POINT_SIZE);
 }
 
 GLuint gpu_particle_system_component::get_ssbo_id() const {

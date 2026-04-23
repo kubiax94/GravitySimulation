@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "engine_state.h"
+#include "gpu_fluid_system_component.h"
 #include "render_pipeline.h"
 #include "Scene.h"
 #include "Shader.h"
@@ -25,9 +26,31 @@ private:
     example_scene_kind scene_kind_ = example_scene_kind::fluid;
 
     render_pipeline render_pipeline_;
+    unsigned int scene_depth_texture_ = 0;
+    int scene_depth_texture_width_ = 0;
+    int scene_depth_texture_height_ = 0;
+    shader* particle_surface_composite_shader_ = nullptr;
+    shader* particle_surface_blur_shader_ = nullptr;
+    shader* planetary_water_atlas_shader_ = nullptr;
+    shader* planetary_water_atlas_blur_shader_ = nullptr;
+    shader* planetary_water_atlas_temporal_shader_ = nullptr;
+    shader* planetary_water_shell_shader_ = nullptr;
+    Mesh* particle_surface_composite_mesh_ = nullptr;
+    Mesh* planetary_water_shell_mesh_ = nullptr;
+    unsigned int planetary_water_atlas_framebuffer_ = 0;
+    unsigned int planetary_water_atlas_texture_ = 0;
+    unsigned int planetary_water_atlas_ping_texture_ = 0;
+    unsigned int planetary_water_atlas_history_texture_ = 0;
+    int planetary_water_atlas_width_ = 0;
+    int planetary_water_atlas_height_ = 0;
     bool previous_left_mouse_down_ = false;
     bool previous_escape_down_ = false;
+    bool previous_terrain_debug_down_ = false;
+  bool previous_fluid_debug_next_down_ = false;
+    bool previous_fluid_debug_prev_down_ = false;
     std::array<bool, 4> previous_scene_switch_down_{};
+    int terrain_debug_mode_ = 5;
+ fluid_debug_visualization_mode fluid_debug_mode_ = fluid_debug_visualization_mode::none;
     bool focus_active_ = false;
     float focus_elapsed_ = 0.f;
     float focus_duration_ = 1.8f;
@@ -43,6 +66,18 @@ private:
     void cancel_camera_focus();
     void detach_camera_parent();
     void switch_scene(engine& engine, example_scene_kind next_scene_kind);
+    void ensure_scene_depth_texture(int width, int height);
+    void capture_scene_depth_texture(int width, int height);
+    void release_scene_depth_texture();
+    void initialize_particle_surface_composite_resources();
+    void ensure_planetary_water_atlas_targets(int width, int height);
+    void release_planetary_water_atlas_resources();
+    void blur_planetary_water_atlas();
+    void stabilize_planetary_water_atlas();
+    void blur_particle_surface_targets();
+    void render_planetary_water_atlas_input(const gpu_fluid_system_component& system);
+    void render_planetary_water_shell(const gpu_fluid_system_component& system, const glm::vec3& light_position, const glm::vec3& light_color, float light_intensity);
+    void render_particle_surface_composite();
 
 public:
     simulation_state() = default;
