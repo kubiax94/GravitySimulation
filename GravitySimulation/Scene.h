@@ -21,6 +21,20 @@ class collider;
 class compute_shader;
 class gpu_fluid_system_component;
 class gpu_particle_system_component;
+class engine;
+class render_pipeline;
+
+struct scene_render_context
+{
+	render_pipeline& render_pipeline;
+	Camera& camera;
+	glm::vec3 light_position = glm::vec3(0.f);
+	glm::vec3 light_color = glm::vec3(1.f);
+	float light_intensity = 0.75f;
+	int debug_mode = 0;
+  int framebuffer_width = 0;
+	int framebuffer_height = 0;
+};
 
 class scene : public i_scene_manager
 {
@@ -49,6 +63,10 @@ public:
 	virtual void update();
 	virtual void draw();
 	void sync_render() const;
+  virtual void initialize_runtime_resources() {}
+	virtual void release_runtime_resources() {}
+    [[nodiscard]] virtual bool render_fluid_system(engine& engine, const scene_render_context& context, const gpu_fluid_system_component& system) { return false; }
+	[[nodiscard]] virtual bool render_runtime(engine& engine, const scene_render_context& context) { return false; }
     [[nodiscard]] virtual bool has_primary_light() const { return false; }
 	[[nodiscard]] virtual glm::vec3 get_primary_light_position() const { return glm::vec3(0.f); }
 	[[nodiscard]] virtual glm::vec3 get_primary_light_color() const { return glm::vec3(1.f); }

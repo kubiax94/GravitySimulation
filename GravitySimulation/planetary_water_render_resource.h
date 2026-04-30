@@ -17,6 +17,8 @@ public:
         GLuint framebuffer = 0;
         int width = 0;
         int height = 0;
+
+        atlas_targets() = default;
     };
 
 private:

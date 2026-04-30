@@ -19,22 +19,26 @@ void main() {
     uint i = gl_GlobalInvocationID.x;
     if (i >= bodies.length()) return;
 
+    vec3 pos = bodies[i].position.xyz;
+    vec3 vel = bodies[i].velocity.xyz;
+
     if (i == 0u) {
         bodies[i].velocity.xyz = vec3(0.0);
         bodies[i].accumulated_force.xyz = vec3(0.0);
         return;
     }
 
-    vec3 pos = bodies[i].position.xyz;
-    vec3 vel = bodies[i].velocity.xyz;
-    vec3 corePos = bodies[0].position.xyz;
-    float coreMass = bodies[0].position.w;
+    vec3 acceleration = vec3(0.0);
+    for (uint j = 0u; j < bodies.length(); ++j) {
+        if (j == i)
+            continue;
 
-    vec3 dir = corePos - pos;
-    float distSq = dot(dir, dir) + softening * softening;
-    float invDist = inversesqrt(distSq);
-    float invDist3 = invDist * invDist * invDist;
-    vec3 acceleration = G * coreMass * dir * invDist3;
+        vec3 dir = bodies[j].position.xyz - pos;
+        float distSq = dot(dir, dir) + softening * softening;
+        float invDist = inversesqrt(distSq);
+        float invDist3 = invDist * invDist * invDist;
+        acceleration += G * bodies[j].position.w * dir * invDist3;
+    }
 
     vel += acceleration * dt;
     pos += vel * dt;

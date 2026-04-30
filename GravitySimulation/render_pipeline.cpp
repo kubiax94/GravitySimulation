@@ -203,6 +203,109 @@ void render_pipeline::capture_scene_depth_texture(int width, int height) {
     scene_depth_texture_.copy_from_framebuffer(0, 0, width, height);
 }
 
+bool render_pipeline::begin_offscreen_pass(GLuint framebuffer, int width, int height, const std::vector<offscreen_attachment>& color_attachments, GLuint depth_texture) {
+    if (framebuffer == 0 || width <= 0 || height <= 0)
+        return false;
+
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &offscreen_previous_framebuffer_);
+    glGetIntegerv(GL_VIEWPORT, offscreen_previous_viewport_);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+    std::vector<GLenum> draw_buffers;
+    draw_buffers.reserve(color_attachments.size());
+    for (const auto& attachment : color_attachments) {
+        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment.attachment, GL_TEXTURE_2D, attachment.texture, 0);
+        draw_buffers.push_back(attachment.attachment);
+    }
+
+    if (depth_texture != 0)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_texture, 0);
+
+    if (!draw_buffers.empty())
+        glDrawBuffers(static_cast<GLsizei>(draw_buffers.size()), draw_buffers.data());
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(offscreen_previous_framebuffer_));
+        return false;
+    }
+
+    glViewport(0, 0, width, height);
+    offscreen_pass_active_ = true;
+    return true;
+}
+
+void render_pipeline::clear_offscreen_color(GLint draw_buffer_index, const float clear_color[4]) const {
+    if (!offscreen_pass_active_)
+        return;
+
+    glClearBufferfv(GL_COLOR, draw_buffer_index, clear_color);
+}
+
+void render_pipeline::set_offscreen_draw_attachments(const std::vector<GLenum>& draw_buffers) const {
+    if (!offscreen_pass_active_ || draw_buffers.empty())
+        return;
+
+    glDrawBuffers(static_cast<GLsizei>(draw_buffers.size()), draw_buffers.data());
+}
+
+void render_pipeline::bind_textures(const std::vector<texture_binding>& bindings) const {
+    for (const auto& binding : bindings) {
+        glActiveTexture(GL_TEXTURE0 + binding.unit);
+        glBindTexture(binding.target, binding.texture);
+    }
+
+    if (!bindings.empty())
+        glActiveTexture(GL_TEXTURE0);
+}
+
+void render_pipeline::unbind_textures(const std::vector<texture_binding>& bindings) const {
+    for (const auto& binding : bindings) {
+        glActiveTexture(GL_TEXTURE0 + binding.unit);
+        glBindTexture(binding.target, 0);
+    }
+
+    if (!bindings.empty())
+        glActiveTexture(GL_TEXTURE0);
+}
+
+void render_pipeline::draw_fullscreen(shader& shader_program, Mesh& fullscreen_mesh, const std::function<void(shader&)>& pre_draw) const {
+    shader_program.use();
+    if (pre_draw)
+        pre_draw(shader_program);
+    fullscreen_mesh.Draw();
+}
+
+void render_pipeline::dispatch_compute(const compute_dispatch_desc& dispatch_desc) const {
+    bind_textures(dispatch_desc.textures);
+
+    for (const auto& image : dispatch_desc.images)
+        glBindImageTexture(image.unit, image.texture, image.level, image.layered, image.layer, image.access, image.format);
+
+    dispatch_desc.shader_program.use();
+    if (dispatch_desc.pre_dispatch)
+        dispatch_desc.pre_dispatch(dispatch_desc.shader_program);
+    dispatch_desc.shader_program.dispatch(dispatch_desc.groups);
+
+    for (const auto& image : dispatch_desc.images)
+        glBindImageTexture(image.unit, 0, 0, GL_FALSE, 0, image.access, image.format);
+
+    unbind_textures(dispatch_desc.textures);
+}
+
+void render_pipeline::end_offscreen_pass() {
+    if (!offscreen_pass_active_)
+        return;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(offscreen_previous_framebuffer_));
+    glViewport(
+        offscreen_previous_viewport_[0],
+        offscreen_previous_viewport_[1],
+        offscreen_previous_viewport_[2],
+        offscreen_previous_viewport_[3]);
+    offscreen_pass_active_ = false;
+}
+
 void render_pipeline::ensure_particle_surface_targets(int width, int height) {
     if (width <= 0 || height <= 0)
         return;
