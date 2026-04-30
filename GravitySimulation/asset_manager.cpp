@@ -65,6 +65,13 @@ planetary_ocean_resource* asset_manager::create_planetary_ocean_resource(
 	return n_resource_ptr;
 }
 
+planetary_water_render_resource* asset_manager::create_planetary_water_render_resource(const std::string& name) {
+	auto n_resource = std::make_unique<planetary_water_render_resource>(name);
+	planetary_water_render_resource* n_resource_ptr = n_resource.get();
+	add_asset(std::move(n_resource));
+	return n_resource_ptr;
+}
+
 terrain_mesh_resource* asset_manager::create_terrain_mesh_resource(
 	const std::string& name,
 	const planet_terrain::rocky_planet_profile& profile,

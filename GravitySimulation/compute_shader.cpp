@@ -80,8 +80,13 @@ void compute_shader::dispatch(const glm::uvec3& groups) {
 		if (info && info->id != 0)
 			glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, info->id);
 	}
-	glDispatchCompute(groups.x, groups.y, groups.z);
-	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
+    glDispatchCompute(groups.x, groups.y, groups.z);
+	glMemoryBarrier(
+		GL_SHADER_STORAGE_BARRIER_BIT |
+		GL_BUFFER_UPDATE_BARRIER_BIT |
+		GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+		GL_TEXTURE_FETCH_BARRIER_BIT |
+		GL_TEXTURE_UPDATE_BARRIER_BIT);
 }
 
 void compute_shader::use() {

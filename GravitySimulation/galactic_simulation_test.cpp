@@ -29,6 +29,8 @@ constexpr int sun_halo_particle_count = 960;
 constexpr int planetary_ocean_particle_count = 24576;
 constexpr float earth_ocean_base_radius = 1.015f;
 constexpr float earth_ocean_shell_thickness = 0.075f;
+constexpr float moon_orbital_radius_visual = 5.6f;
+constexpr float moon_initial_orbit_angle = 0.85f;
 
 float get_visual_orbit_offset(const planet_data& planet, float dia_scale) {
  const float sun_visual_radius = sun_visual_radius_scale * (1391000.f / dia_scale);
@@ -277,6 +279,8 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 		shader* mercury_shader = create_rocky_planet_shader(assets, data[0]);
 		shader* venus_shader = create_rocky_planet_shader(assets, data[1]);
      shader* earth_shader = create_rocky_planet_shader(assets, data[2], true);
+      planet_data moon_data{ "Moon", 0.07346e24f, 3474.8f, 0.0f };
+		shader* moon_shader = create_rocky_planet_shader(assets, moon_data);
 		shader* mars_shader = create_rocky_planet_shader(assets, data[3]);
      shader* earth_cloud_shader = create_planet_cloud_shader(assets, "galactic.planets.earth.clouds", 0.66f, 0.12f, 0.26f, 0.014f, glm::vec3(0.95f, 0.98f, 1.0f), glm::vec3(0.42f, 0.52f, 0.62f));
 		shader* venus_cloud_shader = create_planet_cloud_shader(assets, "galactic.planets.venus.clouds", 0.48f, 0.20f, 0.62f, 0.011f, glm::vec3(0.98f, 0.90f, 0.70f), glm::vec3(0.48f, 0.34f, 0.18f));
@@ -317,9 +321,9 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 			12.5f,
 			1.0f);
 		sun_halo_particles->set_particle_color(glm::vec3(1.0f, 0.84f, 0.30f));
-      sun_halo_particles->set_particle_alpha(0.065f);
-		sun_halo_particles->set_particle_glow_strength(1.18f);
-		sun_halo_particles->set_particle_size_jitter(1.0f);
+         sun_halo_particles->set_particle_alpha(0.016f);
+		sun_halo_particles->set_particle_glow_strength(0.62f);
+		sun_halo_particles->set_particle_size_jitter(0.35f);
 		sun_halo_particles->set_particle_visual_mode(3);
 		sun_halo_particles->set_additive_blend_enabled(true);
 		sun_halo_particles->set_depth_write_enabled(false);
@@ -452,6 +456,28 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 					ocean_system->set_debug_visualization_mode(fluid_debug_visualization_mode::none);
 					ocean_system->set_debug_readback_enabled(true, 20u);
 				});
+
+				const glm::vec3 moon_radial_direction(
+					std::cos(orbit_angle + moon_initial_orbit_angle),
+					0.f,
+					std::sin(orbit_angle + moon_initial_orbit_angle));
+				const glm::vec3 moon_tangent_direction(-moon_radial_direction.z, 0.f, moon_radial_direction.x);
+				const float earth_mass = u_sys.mass(planet.mass);
+				const float moon_orbital_speed = std::sqrt(u_sys.scaled_G() * earth_mass / moon_orbital_radius_visual);
+				auto* moon_physics_data = new physics_data(
+					glm::vec4(glm::vec3(p_physics_data->position) + moon_radial_direction * moon_orbital_radius_visual, u_sys.mass(moon_data.mass)),
+					glm::vec4(glm::vec3(p_physics_data->velocity) + moon_tangent_direction * moon_orbital_speed, u_sys.mass(moon_data.mass)),
+					glm::vec4(0.f, 0.f, 0.f, u_sys.mass(moon_data.mass)));
+
+				auto* moon_node = s_to_init->create_scene_node("Moon");
+				auto* moon_visual_spin_node = s_to_init->create_scene_node("Moon_visual_spin");
+				moon_visual_spin_node->set_parent(moon_node, false);
+				moon_node->add_component<rigid_body>(moon_node, moon_physics_data);
+				auto* moon_render = moon_visual_spin_node->add_component<renderer>(moon_visual_spin_node, moon_shader, sphere_mesh);
+				moon_render->set_visual_scale(glm::vec3(1.f));
+				planets_renders.push_back(moon_render);
+				moon_node->set_global_position(moon_physics_data->position);
+				moon_visual_spin_node->set_scale(glm::vec3(moon_data.diameter / dia_scale));
 			}
 
 			if (planet.name == "Venus") {

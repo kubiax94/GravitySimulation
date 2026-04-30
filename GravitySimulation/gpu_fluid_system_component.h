@@ -8,6 +8,7 @@
 #include "fluid_bounds.h"
 #include "fluid_particle.h"
 #include "planet_terrain.h"
+#include "planetary_water_domain.h"
 #include "transformable.h"
 
 class Camera;
@@ -85,12 +86,7 @@ class gpu_fluid_system_component final : public transformable
     std::vector<size_t> planetary_respawn_candidate_indices_;
     std::vector<glm::vec3> planetary_flood_respawn_normals_;
     std::vector<float> planetary_flood_respawn_radii_;
-    std::vector<unsigned char> planetary_physics_flood_mask_data_;
-    std::vector<unsigned char> planetary_flood_mask_data_;
-    std::vector<float> planetary_water_level_data_;
-    GLuint planetary_physics_flood_mask_texture_ = 0;
-    GLuint planetary_flood_mask_texture_ = 0;
-    GLuint planetary_water_level_texture_ = 0;
+    planetary_water_domain planetary_water_domain_{};
     bool planetary_respawn_management_enabled_ = true;
     unsigned int planetary_respawn_interval_frames_ = 12u;
     unsigned int planetary_respawn_frame_counter_ = 0u;
@@ -142,19 +138,18 @@ class gpu_fluid_system_component final : public transformable
     static constexpr int planetary_flood_mask_texture_height_ = 512;
     static constexpr int max_planetary_external_gravity_sources_ = 8;
     std::array<glm::vec4, max_planetary_external_gravity_sources_> planetary_external_gravity_sources_{};
+    int planetary_external_gravity_source_count_ = 0;
 
     void rebuild_grid_metadata();
     void rebuild_grid_buffers();
     void ensure_initialized();
     void release_gpu_completion_fence();
-    void release_planetary_flood_mask_texture();
     void release_render_flood_mask_gpu_query() const;
     void update_adaptive_budget();
     void queue_gpu_completion_fence();
     void update_debug_readback();
     void rebuild_planetary_water_surface_radius();
     void rebuild_planetary_flood_guidance();
-    void rebuild_planetary_flood_mask_texture(const planet_terrain::ocean_basin_graph& basin_graph, const planet_terrain::ocean_flood_state& flood_state);
     [[nodiscard]] float sample_planetary_flood_mask(const glm::vec3& surface_normal) const;
     [[nodiscard]] float sample_planetary_water_level(const glm::vec3& surface_normal) const;
     void update_planetary_particle_respawn(const glm::mat3& planetary_surface_from_simulation);
@@ -197,6 +192,7 @@ public:
     [[nodiscard]] bool supports_particle_surface_pass() const { return planetary_surface_enabled_; }
     void draw_particle_surface_input(Camera* camera, GLuint scene_depth_texture = 0) const;
     void draw_planetary_water_atlas_input(shader* atlas_shader, const glm::ivec2& atlas_resolution) const;
+    void draw_planetary_wave_forcing_input(shader* forcing_shader, const glm::ivec2& atlas_resolution) const;
 
     [[nodiscard]] size_t get_particle_count() const { return particle_count_; }
     [[nodiscard]] GLuint get_ssbo_id() const;
@@ -204,9 +200,15 @@ public:
     [[nodiscard]] float get_planetary_radius() const { return planetary_radius_; }
     [[nodiscard]] float get_planetary_shell_thickness() const { return planetary_shell_thickness_; }
     [[nodiscard]] float get_planetary_water_surface_radius() const { return planetary_water_surface_radius_; }
+    [[nodiscard]] const glm::vec3& get_planetary_angular_velocity() const { return planetary_angular_velocity_; }
+    [[nodiscard]] float get_planetary_coriolis_strength() const { return planetary_coriolis_strength_; }
+    [[nodiscard]] float get_planetary_tidal_strength() const { return planetary_tidal_strength_; }
+    [[nodiscard]] int get_planetary_external_gravity_source_count() const { return planetary_external_gravity_source_count_; }
+    [[nodiscard]] const std::array<glm::vec4, max_planetary_external_gravity_sources_>& get_planetary_external_gravity_sources() const { return planetary_external_gravity_sources_; }
     [[nodiscard]] bool is_planetary_terrain_enabled() const { return planetary_terrain_enabled_; }
     [[nodiscard]] const planet_terrain::rocky_planet_profile& get_planetary_terrain_profile() const { return planetary_terrain_profile_; }
-    [[nodiscard]] GLuint get_planetary_water_level_texture() const { return planetary_water_level_texture_; }
+    [[nodiscard]] GLuint get_planetary_water_level_texture() const { return planetary_water_domain_.get_textures().water_level_texture; }
+    [[nodiscard]] const planetary_water_domain& get_planetary_water_domain() const { return planetary_water_domain_; }
     [[nodiscard]] fluid_debug_visualization_mode get_debug_visualization_mode() const { return debug_visualization_mode_; }
     void set_bounds(const fluid_bounds& bounds);
     void set_planetary_surface(const glm::vec3& center, float radius, float shell_thickness, float gravity_strength);

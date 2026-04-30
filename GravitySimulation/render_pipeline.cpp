@@ -174,6 +174,35 @@ bool render_pipeline::can_reuse_cached_batches() const {
     return true;
 }
 
+void render_pipeline::ensure_scene_depth_texture(int width, int height) {
+    if (width <= 0 || height <= 0)
+        return;
+
+    if (scene_depth_texture_.get_width() == width
+        && scene_depth_texture_.get_height() == height
+        && scene_depth_texture_.is_vaild()) {
+        return;
+    }
+
+    scene_depth_texture_.allocate_2d(
+        width,
+        height,
+        GL_DEPTH_COMPONENT24,
+        GL_DEPTH_COMPONENT,
+        GL_FLOAT,
+        nullptr,
+        GL_CLAMP_TO_EDGE,
+        GL_CLAMP_TO_EDGE,
+        GL_NEAREST,
+        GL_NEAREST,
+        false);
+}
+
+void render_pipeline::capture_scene_depth_texture(int width, int height) {
+    ensure_scene_depth_texture(width, height);
+    scene_depth_texture_.copy_from_framebuffer(0, 0, width, height);
+}
+
 void render_pipeline::ensure_particle_surface_targets(int width, int height) {
     if (width <= 0 || height <= 0)
         return;
@@ -324,11 +353,16 @@ void render_pipeline::release_particle_surface_targets() {
 }
 
 render_pipeline::~render_pipeline() {
+    release_scene_depth_texture();
     release_particle_surface_targets();
 }
 
 void render_pipeline::begin_frame() {
     items_.clear();
+}
+
+void render_pipeline::release_scene_depth_texture() {
+    scene_depth_texture_.cleanup();
 }
 
 void render_pipeline::submit(renderer* render) {

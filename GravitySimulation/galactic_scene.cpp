@@ -27,7 +27,8 @@ constexpr float planet_spin_speed_multipliers[] = {
     2.414f,
     2.245f,
     -1.392f,
-    1.49f
+    1.49f,
+    0.036f
 };
 
 constexpr const char* planet_spin_node_names[] = {
@@ -38,7 +39,8 @@ constexpr const char* planet_spin_node_names[] = {
     "Jupiter_visual_spin",
     "Saturn_visual_spin",
     "Uranus_visual_spin",
-    "Neptune_visual_spin"
+    "Neptune_visual_spin",
+    "Moon_visual_spin"
 };
 
 MeshData create_particle_point_mesh() {

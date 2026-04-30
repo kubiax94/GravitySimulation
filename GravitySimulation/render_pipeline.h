@@ -6,6 +6,7 @@
 
 #include "Renderer.h"
 #include "instance_manager.h"
+#include "texture.h"
 
 class scene;
 
@@ -70,6 +71,7 @@ private:
     std::vector<renderer*> cached_submission_;
     std::vector<cached_batch> cached_batches_;
     instance_manager instance_manager_;
+    texture scene_depth_texture_;
     particle_surface_targets particle_surface_targets_;
     GLint particle_surface_previous_framebuffer_ = 0;
     GLint particle_surface_previous_viewport_[4] = { 0, 0, 0, 0 };
@@ -79,6 +81,7 @@ private:
     void rebuild_cached_batches();
     [[nodiscard]] bool can_reuse_cached_batches() const;
     void update_cached_batch_instances(cached_batch& batch, bool use_gpu_positions) const;
+    void ensure_scene_depth_texture(int width, int height);
     void ensure_particle_surface_targets(int width, int height);
 
 public:
@@ -86,9 +89,12 @@ public:
     void submit(renderer* render);
     void submit(const render_item& item);
     void flush(Camera* camera, const scene* scene_context, const std::function<void(shader&)>& pre_draw = nullptr);
+    void capture_scene_depth_texture(int width, int height);
+    [[nodiscard]] GLuint get_scene_depth_texture_id() const { return scene_depth_texture_.get_id(); }
     bool begin_particle_surface_input_pass(int width, int height);
     void end_particle_surface_input_pass();
     [[nodiscard]] const particle_surface_targets& get_particle_surface_targets() const { return particle_surface_targets_; }
+    void release_scene_depth_texture();
     void release_particle_surface_targets();
     ~render_pipeline();
 };

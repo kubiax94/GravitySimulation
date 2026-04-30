@@ -6,6 +6,8 @@
 #include "engine_state.h"
 #include "gpu_fluid_system_component.h"
 #include "loading_feedback_presenter.h"
+#include "planetary_water_render_resource.h"
+#include "planetary_wave_field.h"
 #include "render_pipeline.h"
 #include "Scene.h"
 #include "Shader.h"
@@ -28,23 +30,26 @@ private:
     example_scene_kind scene_kind_ = example_scene_kind::fluid;
 
     render_pipeline render_pipeline_;
-    unsigned int scene_depth_texture_ = 0;
-    int scene_depth_texture_width_ = 0;
-    int scene_depth_texture_height_ = 0;
+    planetary_water_render_resource* planetary_water_render_resource_ = nullptr;
     shader* particle_surface_composite_shader_ = nullptr;
     shader* particle_surface_blur_shader_ = nullptr;
     shader* planetary_water_atlas_shader_ = nullptr;
     shader* planetary_water_atlas_blur_shader_ = nullptr;
     shader* planetary_water_atlas_temporal_shader_ = nullptr;
     shader* planetary_water_shell_shader_ = nullptr;
+    shader* planetary_wave_debug_overlay_shader_ = nullptr;
+    shader* planetary_wave_debug_shell_shader_ = nullptr;
+    compute_shader* planetary_wave_propagation_shader_ = nullptr;
+    compute_shader* planetary_wave_render_filter_shader_ = nullptr;
+    compute_shader* planetary_tide_field_shader_ = nullptr;
     Mesh* particle_surface_composite_mesh_ = nullptr;
     Mesh* planetary_water_shell_mesh_ = nullptr;
-    unsigned int planetary_water_atlas_framebuffer_ = 0;
-    unsigned int planetary_water_atlas_texture_ = 0;
-    unsigned int planetary_water_atlas_ping_texture_ = 0;
-    unsigned int planetary_water_atlas_history_texture_ = 0;
-    int planetary_water_atlas_width_ = 0;
-    int planetary_water_atlas_height_ = 0;
+    planetary_wave_field planetary_wave_field_{};
+    unsigned int planetary_wave_debug_region_texture_ = 0;
+    unsigned int planetary_wave_debug_shore_texture_ = 0;
+    float planetary_wave_debug_height_scale_ = 1.0f;
+    float planetary_wave_debug_velocity_scale_ = 1.0f;
+    float planetary_wave_debug_tidal_scale_ = 1.0f;
     shader* bounding_box_shader_ = nullptr;
     Mesh* bounding_box_mesh_ = nullptr;
     Mesh* collision_contact_mesh_ = nullptr;
@@ -77,17 +82,17 @@ private:
     void cancel_camera_focus();
     void detach_camera_parent();
     void switch_scene(engine& engine, example_scene_kind next_scene_kind);
-    void ensure_scene_depth_texture(int width, int height);
-    void capture_scene_depth_texture(int width, int height);
-    void release_scene_depth_texture();
     void initialize_particle_surface_composite_resources();
     void ensure_planetary_water_atlas_targets(int width, int height);
     void release_planetary_water_atlas_resources();
-    void blur_planetary_water_atlas();
-    void stabilize_planetary_water_atlas();
+    void blur_planetary_water_atlas(const gpu_fluid_system_component& system);
+    void stabilize_planetary_water_atlas(const gpu_fluid_system_component& system);
+    void update_planetary_tide_field(const gpu_fluid_system_component& system);
+    void update_planetary_wave_field(const gpu_fluid_system_component& system);
     void blur_particle_surface_targets();
     void render_planetary_water_atlas_input(const gpu_fluid_system_component& system);
     void render_planetary_water_shell(const gpu_fluid_system_component& system, const glm::vec3& light_position, const glm::vec3& light_color, float light_intensity);
+    void render_planetary_wave_debug_overlay(const gpu_fluid_system_component& system);
     void render_particle_surface_composite();
     void initialize_bounding_box_debug_resources();
     void render_bounding_boxes(engine& engine);

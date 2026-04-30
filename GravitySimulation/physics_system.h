@@ -1,9 +1,14 @@
 ﻿#pragma once
+#include "broadphase_pair.h"
 #include "bounding_box.h"
+#include "collision_broadphase.h"
 #include "collision_data.h"
 #include "collision_contact_data.h"
 #include "collision_event.h"
+#include "collision_narrowphase.h"
+#include "collision_solver.h"
 #include "compute_shader.h"
+#include "contact_manifold.h"
 #include "rigid_body.h"
 #include "unit_system.h"
 #include "uuid.h"
@@ -80,8 +85,14 @@ class physics_system
 	std::unordered_set<uuid> gpu_driven_nodes_;
   std::unordered_map<uuid, rigid_body*> rigid_bodies_by_node_id_;
   uuid default_compute_shader_id_;
+  collision_broadphase collision_broadphase_;
+  collision_narrowphase collision_narrowphase_;
+  collision_solver collision_solver_;
 	std::vector<collider*> colliders_;
+   std::vector<broadphase_pair> collision_candidate_pairs_;
 	std::vector<collision_pair> collision_pairs_;
+    std::vector<contact_manifold> contact_manifolds_;
+    std::unordered_map<contact_manifold_key, contact_manifold, contact_manifold_key_hash> contact_manifold_cache_;
     std::vector<solid_collision_contact> solid_collision_contacts_;
 	std::unordered_map<collision_pair_key, collision_event, collision_pair_key_hash> previous_collision_events_;
 	std::vector<collision_event> collision_enter_events_;
@@ -110,8 +121,9 @@ class physics_system
 	void run_collision_stage_cpu();
    static collision_pair_key make_collision_pair_key(collider* first, collider* second);
     static collision_event make_collision_event(collider* self, collider* other, const bounding_box& overlap_bounds);
- static solid_collision_contact make_solid_collision_contact(const collision_pair& pair);
- void resolve_solid_collisions();
+ static solid_collision_contact make_solid_collision_contact(const contact_manifold& manifold);
+    void sync_contact_manifold_cache();
+ void update_contact_manifolds();
 	void update_solid_collision_contacts();
 	void update_collision_events();
   void dispatch_collision_events(const std::vector<collision_event>& events, void (scene_node::*handler)(const collision_event&));
@@ -136,7 +148,12 @@ public:
 	bool remove(collider* collider_component);
 	const std::vector<collider*>& get_colliders() const;
 	const std::vector<collision_pair>& get_collision_pairs() const;
+    const std::vector<contact_manifold>& get_contact_manifolds() const;
  const std::vector<solid_collision_contact>& get_solid_collision_contacts() const;
+ [[nodiscard]] size_t get_cached_contact_manifold_count() const;
+	[[nodiscard]] size_t get_persistent_contact_manifold_count() const;
+	[[nodiscard]] size_t get_warm_contact_point_count() const;
+	[[nodiscard]] uint32_t get_max_contact_persistence() const;
 	const std::vector<collision_event>& get_collision_enter_events() const;
 	const std::vector<collision_event>& get_collision_stay_events() const;
 	const std::vector<collision_event>& get_collision_exit_events() const;

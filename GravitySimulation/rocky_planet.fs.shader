@@ -386,18 +386,32 @@ void main()
         baseColor = mix(baseColor, vec3(0.96, 1.0, 1.0), boundaryAlpha * 0.82);
     }
 
-    float ambient = 0.08;
-    float diffuse = max(dot(terrainNorm, lightDir), 0.0);
-    float specular = pow(max(dot(viewDir, reflect(-lightDir, terrainNorm)), 0.0), 28.0);
+    float ndotL = dot(terrainNorm, lightDir);
+    float diffuse = max(ndotL, 0.0);
+    float wrappedDiffuse = smoothstep(-0.22, 0.78, ndotL);
+    float ambient = mix(0.10, 0.22, wrappedDiffuse);
+    float nightFade = smoothstep(-0.42, 0.10, ndotL);
+    float nightLift = smoothstep(-1.0, -0.08, ndotL);
+    float terminatorGlow = pow(clamp(1.0 - abs(ndotL), 0.0, 1.0), 2.2) * (0.16 + 0.84 * max(dot(norm, viewDir), 0.0));
+    float oceanMask = oceanDepth;
+    float oceanSpecular = pow(max(dot(viewDir, reflect(-lightDir, terrainNorm)), 0.0), mix(36.0, 72.0, oceanMask));
+    float landSpecular = pow(max(dot(viewDir, reflect(-lightDir, terrainNorm)), 0.0), 28.0);
     float rim = pow(1.0 - max(dot(terrainNorm, viewDir), 0.0), 2.2);
+    float sunAlignment = pow(max(dot(viewDir, lightDir), 0.0), 4.5);
 
-    vec3 lightResponse = lightColor * (ambient + diffuse * 1.12);
+    vec3 warmSun = lightColor * vec3(1.10, 0.96, 0.88);
+    vec3 twilightSun = lightColor * vec3(1.18, 0.62, 0.28);
+    vec3 nightTint = vec3(0.05, 0.08, 0.14);
+    vec3 lightResponse = mix(nightTint, warmSun * (ambient + diffuse * 1.14 + wrappedDiffuse * 0.22), nightFade);
     vec3 color = baseColor * lightResponse;
-    color += lightColor * rockBright * specular * (0.05 + 0.14 * mountains + 0.05 * ridges);
-    color += lightColor * terrainMountainColor * terrainHighlight * landMask * 0.08;
-    color += lightColor * dustColor * rim * 0.05;
+    color += baseColor * nightTint * nightLift * 0.75;
+    color += twilightSun * terminatorGlow * (0.16 + 0.22 * oceanMask);
+    color += warmSun * rockBright * landSpecular * (0.03 + 0.08 * mountains + 0.03 * ridges) * nightFade;
+    color += warmSun * vec3(0.96, 0.99, 1.02) * oceanSpecular * (0.18 + 0.44 * oceanMask) * sunAlignment;
+    color += warmSun * terrainMountainColor * terrainHighlight * landMask * 0.10 * nightFade;
+    color += twilightSun * dustColor * rim * (0.03 + 0.05 * wrappedDiffuse);
 
-    if (terrainDebugMode != 0)
+    if (terrainDebugMode != 0 && terrainDebugMode != 6)
         color = mix(baseColor, color, 0.18);
 
     FragColor = vec4(color * intensity, 1.0);

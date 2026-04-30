@@ -13,9 +13,9 @@ uniform float time;
 float wave_noise(vec3 p)
 {
     float n = 0.0;
-    n += sin(p.x * 3.1 + p.y * 2.7 + p.z * 2.3);
-    n += 0.5 * sin(p.x * 6.2 - p.y * 4.1 + p.z * 5.3);
-    n += 0.25 * sin(-p.x * 11.4 + p.y * 8.6 + p.z * 9.1);
+    n += sin(dot(p, vec3(2.7, 3.1, 2.3)));
+    n += 0.5 * sin(dot(p, vec3(-4.2, 5.4, 6.1)));
+    n += 0.25 * sin(dot(p, vec3(8.7, -9.3, 7.9)));
     return n / 1.75;
 }
 
@@ -33,6 +33,47 @@ float fbm_surface(vec3 p)
     }
 
     return value;
+}
+
+float solar_granulation(vec3 norm, float time)
+{
+    vec3 warp = vec3(
+        fbm_surface(norm * 7.0 + vec3(time * 0.08, -time * 0.05, time * 0.03)),
+        fbm_surface(norm.zxy * 8.5 + vec3(-time * 0.06, time * 0.07, time * 0.04)),
+        fbm_surface(norm.yzx * 9.5 + vec3(time * 0.05, time * 0.04, -time * 0.06))) * 0.18;
+    vec3 pA = (norm + warp) * 18.0 + vec3(time * 0.10, -time * 0.06, time * 0.04);
+    vec3 pB = (norm.zxy - warp * 0.7) * 30.0 + vec3(-time * 0.14, time * 0.09, time * 0.07);
+    float cellA = 0.5 + 0.5 * fbm_surface(pA);
+    float cellB = 0.5 + 0.5 * fbm_surface(pB);
+    return clamp(cellA * 0.58 + cellB * 0.42, 0.0, 1.0);
+}
+
+float solar_intergranular_lanes(vec3 norm, float time)
+{
+    float granulation = solar_granulation(norm, time);
+    float laneMask = 1.0 - smoothstep(0.42, 0.68, granulation);
+    float breakup = 0.5 + 0.5 * fbm_surface(norm * 42.0 + vec3(time * 0.22, -time * 0.18, time * 0.13));
+    return laneMask * smoothstep(0.34, 0.86, breakup);
+}
+
+float solar_active_regions(vec3 norm, float time)
+{
+    vec3 warp = vec3(
+        fbm_surface(norm * 3.2 + vec3(time * 0.07, 0.0, -time * 0.05)),
+        fbm_surface(norm.zxy * 4.1 + vec3(-time * 0.04, time * 0.08, 0.0)),
+        fbm_surface(norm.yzx * 5.3 + vec3(0.0, time * 0.05, -time * 0.06))) * 0.24;
+    float macroA = 0.5 + 0.5 * fbm_surface((norm + warp) * 4.0 + vec3(time * 0.18, time * 0.05, -time * 0.07));
+    float macroB = 0.5 + 0.5 * fbm_surface((norm.yzx - warp * 0.6) * 6.5 + vec3(-time * 0.11, time * 0.16, time * 0.08));
+    float regions = macroA * 0.62 + macroB * 0.38;
+    return smoothstep(0.58, 0.90, regions);
+}
+
+float solar_edge_activity(vec3 norm, float time)
+{
+    float macro = 0.5 + 0.5 * fbm_surface(norm * 5.0 + vec3(time * 0.16, -time * 0.09, time * 0.06));
+    float detail = 0.5 + 0.5 * fbm_surface(norm.zxy * 11.0 + vec3(-time * 0.18, time * 0.12, time * 0.08));
+    float mask = smoothstep(0.62, 0.90, macro) * smoothstep(0.46, 0.88, detail);
+    return mask;
 }
 
 float flare_tongues(vec3 norm, float time)
@@ -61,7 +102,7 @@ void main()
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-normalize(FragPos), norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 12.0);
 
     float pulse = 0.94 + 0.06 * sin(time * 1.9);
     vec3 noisePosA = norm * 4.5 + vec3(0.0, time * 0.75, time * 0.18);
@@ -76,27 +117,32 @@ void main()
     float fresnel = pow(1.0 - ndotV, 2.1);
     float rim = smoothstep(0.18, 0.92, fresnel);
 
-    float azimuth = atan(norm.z, norm.x);
-    float flareBands = abs(sin(azimuth * 6.0 + time * 1.35));
-    flareBands = pow(flareBands, 18.0);
-    float flareNoise = 0.5 + 0.5 * fbm_surface(norm * 9.0 + vec3(time * 1.8, -time * 1.1, time * 0.6));
-    float tongueFlare = flare_tongues(norm, time);
-    float prominence = prominence_arcs(norm, time);
-    float solarFlare = rim * flareBands * smoothstep(0.35, 0.95, flareNoise);
-    solarFlare = max(solarFlare, tongueFlare * rim);
+    float granulation = solar_granulation(norm, time);
+    float lanes = solar_intergranular_lanes(norm, time);
+    float activeRegions = solar_active_regions(norm, time);
+    float edgeActivity = solar_edge_activity(norm, time);
+    float prominence = edgeActivity * rim * (0.35 + 0.65 * activeRegions);
+    float solarFlare = rim * edgeActivity * (0.28 + 0.72 * activeRegions);
     float corona = rim * (0.45 + 0.55 * surfaceMix) + solarFlare * 1.65 + prominence * rim * 0.85;
 
-    vec3 coreColor = lightColor * vec3(1.15, 1.0, 0.82);
-    vec3 flareColor = lightColor * vec3(1.45, 0.78, 0.28);
-    vec3 hotColor = lightColor * vec3(1.8, 1.1, 0.35);
+    vec3 deepColor = lightColor * vec3(0.72, 0.28, 0.08);
+    vec3 photosphereColor = lightColor * vec3(1.04, 0.76, 0.26);
+    vec3 brightCellColor = lightColor * vec3(1.22, 0.94, 0.52);
+    vec3 hotColor = lightColor * vec3(1.55, 1.02, 0.34);
 
-    vec3 baseSurface = mix(coreColor, flareColor, surfaceMix * 0.55);
-    vec3 convection = mix(baseSurface, hotColor, solarFlare * 0.55);
-    convection = mix(convection, hotColor * 1.05, prominence * 0.35);
-    vec3 emissive = convection * intensity * (0.82 + surfaceMix * 0.32) * pulse;
-    vec3 arcColor = mix(flareColor, hotColor, 0.75 + 0.25 * surfaceMix) * prominence * rim * (2.1 + 0.35 * pulse);
-    vec3 coronaColor = mix(flareColor, hotColor, solarFlare * 0.6) * corona * (1.7 + 0.4 * pulse);
-    vec3 specular = spec * lightColor * (0.3 + pulse * 0.25);
+    float centerBright = mix(0.88, 1.08, ndotV);
+    float photosphere = clamp(granulation * 0.72 + surfaceMix * 0.28, 0.0, 1.0);
+    vec3 baseSurface = mix(deepColor, photosphereColor, photosphere);
+    baseSurface = mix(baseSurface, brightCellColor, smoothstep(0.52, 0.92, granulation) * 0.72);
+    baseSurface = mix(baseSurface, deepColor * 0.58, lanes * 0.82);
+    baseSurface = mix(baseSurface, hotColor, activeRegions * 0.42);
+
+    vec3 convection = mix(baseSurface, hotColor, solarFlare * 0.28 + activeRegions * 0.16);
+    convection = mix(convection, hotColor * 1.04, prominence * 0.24);
+    vec3 emissive = convection * intensity * (0.70 + centerBright * 0.18 + photosphere * 0.14) * pulse;
+    vec3 arcColor = mix(photosphereColor, hotColor, 0.76 + 0.24 * surfaceMix) * prominence * rim * (1.65 + 0.22 * pulse);
+    vec3 coronaColor = mix(photosphereColor, hotColor, solarFlare * 0.5) * corona * (1.20 + 0.28 * pulse);
+    vec3 specular = spec * lightColor * (0.10 + pulse * 0.10);
 
     FragColor = vec4(emissive + coronaColor + arcColor + specular, 1.0);
 }

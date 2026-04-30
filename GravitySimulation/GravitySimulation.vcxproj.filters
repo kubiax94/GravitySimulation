@@ -211,6 +211,12 @@
     <ClCompile Include="ray_cast.cpp" />
     <ClCompile Include="aabb_collider.cpp" />
     <ClCompile Include="collision_debug_scene.cpp" />
+    <ClCompile Include="collision_broadphase.cpp" />
+    <ClCompile Include="collision_narrowphase.cpp" />
+    <ClCompile Include="collision_solver.cpp" />
+    <ClCompile Include="planetary_water_domain.cpp" />
+    <ClCompile Include="planetary_wave_field.cpp" />
+    <ClCompile Include="planetary_water_render_resource.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -344,6 +350,17 @@
     <ClInclude Include="collision_data.h" />
     <ClInclude Include="collision_contact_data.h" />
     <ClInclude Include="collision_debug_logger_component.h" />
+    <ClInclude Include="broadphase_proxy.h" />
+    <ClInclude Include="broadphase_pair.h" />
+    <ClInclude Include="collision_broadphase.h" />
+    <ClInclude Include="contact_point.h" />
+    <ClInclude Include="collision_narrowphase.h" />
+    <ClInclude Include="contact_manifold.h" />
+    <ClInclude Include="collision_solver.h" />
+    <ClInclude Include="planetary_water_domain_data.h" />
+    <ClInclude Include="planetary_water_domain.h" />
+    <ClInclude Include="planetary_wave_field.h" />
+    <ClInclude Include="planetary_water_render_resource.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -386,5 +403,10 @@
     <None Include="collision_detect.glsl" />
     <None Include="collision_resolve.glsl" />
     <None Include="collision_debug_gravity.glsl" />
+    <None Include="planetary_wave_propagation.glsl" />
+    <None Include="planetary_wave_debug_overlay.fs.shader" />
+    <None Include="planetary_wave_debug_shell.fs.shader" />
+    <None Include="planetary_wave_render_filter.glsl" />
+    <None Include="planetary_tide_field.glsl" />
   </ItemGroup>
 </Project>

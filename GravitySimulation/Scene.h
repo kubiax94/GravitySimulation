@@ -60,7 +60,12 @@ public:
 	const std::vector<renderer*>& get_renderers() const { return renderers_; }
    const std::vector<collider*>& get_colliders() const { return physics_.get_colliders(); }
  const std::vector<collision_pair>& get_collision_pairs() const { return physics_.get_collision_pairs(); }
+    const std::vector<contact_manifold>& get_contact_manifolds() const { return physics_.get_contact_manifolds(); }
    const std::vector<solid_collision_contact>& get_solid_collision_contacts() const { return physics_.get_solid_collision_contacts(); }
+   [[nodiscard]] size_t get_cached_contact_manifold_count() const { return physics_.get_cached_contact_manifold_count(); }
+	[[nodiscard]] size_t get_persistent_contact_manifold_count() const { return physics_.get_persistent_contact_manifold_count(); }
+	[[nodiscard]] size_t get_warm_contact_point_count() const { return physics_.get_warm_contact_point_count(); }
+	[[nodiscard]] uint32_t get_max_contact_persistence() const { return physics_.get_max_contact_persistence(); }
  const std::vector<collision_event>& get_collision_enter_events() const { return physics_.get_collision_enter_events(); }
 	const std::vector<collision_event>& get_collision_stay_events() const { return physics_.get_collision_stay_events(); }
 	const std::vector<collision_event>& get_collision_exit_events() const { return physics_.get_collision_exit_events(); }

@@ -9,6 +9,7 @@
 class collision_debug_logger_component final : public component
 {
     std::string label_;
+    mutable uint32_t stay_log_counter_ = 0u;
 
     void log_event(const char* phase, const collision_event& event) const {
         std::cout << "[collision][" << phase << "] " << label_ << " -> ";
@@ -43,7 +44,9 @@ public:
     }
 
     void on_collision_stay(const collision_event& event) override {
-        log_event("stay", event);
+        ++stay_log_counter_;
+        if (stay_log_counter_ % 30u == 0u)
+            log_event("stay", event);
     }
 
     void on_collision_exit(const collision_event& event) override {

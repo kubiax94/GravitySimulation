@@ -4,6 +4,7 @@
 #include "compute_shader.h"
 #include "Mesh.h"
 #include "planetary_ocean_resource.h"
+#include "planetary_water_render_resource.h"
 #include "procedural_mesh_resource.h"
 #include "Shader.h"
 #include "terrain_mesh_resource.h"
@@ -26,6 +27,7 @@ public:
 		const std::string& name,
 		const planet_terrain::rocky_planet_profile& profile,
 		const planet_terrain::ocean_seed_generation_params& params);
+ planetary_water_render_resource* create_planetary_water_render_resource(const std::string& name);
    terrain_mesh_resource* create_terrain_mesh_resource(
 		const std::string& name,
 		const planet_terrain::rocky_planet_profile& profile,

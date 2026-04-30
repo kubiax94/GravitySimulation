@@ -2,6 +2,9 @@
 
 #include <cmath>
 
+#include "aabb_collider.h"
+#include "collision_data.h"
+#include "collision_layers.h"
 #include "compute_shader.h"
 #include "g_shape.h"
 #include "Renderer.h"
@@ -15,6 +18,62 @@ struct alignas(16) cloth_constraint_data
     float rest_length = 0.f;
     float stiffness = 0.f;
 };
+
+MeshData create_cube_line_mesh() {
+    MeshData data;
+    const glm::vec3 corners[] = {
+        {-0.5f, -0.5f, -0.5f},
+        { 0.5f, -0.5f, -0.5f},
+        {-0.5f,  0.5f, -0.5f},
+        { 0.5f,  0.5f, -0.5f},
+        {-0.5f, -0.5f,  0.5f},
+        { 0.5f, -0.5f,  0.5f},
+        {-0.5f,  0.5f,  0.5f},
+        { 0.5f,  0.5f,  0.5f}
+    };
+
+    for (const auto& corner : corners) {
+        Vertex vertex{};
+        vertex.Position = corner;
+        vertex.Normal = glm::vec3(0.f, 1.f, 0.f);
+        data.vertecies.push_back(vertex);
+    }
+
+    data.indices = {
+        0u, 1u, 1u, 3u, 3u, 2u, 2u, 0u,
+        4u, 5u, 5u, 7u, 7u, 6u, 6u, 4u,
+        0u, 4u, 1u, 5u, 2u, 6u, 3u, 7u
+    };
+
+    return data;
+}
+
+bounding_box make_unit_cube_bounds() {
+    bounding_box bounds;
+    bounds.min = glm::vec3(-0.5f);
+    bounds.max = glm::vec3(0.5f);
+    bounds.valid = true;
+    return bounds;
+}
+
+collision_data make_collision_body(collider* collider_component) {
+    collision_data entry;
+    if (!collider_component || !collider_component->get_node())
+        return entry;
+
+    const bounding_box world_bounds = collider_component->get_world_bounds();
+    if (!world_bounds.valid)
+        return entry;
+
+    auto* node = collider_component->get_node();
+    entry.center = glm::vec4(world_bounds.get_center(), 1.0f);
+    entry.half_extents = glm::vec4(world_bounds.get_size() * 0.5f, 0.0f);
+    entry.metadata.x = 0u;
+    entry.metadata.y = node->get_collision_layer_mask();
+    entry.metadata.z = node->get_collision_query_mask();
+    entry.metadata.w = collider_component->is_enabled() ? collision_flag_enabled : 0u;
+    return entry;
+}
 
 MeshData create_spring_segment_mesh() {
     MeshData mesh_data;
@@ -62,9 +121,13 @@ void cloth_scene::initialize_scene_content() {
     cloth_particle_shader_ = assets.create_shader("cloth.particle", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
     cloth_link_shader_ = assets.create_shader("cloth.link", "GravitySimulation/cloth_link.vs.shader", "GravitySimulation/default.fs.shader");
     cloth_compute_shader_ = assets.create_compute_shader("cloth.compute", "GravitySimulation/cloth_simulation.glsl");
+    auto* cloth_obstacle_shader = assets.create_shader("cloth.obstacle", "GravitySimulation/camera.vs.shader", "GravitySimulation/camera.fs.shader");
     cloth_particle_mesh_ = assets.create_mesh(cloth_particle_data);
     cloth_link_mesh_ = assets.create_mesh(cloth_link_data);
     cloth_link_mesh_->type = MeshType::LINES;
+    static MeshData obstacle_mesh_data = create_cube_line_mesh();
+    auto* cloth_obstacle_mesh = assets.create_mesh(obstacle_mesh_data);
+    cloth_obstacle_mesh->type = MeshType::LINES;
 
     register_compute_shader(cloth_compute_shader_);
 
@@ -77,6 +140,30 @@ void cloth_scene::initialize_scene_content() {
     constexpr float structural_stiffness = 44.f;
     constexpr float shear_stiffness = 6.f;
     constexpr float bend_stiffness = 1.2f;
+    const bounding_box obstacle_bounds = make_unit_cube_bounds();
+
+    std::vector<collision_data> cloth_collision_bodies;
+    cloth_collision_bodies.reserve(4);
+
+    auto add_static_obstacle = [&](const std::string& name, const glm::vec3& position, const glm::vec3& scale) {
+        auto* obstacle_node = create_scene_node(name);
+        obstacle_node->set_global_position(position);
+        obstacle_node->set_global_scale(scale);
+        obstacle_node->set_collision_layer(collision_layer::environment);
+        obstacle_node->set_collision_query_mask(collision_mask_all);
+
+        auto* obstacle_renderer = obstacle_node->add_component<renderer>(obstacle_node, cloth_obstacle_shader, cloth_obstacle_mesh);
+        obstacle_renderer->set_visual_scale(glm::vec3(1.f));
+
+        auto* obstacle_collider = obstacle_node->add_component<aabb_collider>(obstacle_node, obstacle_bounds);
+        obstacle_collider->set_auto_generated(false);
+        cloth_collision_bodies.push_back(make_collision_body(obstacle_collider));
+    };
+
+    add_static_obstacle("cloth_floor_collider", glm::vec3(0.f, 1.f, 0.f), glm::vec3(240.f, 2.f, 240.f));
+    add_static_obstacle("cloth_center_block", glm::vec3(0.f, 22.f, 18.f), glm::vec3(42.f, 18.f, 42.f));
+    add_static_obstacle("cloth_left_block", glm::vec3(-46.f, 12.f, 30.f), glm::vec3(30.f, 14.f, 30.f));
+    add_static_obstacle("cloth_right_block", glm::vec3(46.f, 18.f, 14.f), glm::vec3(34.f, 22.f, 34.f));
 
     auto particle_index = [columns](int x, int y) {
         return static_cast<size_t>(y * columns + x);
@@ -158,12 +245,15 @@ void cloth_scene::initialize_scene_content() {
 
     cloth_compute_shader_->use();
     cloth_compute_shader_->add_ssbo(1, constraints);
+    cloth_compute_shader_->add_ssbo(2, cloth_collision_bodies);
     cloth_compute_shader_->set_uni_int("constraintCount", static_cast<int>(constraints.size()));
+    cloth_compute_shader_->set_uni_int("colliderCount", static_cast<int>(cloth_collision_bodies.size()));
     cloth_compute_shader_->set_uni_float("gravityAcceleration", 36.f);
     cloth_compute_shader_->set_uni_float("springDamping", 1.15f);
     cloth_compute_shader_->set_uni_float("velocityDamping", 0.988f);
     cloth_compute_shader_->set_uni_float("floorHeight", 2.f);
     cloth_compute_shader_->set_uni_float("floorBounce", 0.05f);
+    cloth_compute_shader_->set_uni_float("particleRadius", mass_radius);
     cloth_compute_shader_->set_uni_float("tangentialDamping", 0.85f);
     cloth_compute_shader_->set_uni_vec3("windDirection", glm::normalize(glm::vec3(0.35f, -0.1f, 1.0f)));
     cloth_compute_shader_->set_uni_float("windStrength", 12.f);

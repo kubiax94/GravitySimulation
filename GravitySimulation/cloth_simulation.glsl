@@ -4,11 +4,13 @@ layout(local_size_x = 64) in;
 uniform float dt;
 uniform float rawDt;
 uniform int constraintCount;
+uniform int colliderCount;
 uniform float gravityAcceleration;
 uniform float springDamping;
 uniform float velocityDamping;
 uniform float floorHeight;
 uniform float floorBounce;
+uniform float particleRadius;
 uniform float tangentialDamping;
 uniform float simulationTime;
 uniform vec3 windDirection;
@@ -29,12 +31,22 @@ struct ClothConstraint {
     float stiffness;
 };
 
+struct CollisionBody {
+    vec4 center;
+    vec4 half_extents;
+    uvec4 metadata;
+};
+
 layout(std430, binding = 0) buffer PhysicsData {
     PhysicsBody bodies[];
 };
 
 layout(std430, binding = 1) readonly buffer ClothConstraints {
     ClothConstraint constraints[];
+};
+
+layout(std430, binding = 2) readonly buffer CollisionData {
+    CollisionBody colliders[];
 };
 
 void main() {
@@ -92,6 +104,37 @@ void main() {
     vec3 acceleration = force / mass;
     velocity = (velocity + acceleration * rawDt) * velocityDamping;
     position += velocity * rawDt;
+
+    for (int collider_index = 0; collider_index < colliderCount; ++collider_index) {
+        CollisionBody collider_body = colliders[collider_index];
+        vec3 expanded_half_extents = collider_body.half_extents.xyz + vec3(particleRadius);
+        vec3 delta_to_center = position - collider_body.center.xyz;
+        vec3 distance_to_face = expanded_half_extents - abs(delta_to_center);
+
+        if (distance_to_face.x < 0.0 || distance_to_face.y < 0.0 || distance_to_face.z < 0.0)
+            continue;
+
+        float penetration = distance_to_face.x;
+        vec3 collision_normal = vec3(delta_to_center.x >= 0.0 ? 1.0 : -1.0, 0.0, 0.0);
+
+        if (distance_to_face.y < penetration) {
+            penetration = distance_to_face.y;
+            collision_normal = vec3(0.0, delta_to_center.y >= 0.0 ? 1.0 : -1.0, 0.0);
+        }
+
+        if (distance_to_face.z < penetration) {
+            penetration = distance_to_face.z;
+            collision_normal = vec3(0.0, 0.0, delta_to_center.z >= 0.0 ? 1.0 : -1.0);
+        }
+
+        position += collision_normal * penetration;
+        float normal_velocity = dot(velocity, collision_normal);
+        if (normal_velocity < 0.0)
+            velocity -= collision_normal * (1.0 + floorBounce) * normal_velocity;
+
+        vec3 tangential_velocity = velocity - dot(velocity, collision_normal) * collision_normal;
+        velocity = dot(velocity, collision_normal) * collision_normal + tangential_velocity * tangentialDamping;
+    }
 
     if (position.y < floorHeight) {
         position.y = floorHeight;

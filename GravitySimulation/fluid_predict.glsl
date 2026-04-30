@@ -135,12 +135,30 @@ vec2 build_planetary_hydrology_uv(vec3 surfaceNormal) {
         (latitude + 1.57079632679) / 3.14159265359);
 }
 
+float sample_polar_stable_latlong_texture(sampler2D textureSampler, vec3 surfaceNormal) {
+    vec2 uv = build_planetary_hydrology_uv(surfaceNormal);
+    float base = textureLod(textureSampler, uv, 0.0).r;
+    float polarBlend = smoothstep(0.80, 0.98, abs(surfaceNormal.y));
+    if (polarBlend <= 0.0)
+        return base;
+
+    vec2 texel = 1.0 / vec2(textureSize(textureSampler, 0));
+    float filtered = base * 0.34;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x + texel.x * 2.0), uv.y), 0.0).r * 0.17;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x - texel.x * 2.0 + 1.0), uv.y), 0.0).r * 0.17;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x + texel.x * 4.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x + texel.x * 8.0), uv.y), 0.0).r * 0.04;
+    filtered += textureLod(textureSampler, vec2(fract(uv.x - texel.x * 8.0 + 1.0), uv.y), 0.0).r * 0.04;
+    return mix(base, filtered, polarBlend);
+}
+
 float sample_planetary_physics_mask_binary(vec3 normal) {
     if (planetaryPhysicsMaskTextureAvailable == 0)
         return -1.0;
 
     vec3 surfaceNormal = to_planetary_surface_frame(normal);
-    return textureLod(planetaryPhysicsMaskTexture, build_planetary_hydrology_uv(surfaceNormal), 0.0).r;
+    return sample_polar_stable_latlong_texture(planetaryPhysicsMaskTexture, surfaceNormal);
 }
 
 float sample_planetary_water_level(vec3 normal) {
@@ -148,7 +166,7 @@ float sample_planetary_water_level(vec3 normal) {
         return -1.0;
 
     vec3 surfaceNormal = to_planetary_surface_frame(normal);
-    return textureLod(planetaryWaterLevelTexture, build_planetary_hydrology_uv(surfaceNormal), 0.0).r;
+    return sample_polar_stable_latlong_texture(planetaryWaterLevelTexture, surfaceNormal);
 }
 
 float compute_planetary_surface_layer_radius(float floorRadius, float ceilingRadius) {

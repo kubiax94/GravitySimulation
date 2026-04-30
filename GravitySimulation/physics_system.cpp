@@ -3,6 +3,7 @@
 #include <cmath>
 #include <glm/gtx/string_cast.hpp>
 
+#include "broadphase_pair.h"
 #include "collider.h"
 #include "frame_profiler.h"
 
@@ -111,17 +112,22 @@ void physics_system::apply_gpu_results_to_bodies(const std::vector<rigid_body*>&
 void physics_system::sync_collision_contacts_from_gpu_data(const std::vector<collision_contact_data>& gpu_contacts, const std::vector<rigid_body*>& bodies) {
     if (bodies.empty()) {
         collision_pairs_.clear();
+        contact_manifolds_.clear();
         solid_collision_contacts_.clear();
         return;
     }
 
     collision_pairs_.clear();
+    contact_manifolds_.clear();
     solid_collision_contacts_.clear();
     collision_pairs_.reserve(gpu_contacts.size());
+    contact_manifolds_.reserve(gpu_contacts.size() * collision_contact_capacity);
    solid_collision_contacts_.reserve(gpu_contacts.size() * collision_contact_capacity);
     std::unordered_map<collision_pair_key, size_t, collision_pair_key_hash> pair_indices;
+    std::unordered_map<collision_pair_key, size_t, collision_pair_key_hash> manifold_indices;
     std::unordered_map<collision_pair_key, size_t, collision_pair_key_hash> solid_contact_indices;
     pair_indices.reserve(gpu_contacts.size() * collision_contact_capacity);
+    manifold_indices.reserve(gpu_contacts.size() * collision_contact_capacity);
     solid_contact_indices.reserve(gpu_contacts.size() * collision_contact_capacity);
 
     for (const auto& contact_data : gpu_contacts) {
@@ -167,12 +173,27 @@ void physics_system::sync_collision_contacts_from_gpu_data(const std::vector<col
             if ((contact_data.metadata[slot].z & collision_contact_flag_trigger) != 0u)
                 continue;
 
-            solid_collision_contact contact;
-            contact.first = first;
-            contact.second = second;
-            contact.overlap_bounds = overlap_bounds;
-            contact.normal = glm::vec3(contact_data.normal_penetration[slot]);
-            contact.penetration_depth = contact_data.normal_penetration[slot].w;
+            contact_manifold manifold;
+            manifold.first = first;
+            manifold.second = second;
+            manifold.overlap_bounds = overlap_bounds;
+            manifold.normal = glm::vec3(contact_data.normal_penetration[slot]);
+            manifold.point_count = 1u;
+            manifold.points[0].position = overlap_bounds.get_center();
+            manifold.points[0].penetration = contact_data.normal_penetration[slot].w;
+            if (!manifold.is_valid())
+                continue;
+
+            auto manifold_it = manifold_indices.find(pair_key);
+            if (manifold_it == manifold_indices.end()) {
+                manifold_indices.emplace(pair_key, contact_manifolds_.size());
+                contact_manifolds_.push_back(manifold);
+            }
+            else if (manifold.get_max_penetration() > contact_manifolds_[manifold_it->second].get_max_penetration()) {
+                contact_manifolds_[manifold_it->second] = manifold;
+            }
+
+            const solid_collision_contact contact = make_solid_collision_contact(manifold);
             if (!contact.is_valid())
                 continue;
 
@@ -226,69 +247,82 @@ collision_event physics_system::make_collision_event(collider* self, collider* o
     return event;
 }
 
-solid_collision_contact physics_system::make_solid_collision_contact(const collision_pair& pair) {
+solid_collision_contact physics_system::make_solid_collision_contact(const contact_manifold& manifold) {
     solid_collision_contact contact;
-    contact.first = pair.first;
-    contact.second = pair.second;
-    contact.overlap_bounds = pair.overlap_bounds;
+    contact.first = manifold.first;
+    contact.second = manifold.second;
+    contact.overlap_bounds = manifold.overlap_bounds;
 
-    if (!pair.is_valid() || !pair.first || !pair.second || pair.first->is_trigger() || pair.second->is_trigger())
+    if (!manifold.is_valid() || !manifold.first || !manifold.second || manifold.is_trigger)
         return contact;
 
-    const glm::vec3 overlap_size = pair.overlap_bounds.get_size();
-    if (overlap_size.x <= 0.0f || overlap_size.y <= 0.0f || overlap_size.z <= 0.0f)
-        return contact;
-
-    const glm::vec3 first_center = pair.first->get_world_bounds().get_center();
-    const glm::vec3 second_center = pair.second->get_world_bounds().get_center();
-    const glm::vec3 delta = second_center - first_center;
-
-    contact.penetration_depth = overlap_size.x;
-    contact.normal = glm::vec3(delta.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f);
-
-    if (overlap_size.y < contact.penetration_depth) {
-        contact.penetration_depth = overlap_size.y;
-        contact.normal = glm::vec3(0.0f, delta.y >= 0.0f ? 1.0f : -1.0f, 0.0f);
-    }
-
-    if (overlap_size.z < contact.penetration_depth) {
-        contact.penetration_depth = overlap_size.z;
-        contact.normal = glm::vec3(0.0f, 0.0f, delta.z >= 0.0f ? 1.0f : -1.0f);
-    }
+    contact.normal = manifold.normal;
+    contact.penetration_depth = manifold.get_max_penetration();
 
     return contact;
 }
 
 void physics_system::update_collision_pairs() {
     collision_pairs_.clear();
+    collision_candidate_pairs_.clear();
 
-    for (size_t i = 0; i < colliders_.size(); ++i) {
-        auto* first = colliders_[i];
-        if (!first || !first->is_enabled() || !first->get_node())
+    const auto proxies = collision_broadphase_.build_proxies(colliders_);
+    collision_candidate_pairs_ = collision_broadphase_.find_pairs(proxies);
+    collision_pairs_.reserve(collision_candidate_pairs_.size());
+
+    for (const auto& candidate_pair : collision_candidate_pairs_) {
+        if (!candidate_pair.is_valid())
             continue;
 
-        for (size_t j = i + 1; j < colliders_.size(); ++j) {
-            auto* second = colliders_[j];
-            if (!second || !second->is_enabled() || !second->get_node())
-                continue;
+        bounding_box overlap_bounds;
+        if (!intersects(*candidate_pair.first, *candidate_pair.second, &overlap_bounds))
+            continue;
 
-            if (first->get_node() == second->get_node())
-                continue;
-
-            const auto first_layer = first->get_node()->get_collision_layer_mask();
-            const auto first_query = first->get_node()->get_collision_query_mask();
-            const auto second_layer = second->get_node()->get_collision_layer_mask();
-            const auto second_query = second->get_node()->get_collision_query_mask();
-            if (!collision_pair_matches(first_layer, first_query, second_layer, second_query))
-                continue;
-
-            bounding_box overlap_bounds;
-            if (!intersects(*first, *second, &overlap_bounds))
-                continue;
-
-            collision_pairs_.push_back({ first, second, overlap_bounds });
-        }
+        collision_pairs_.push_back({ candidate_pair.first, candidate_pair.second, overlap_bounds });
     }
+}
+
+void physics_system::update_contact_manifolds() {
+    contact_manifolds_.clear();
+    contact_manifolds_.reserve(collision_candidate_pairs_.size());
+
+    for (const auto& candidate_pair : collision_candidate_pairs_) {
+        if (!candidate_pair.is_valid())
+            continue;
+
+        contact_manifold manifold;
+        if (!collision_narrowphase_.build_manifold(candidate_pair, manifold))
+            continue;
+
+        const auto cache_it = contact_manifold_cache_.find(make_contact_manifold_key(manifold.first, manifold.second));
+        if (cache_it != contact_manifold_cache_.end()) {
+            manifold.persistence = cache_it->second.persistence + 1u;
+            const uint32_t copy_count = std::min(manifold.point_count, cache_it->second.point_count);
+            for (uint32_t point_index = 0; point_index < copy_count; ++point_index) {
+                manifold.points[point_index].normal_impulse_accumulated = cache_it->second.points[point_index].normal_impulse_accumulated;
+                manifold.points[point_index].tangent_impulse_accumulated = cache_it->second.points[point_index].tangent_impulse_accumulated;
+            }
+        }
+        else {
+            manifold.persistence = 1u;
+        }
+
+        contact_manifolds_.push_back(manifold);
+    }
+}
+
+void physics_system::sync_contact_manifold_cache() {
+    std::unordered_map<contact_manifold_key, contact_manifold, contact_manifold_key_hash> next_cache;
+    next_cache.reserve(contact_manifolds_.size());
+
+    for (const auto& manifold : contact_manifolds_) {
+        if (!manifold.first || !manifold.second)
+            continue;
+
+        next_cache.insert_or_assign(make_contact_manifold_key(manifold.first, manifold.second), manifold);
+    }
+
+    contact_manifold_cache_ = std::move(next_cache);
 }
 
 void physics_system::update_collision_events() {
@@ -323,139 +357,13 @@ void physics_system::update_collision_events() {
 
 void physics_system::update_solid_collision_contacts() {
     solid_collision_contacts_.clear();
-    solid_collision_contacts_.reserve(collision_pairs_.size());
+    solid_collision_contacts_.reserve(contact_manifolds_.size());
 
-    for (const auto& pair : collision_pairs_) {
-        const solid_collision_contact contact = make_solid_collision_contact(pair);
+    for (const auto& manifold : contact_manifolds_) {
+        const solid_collision_contact contact = make_solid_collision_contact(manifold);
         if (contact.is_valid())
             solid_collision_contacts_.push_back(contact);
     }
-}
-
-void physics_system::resolve_solid_collisions() {
-    bool resolved_any = false;
-    constexpr float penetration_slop = 0.0005f;
-    constexpr float correction_percent = 0.7f;
-    constexpr float minimum_mass = 0.0001f;
-    constexpr float restitution = 0.0f;
-    constexpr float static_friction = 0.5f;
-    constexpr float dynamic_friction = 0.35f;
-
-    for (int iteration = 0; iteration < contact_solver_iterations_; ++iteration) {
-        bool resolved_this_iteration = false;
-
-        for (const auto& initial_contact : solid_collision_contacts_) {
-            if (!initial_contact.first || !initial_contact.second)
-                continue;
-
-            bounding_box overlap_bounds;
-            if (!intersects(*initial_contact.first, *initial_contact.second, &overlap_bounds))
-                continue;
-
-            const solid_collision_contact contact = make_solid_collision_contact({ initial_contact.first, initial_contact.second, overlap_bounds });
-            if (!contact.is_valid())
-                continue;
-
-            auto* first_node = contact.first->get_node();
-            auto* second_node = contact.second->get_node();
-            if (!first_node || !second_node)
-                continue;
-
-            auto first_body_it = rigid_bodies_by_node_id_.find(first_node->get_id());
-            auto second_body_it = rigid_bodies_by_node_id_.find(second_node->get_id());
-            rigid_body* first_body = first_body_it != rigid_bodies_by_node_id_.end() ? first_body_it->second : nullptr;
-            rigid_body* second_body = second_body_it != rigid_bodies_by_node_id_.end() ? second_body_it->second : nullptr;
-            if (!first_body && !second_body)
-                continue;
-
-            const bool first_dynamic = first_body && first_body->get_mass() > 0.0f;
-            const bool second_dynamic = second_body && second_body->get_mass() > 0.0f;
-            if (!first_dynamic && !second_dynamic)
-                continue;
-
-            const float first_inverse_mass = first_dynamic ? 1.0f / std::max(first_body->get_mass(), minimum_mass) : 0.0f;
-            const float second_inverse_mass = second_dynamic ? 1.0f / std::max(second_body->get_mass(), minimum_mass) : 0.0f;
-            const float inverse_mass_sum = first_inverse_mass + second_inverse_mass;
-            if (inverse_mass_sum <= 0.0f)
-                continue;
-
-            const glm::vec3 first_velocity = first_body ? first_body->get_velocity() : glm::vec3(0.0f);
-            const glm::vec3 second_velocity = second_body ? second_body->get_velocity() : glm::vec3(0.0f);
-            const glm::vec3 relative_velocity = second_velocity - first_velocity;
-            const float velocity_along_normal = glm::dot(relative_velocity, contact.normal);
-
-            if (velocity_along_normal < 0.0f) {
-                const float normal_impulse_magnitude = -(1.0f + restitution) * velocity_along_normal / inverse_mass_sum;
-                const glm::vec3 normal_impulse = contact.normal * normal_impulse_magnitude;
-
-                if (first_dynamic)
-                    first_body->set_velocity(first_velocity - normal_impulse * first_inverse_mass);
-
-                if (second_dynamic)
-                    second_body->set_velocity(second_velocity + normal_impulse * second_inverse_mass);
-
-                const glm::vec3 resolved_first_velocity = first_body ? first_body->get_velocity() : glm::vec3(0.0f);
-                const glm::vec3 resolved_second_velocity = second_body ? second_body->get_velocity() : glm::vec3(0.0f);
-                const glm::vec3 resolved_relative_velocity = resolved_second_velocity - resolved_first_velocity;
-                const glm::vec3 tangent_velocity = resolved_relative_velocity - glm::dot(resolved_relative_velocity, contact.normal) * contact.normal;
-                const float tangent_length_sq = glm::dot(tangent_velocity, tangent_velocity);
-
-                if (tangent_length_sq > 1e-8f) {
-                    const glm::vec3 tangent = tangent_velocity / std::sqrt(tangent_length_sq);
-                    const float tangent_impulse_magnitude = -glm::dot(resolved_relative_velocity, tangent) / inverse_mass_sum;
-
-                    glm::vec3 friction_impulse;
-                    const float max_static_friction = normal_impulse_magnitude * static_friction;
-                    if (std::abs(tangent_impulse_magnitude) <= max_static_friction)
-                        friction_impulse = tangent * tangent_impulse_magnitude;
-                    else
-                        friction_impulse = tangent * (-normal_impulse_magnitude * dynamic_friction);
-
-                    if (first_dynamic)
-                        first_body->set_velocity(first_body->get_velocity() - friction_impulse * first_inverse_mass);
-
-                    if (second_dynamic)
-                        second_body->set_velocity(second_body->get_velocity() + friction_impulse * second_inverse_mass);
-                }
-
-                resolved_any = true;
-                resolved_this_iteration = true;
-            }
-
-            const float corrected_penetration = std::max(contact.penetration_depth - penetration_slop, 0.0f);
-            const glm::vec3 correction = contact.normal * (corrected_penetration * correction_percent / inverse_mass_sum);
-            const glm::vec3 first_delta = -correction * first_inverse_mass;
-            const glm::vec3 second_delta = correction * second_inverse_mass;
-
-            auto resolve_body = [this, &resolved_any, &resolved_this_iteration](rigid_body* body, const glm::vec3& delta) {
-                if (!body)
-                    return;
-
-                const bool has_position_delta = glm::dot(delta, delta) > 0.0f;
-                if (!has_position_delta)
-                    return;
-
-                const glm::vec3 resolved_position = body->get_position() + delta;
-                body->set_position(resolved_position);
-
-                if (auto* node = body->get_node()) {
-                    node->set_global_position(resolved_position);
-                    current_positions_[node->get_id()] = resolved_position;
-                }
-
-                resolved_any = true;
-                resolved_this_iteration = true;
-            };
-
-            resolve_body(first_body, first_delta);
-            resolve_body(second_body, second_delta);
-        }
-
-        if (!resolved_this_iteration)
-            break;
-    }
-
-    gpu_buffer_dirty_ = gpu_buffer_dirty_ || resolved_any;
 }
 
 void physics_system::dispatch_collision_events(const std::vector<collision_event>& events, void (scene_node::*handler)(const collision_event&)) {
@@ -696,8 +604,9 @@ void physics_system::run_collision_stage_gpu(const std::vector<rigid_body*>& bod
     std::vector<collision_contact_data> gpu_contacts;
     collision_detect_comp_->get_binding_data(2, gpu_contacts);
     sync_collision_contacts_from_gpu_data(gpu_contacts, bodies);
-    resolve_solid_collisions();
+    gpu_buffer_dirty_ = gpu_buffer_dirty_ || collision_solver_.solve(contact_manifolds_, collision_narrowphase_, rigid_bodies_by_node_id_, current_positions_, contact_solver_iterations_);
     update_collision_pairs();
+    update_contact_manifolds();
     update_solid_collision_contacts();
 }
 
@@ -705,13 +614,15 @@ void physics_system::run_collision_stage_cpu() {
    constexpr int resolve_iterations = 4;
     for (int iteration = 0; iteration < resolve_iterations; ++iteration) {
         update_collision_pairs();
+        update_contact_manifolds();
         update_solid_collision_contacts();
         if (solid_collision_contacts_.empty())
             break;
-        resolve_solid_collisions();
+        gpu_buffer_dirty_ = gpu_buffer_dirty_ || collision_solver_.solve(contact_manifolds_, collision_narrowphase_, rigid_bodies_by_node_id_, current_positions_, contact_solver_iterations_);
     }
 
     update_collision_pairs();
+    update_contact_manifolds();
     update_solid_collision_contacts();
 }
 
@@ -734,7 +645,12 @@ void physics_system::compute_gpu(const float& dt) {
             if (stage_it != compute_shader_stages_.end() && stage_it->second != physics_gpu_stage::custom)
                 continue;
 
-            sync_gpu_buffer(shader_it->second, bodies);
+            const bool requires_cpu_upload = std::ranges::any_of(bodies, [this](const rigid_body* body) {
+                return !body || !body->get_node() || !gpu_driven_nodes_.contains(body->get_node()->get_id());
+            });
+
+            if (requires_cpu_upload)
+                sync_gpu_buffer(shader_it->second, bodies);
         }
     }
 
@@ -780,6 +696,12 @@ bool physics_system::remove(collider* collider_component) {
     solid_collision_contacts_.erase(std::remove_if(solid_collision_contacts_.begin(), solid_collision_contacts_.end(), [collider_component](const solid_collision_contact& contact) {
         return contact.first == collider_component || contact.second == collider_component;
     }), solid_collision_contacts_.end());
+    for (auto it = contact_manifold_cache_.begin(); it != contact_manifold_cache_.end();) {
+        if (it->second.first == collider_component || it->second.second == collider_component)
+            it = contact_manifold_cache_.erase(it);
+        else
+            ++it;
+    }
     remove_collision_state(collider_component);
     return true;
 }
@@ -792,8 +714,45 @@ const std::vector<collision_pair>& physics_system::get_collision_pairs() const {
     return collision_pairs_;
 }
 
+const std::vector<contact_manifold>& physics_system::get_contact_manifolds() const {
+    return contact_manifolds_;
+}
+
 const std::vector<solid_collision_contact>& physics_system::get_solid_collision_contacts() const {
     return solid_collision_contacts_;
+}
+
+size_t physics_system::get_cached_contact_manifold_count() const {
+    return contact_manifold_cache_.size();
+}
+
+size_t physics_system::get_persistent_contact_manifold_count() const {
+    return std::count_if(contact_manifolds_.begin(), contact_manifolds_.end(), [](const contact_manifold& manifold) {
+        return manifold.persistence > 1u;
+    });
+}
+
+size_t physics_system::get_warm_contact_point_count() const {
+    size_t count = 0;
+
+    for (const auto& manifold : contact_manifolds_) {
+        for (uint32_t point_index = 0; point_index < manifold.point_count && point_index < manifold.points.size(); ++point_index) {
+            const auto& point = manifold.points[point_index];
+            if (std::abs(point.normal_impulse_accumulated) > 1e-5f || std::abs(point.tangent_impulse_accumulated) > 1e-5f)
+                ++count;
+        }
+    }
+
+    return count;
+}
+
+uint32_t physics_system::get_max_contact_persistence() const {
+    uint32_t max_persistence = 0u;
+
+    for (const auto& manifold : contact_manifolds_)
+        max_persistence = std::max(max_persistence, manifold.persistence);
+
+    return max_persistence;
 }
 
 const std::vector<collision_event>& physics_system::get_collision_enter_events() const {
@@ -887,9 +846,12 @@ void physics_system::update(const float& dt) {
         }
 
         update_collision_pairs();
+        update_contact_manifolds();
         update_solid_collision_contacts();
-        resolve_solid_collisions();
+        gpu_buffer_dirty_ = gpu_buffer_dirty_ || collision_solver_.solve(contact_manifolds_, collision_narrowphase_, rigid_bodies_by_node_id_, current_positions_, contact_solver_iterations_);
     }
+
+    sync_contact_manifold_cache();
 
     update_collision_events();
     dispatch_collision_events(collision_enter_events_, &scene_node::on_collision_enter);

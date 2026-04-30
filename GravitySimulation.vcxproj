@@ -156,6 +156,9 @@
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="async_base.cpp" />
     <ClCompile Include="base_manager.cpp" />
+    <ClCompile Include="collision_broadphase.cpp" />
+    <ClCompile Include="collision_narrowphase.cpp" />
+    <ClCompile Include="collision_solver.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="cloth_scene.cpp" />
     <ClCompile Include="collision_debug_scene.cpp" />
@@ -195,8 +198,13 @@
     <ClInclude Include="asset_manager.h" />
     <ClInclude Include="async_base.h" />
     <ClInclude Include="base_manager.h" />
+    <ClInclude Include="broadphase_pair.h" />
+    <ClInclude Include="broadphase_proxy.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="cloth_scene.h" />
+    <ClInclude Include="collision_broadphase.h" />
+    <ClInclude Include="collision_narrowphase.h" />
+    <ClInclude Include="collision_solver.h" />
     <ClInclude Include="collision_data.h" />
     <ClInclude Include="collision_debug_logger_component.h" />
     <ClInclude Include="collision_contact_data.h" />
@@ -204,6 +212,7 @@
     <ClInclude Include="Component.h" />
     <ClInclude Include="compute_group.h" />
     <ClInclude Include="compute_shader.h" />
+    <ClInclude Include="contact_manifold.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="engine_state.h" />
     <ClInclude Include="frame_profiler.h" />

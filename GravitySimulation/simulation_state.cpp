@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -31,6 +32,49 @@ struct focus_pick_result {
     glm::vec3 world_position = glm::vec3(0.f);
     float world_radius = 1.f;
 };
+
+float build_debug_normalization_scale(float max_abs_value, float target_value, float max_scale) {
+    if (max_abs_value <= 1e-9f)
+        return 1.0f;
+
+    return glm::clamp(target_value / max_abs_value, 1.0f, max_scale);
+}
+
+void log_planetary_tide_texture_stats(GLuint tidal_texture, int width, int height) {
+    if (tidal_texture == 0 || width <= 0 || height <= 0)
+        return;
+
+    static int frame_counter = 0;
+    ++frame_counter;
+    if (frame_counter % 120 != 0)
+        return;
+
+    std::vector<float> readback(static_cast<size_t>(width) * static_cast<size_t>(height), 0.0f);
+    glBindTexture(GL_TEXTURE_2D, tidal_texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, readback.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    float min_value = std::numeric_limits<float>::max();
+    float max_value = std::numeric_limits<float>::lowest();
+    float avg_abs = 0.0f;
+    size_t active_count = 0u;
+    for (const float value : readback) {
+        min_value = std::min(min_value, value);
+        max_value = std::max(max_value, value);
+        avg_abs += std::abs(value);
+        if (std::abs(value) > 1e-12f)
+            ++active_count;
+    }
+
+    const float texel_count = static_cast<float>(std::max<size_t>(readback.size(), 1u));
+    avg_abs /= texel_count;
+
+    std::cout << "[planetary_tide_texture] min=" << min_value
+        << " max=" << max_value
+        << " avgAbs=" << avg_abs
+        << " active=" << active_count << "/" << readback.size()
+        << std::endl;
+}
 
 float ease_out_cubic(float t) {
     const float inv = 1.f - glm::clamp(t, 0.f, 1.f);
@@ -87,6 +131,10 @@ const char* get_scene_name(simulation_state::example_scene_kind scene_kind) {
 std::string build_window_title(simulation_state::example_scene_kind scene_kind) {
     return std::string("GravitySimulation - ") + get_scene_name(scene_kind)
         + " [F1 Fluid | F2 Cloth | F3 Galactic | F4 Stress | F6 Collision]";
+}
+
+std::string build_window_title(simulation_state::example_scene_kind scene_kind, int terrain_debug_mode) {
+    return build_window_title(scene_kind) + " [Dbg " + std::to_string(terrain_debug_mode) + "]";
 }
 
 bool poll_scene_switch_key(int glfw_key, bool& previous_down) {
@@ -331,6 +379,216 @@ float compute_particle_surface_detail_blend(const scene& scene_context, Camera& 
 
 constexpr int planetary_water_atlas_default_width = 2048;
 constexpr int planetary_water_atlas_default_height = 1024;
+
+float smoothstep_scalar(float edge0, float edge1, float x) {
+    const float denom = edge1 - edge0;
+    if (std::abs(denom) <= 0.000001f)
+        return x >= edge1 ? 1.0f : 0.0f;
+
+    const float t = glm::clamp((x - edge0) / denom, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+size_t remap_wave_texel_to_domain_index(int x, int y, int wave_width, int wave_height, int domain_width, int domain_height) {
+    const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(std::max(wave_width, 1));
+    const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(std::max(wave_height, 1));
+    const int domain_x = glm::clamp(static_cast<int>(std::floor(u * static_cast<float>(std::max(domain_width, 1)))), 0, std::max(domain_width - 1, 0));
+    const int domain_y = glm::clamp(static_cast<int>(std::floor(glm::clamp(v, 0.0f, 1.0f) * static_cast<float>(std::max(domain_height, 1)))), 0, std::max(domain_height - 1, 0));
+    return static_cast<size_t>(domain_y) * static_cast<size_t>(std::max(domain_width, 1)) + static_cast<size_t>(domain_x);
+}
+
+void log_planetary_wave_texture_stats(
+    GLuint wave_texture,
+    GLuint support_atlas_texture,
+    GLuint tidal_texture,
+    const planetary_water_domain& domain,
+    int width,
+    int height,
+    const planetary_wave_update_context& update_context,
+    bool enable_logging,
+    float& out_height_scale,
+    float& out_velocity_scale,
+    float& out_tidal_scale) {
+    if (wave_texture == 0 || support_atlas_texture == 0 || width <= 0 || height <= 0)
+        return;
+
+    static int frame_counter = 0;
+    ++frame_counter;
+    if (frame_counter % 30 != 0)
+        return;
+
+    const auto& desc = domain.get_desc();
+    const auto& render_mask_data = domain.get_render_mask_data();
+    const auto& water_level_data = domain.get_water_level_data();
+    const auto& region_id_data = domain.get_region_id_data();
+    const auto& shore_distance_data = domain.get_shore_distance_data();
+    if (desc.width <= 0
+        || desc.height <= 0
+        || render_mask_data.empty()
+        || water_level_data.empty()
+        || region_id_data.empty()
+        || shore_distance_data.empty())
+        return;
+
+    const int sample_width = std::min(width, 64);
+    const int sample_height = std::min(height, 32);
+    std::vector<float> readback(static_cast<size_t>(width) * static_cast<size_t>(height) * 2u, 0.0f);
+    std::vector<float> atlas_readback(static_cast<size_t>(width) * static_cast<size_t>(height) * 4u, 0.0f);
+    std::vector<float> tidal_readback(static_cast<size_t>(width) * static_cast<size_t>(height), 0.0f);
+    glBindTexture(GL_TEXTURE_2D, wave_texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RG, GL_FLOAT, readback.data());
+    glBindTexture(GL_TEXTURE_2D, support_atlas_texture);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, atlas_readback.data());
+    if (tidal_texture != 0) {
+        glBindTexture(GL_TEXTURE_2D, tidal_texture);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_FLOAT, tidal_readback.data());
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    float min_height = std::numeric_limits<float>::max();
+    float max_height = std::numeric_limits<float>::lowest();
+    float min_velocity = std::numeric_limits<float>::max();
+    float max_velocity = std::numeric_limits<float>::lowest();
+    float avg_abs_height = 0.0f;
+    float avg_abs_velocity = 0.0f;
+    float max_occupancy = 0.0f;
+    float avg_occupancy = 0.0f;
+    float max_carrier = 0.0f;
+    float avg_carrier = 0.0f;
+    float max_water_level = 0.0f;
+    float avg_water_level = 0.0f;
+    float min_shore_distance = std::numeric_limits<float>::max();
+    float max_shore_distance = std::numeric_limits<float>::lowest();
+    float avg_shore_distance = 0.0f;
+    float max_abs_tidal = 0.0f;
+    float avg_abs_tidal = 0.0f;
+    float max_abs_forcing = 0.0f;
+    float avg_abs_forcing = 0.0f;
+    float min_damping = std::numeric_limits<float>::max();
+    float max_damping = std::numeric_limits<float>::lowest();
+    float avg_damping = 0.0f;
+    size_t active_domain_texels = 0u;
+    size_t active_atlas_texels = 0u;
+    size_t energized_wave_texels = 0u;
+    const size_t sample_count = static_cast<size_t>(sample_width) * static_cast<size_t>(sample_height);
+    for (int y = 0; y < sample_height; ++y) {
+        for (int x = 0; x < sample_width; ++x) {
+            const size_t texel_index = (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x)) * 2u;
+            const float height_value = readback[texel_index + 0u];
+            const float velocity_value = readback[texel_index + 1u];
+        min_height = std::min(min_height, height_value);
+        max_height = std::max(max_height, height_value);
+        min_velocity = std::min(min_velocity, velocity_value);
+        max_velocity = std::max(max_velocity, velocity_value);
+        avg_abs_height += std::abs(height_value);
+        avg_abs_velocity += std::abs(velocity_value);
+        }
+    }
+
+    avg_abs_height /= static_cast<float>(sample_count);
+    avg_abs_velocity /= static_cast<float>(sample_count);
+
+    const size_t full_texel_count = static_cast<size_t>(width) * static_cast<size_t>(height);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const size_t wave_texel_index = (static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x));
+            const size_t wave_rg_index = wave_texel_index * 2u;
+            const size_t atlas_rgba_index = wave_texel_index * 4u;
+            const size_t domain_index = remap_wave_texel_to_domain_index(x, y, width, height, desc.width, desc.height);
+
+            const float wave_height = readback[wave_rg_index + 0u];
+            const float wave_velocity = readback[wave_rg_index + 1u];
+            const float atlas_weight = glm::max(atlas_readback[atlas_rgba_index + 0u], 0.0f);
+            const float depth01 = atlas_weight > 0.00001f ? glm::clamp(atlas_readback[atlas_rgba_index + 1u] / atlas_weight, 0.0f, 1.0f) : 0.0f;
+            const float carrier = atlas_weight > 0.00001f ? glm::clamp(atlas_readback[atlas_rgba_index + 2u] / atlas_weight, 0.0f, 1.0f) : 0.0f;
+            const float flood = atlas_weight > 0.00001f ? glm::clamp(atlas_readback[atlas_rgba_index + 3u] / atlas_weight, 0.0f, 1.0f) : 0.0f;
+            const float occupancy = smoothstep_scalar(0.0012f, 0.020f, atlas_weight);
+            const float water_domain = static_cast<float>(render_mask_data[domain_index]) / 255.0f;
+            const float water_level = water_level_data[domain_index];
+            const float shoreline_distance = shore_distance_data[domain_index];
+            const unsigned short region_id = region_id_data[domain_index];
+            const float tidal_height = tidal_texture != 0 ? tidal_readback[wave_texel_index] : 0.0f;
+            const float support = occupancy * (0.55f + 0.45f * depth01) * (0.50f + 0.50f * flood);
+            const float u = (static_cast<float>(x) + 0.5f) / static_cast<float>(width);
+            const float v = (static_cast<float>(y) + 0.5f) / static_cast<float>(height);
+            const float traveling_wave_a = std::sin((u * 17.0f + v * 9.0f) - update_context.time_seconds * 1.8f);
+            const float traveling_wave_b = std::sin((u * -11.0f + v * 13.0f) + update_context.time_seconds * 1.2f);
+            const float animated_forcing = traveling_wave_a * 0.65f + traveling_wave_b * 0.35f;
+            const float shore_blend = glm::clamp(shoreline_distance / glm::max(update_context.shore_transition_distance, 0.0001f), 0.0f, 1.0f);
+            const float forcing = ((glm::max(support, 0.0f) * 0.22f + glm::max(carrier, 0.0f) * 0.28f + 0.50f) * glm::max(water_level, 0.0f)
+                + animated_forcing * 0.10f * glm::max(support, water_level)) * update_context.forcing_scale;
+            const float damping = glm::mix(update_context.shore_damping, update_context.open_water_damping, shore_blend);
+
+            if (water_domain > 0.001f && region_id != 0u)
+                ++active_domain_texels;
+            if (occupancy > 0.01f)
+                ++active_atlas_texels;
+            if (std::abs(wave_height) > 0.0005f || std::abs(wave_velocity) > 0.005f)
+                ++energized_wave_texels;
+
+            max_occupancy = std::max(max_occupancy, occupancy);
+            avg_occupancy += occupancy;
+            max_carrier = std::max(max_carrier, carrier);
+            avg_carrier += carrier;
+            max_water_level = std::max(max_water_level, water_level);
+            avg_water_level += water_level;
+            min_shore_distance = std::min(min_shore_distance, shoreline_distance);
+            max_shore_distance = std::max(max_shore_distance, shoreline_distance);
+            avg_shore_distance += shoreline_distance;
+            max_abs_tidal = std::max(max_abs_tidal, std::abs(tidal_height));
+            avg_abs_tidal += std::abs(tidal_height);
+            max_abs_forcing = std::max(max_abs_forcing, std::abs(forcing));
+            avg_abs_forcing += std::abs(forcing);
+            min_damping = std::min(min_damping, damping);
+            max_damping = std::max(max_damping, damping);
+            avg_damping += damping;
+        }
+    }
+
+    const float full_texel_count_f = static_cast<float>(std::max<size_t>(full_texel_count, 1u));
+    avg_occupancy /= full_texel_count_f;
+    avg_carrier /= full_texel_count_f;
+    avg_water_level /= full_texel_count_f;
+    avg_shore_distance /= full_texel_count_f;
+    avg_abs_tidal /= full_texel_count_f;
+    avg_abs_forcing /= full_texel_count_f;
+    avg_damping /= full_texel_count_f;
+
+    const float max_abs_height = std::max(std::abs(min_height), std::abs(max_height));
+    const float max_abs_velocity = std::max(std::abs(min_velocity), std::abs(max_velocity));
+    out_height_scale = build_debug_normalization_scale(max_abs_height, 0.85f, 250000.0f);
+    out_velocity_scale = build_debug_normalization_scale(max_abs_velocity, 0.85f, 50000.0f);
+    out_tidal_scale = build_debug_normalization_scale(max_abs_tidal, 0.90f, 100000000.0f);
+
+    if (enable_logging) {
+        std::cout << "[planetary_wave_debug] height[min=" << min_height
+            << ", max=" << max_height
+            << ", avgAbs=" << avg_abs_height
+            << "] velocity[min=" << min_velocity
+            << ", max=" << max_velocity
+            << ", avgAbs=" << avg_abs_velocity
+            << "] tidal[maxAbs=" << max_abs_tidal
+            << ", avgAbs=" << avg_abs_tidal
+            << "] active[domain=" << active_domain_texels << "/" << full_texel_count
+            << ", atlas=" << active_atlas_texels << "/" << full_texel_count
+            << ", energized=" << energized_wave_texels << "/" << full_texel_count
+            << "] occupancy[max=" << max_occupancy
+            << ", avg=" << avg_occupancy
+            << "] carrier[max=" << max_carrier
+            << ", avg=" << avg_carrier
+            << "] waterLevel[max=" << max_water_level
+            << ", avg=" << avg_water_level
+            << "] shore[min=" << min_shore_distance
+            << ", max=" << max_shore_distance
+            << ", avg=" << avg_shore_distance
+            << "] forcing[avgAbs=" << avg_abs_forcing
+            << ", maxAbs=" << max_abs_forcing
+            << "] damping[min=" << min_damping
+            << ", max=" << max_damping
+            << ", avg=" << avg_damping
+            << "]" << std::endl;
+    }
+}
 }
 
 simulation_state::simulation_state(std::unique_ptr<scene> scene)
@@ -341,51 +599,13 @@ simulation_state::simulation_state(example_scene_kind scene_kind)
     : scene_kind_(scene_kind) {
 }
 
-void simulation_state::ensure_scene_depth_texture(int width, int height) {
-    if (width <= 0 || height <= 0)
-        return;
-
-    if (scene_depth_texture_ == 0)
-        glGenTextures(1, &scene_depth_texture_);
-
-    glBindTexture(GL_TEXTURE_2D, scene_depth_texture_);
-    if (scene_depth_texture_width_ != width || scene_depth_texture_height_ != height) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        scene_depth_texture_width_ = width;
-        scene_depth_texture_height_ = height;
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void simulation_state::capture_scene_depth_texture(int width, int height) {
-    ensure_scene_depth_texture(width, height);
-    if (scene_depth_texture_ == 0 || width <= 0 || height <= 0)
-        return;
-
-    glBindTexture(GL_TEXTURE_2D, scene_depth_texture_);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void simulation_state::release_scene_depth_texture() {
-    if (scene_depth_texture_ != 0) {
-        glDeleteTextures(1, &scene_depth_texture_);
-        scene_depth_texture_ = 0;
-    }
-
-    scene_depth_texture_width_ = 0;
-    scene_depth_texture_height_ = 0;
-}
-
 void simulation_state::initialize_particle_surface_composite_resources() {
     if (!scene_)
         return;
 
     auto& assets = scene_->get_asset_manager();
+    if (!planetary_water_render_resource_)
+        planetary_water_render_resource_ = assets.create_planetary_water_render_resource("planetary.water.render.targets");
     if (!particle_surface_composite_shader_) {
         particle_surface_composite_shader_ = assets.create_shader(
             "particle.surface.composite",
@@ -422,101 +642,237 @@ void simulation_state::initialize_particle_surface_composite_resources() {
             "GravitySimulation/planetary_water_shell.vs.shader",
             "GravitySimulation/planetary_water_shell.fs.shader");
     }
+    if (!planetary_wave_debug_overlay_shader_) {
+        planetary_wave_debug_overlay_shader_ = assets.create_shader(
+            "planetary.water.wave.debug.overlay",
+            "GravitySimulation/particle_surface_composite.vs.shader",
+            "GravitySimulation/planetary_wave_debug_overlay.fs.shader");
+    }
+    if (!planetary_wave_debug_shell_shader_) {
+        planetary_wave_debug_shell_shader_ = assets.create_shader(
+            "planetary.water.wave.debug.shell",
+            "GravitySimulation/planetary_water_shell.vs.shader",
+            "GravitySimulation/planetary_wave_debug_shell.fs.shader");
+    }
+    if (!planetary_wave_propagation_shader_) {
+        planetary_wave_propagation_shader_ = assets.create_compute_shader(
+            "planetary.water.wave.propagation",
+            "GravitySimulation/planetary_wave_propagation.glsl");
+    }
+    if (!planetary_wave_render_filter_shader_) {
+        planetary_wave_render_filter_shader_ = assets.create_compute_shader(
+            "planetary.water.wave.render.filter",
+            "GravitySimulation/planetary_wave_render_filter.glsl");
+    }
+    if (!planetary_tide_field_shader_) {
+        planetary_tide_field_shader_ = assets.create_compute_shader(
+            "planetary.water.tide.field",
+            "GravitySimulation/planetary_tide_field.glsl");
+    }
+    if (planetary_wave_propagation_shader_)
+        planetary_wave_field_.initialize(planetary_wave_propagation_shader_, planetary_wave_render_filter_shader_);
     static MeshData fullscreen_quad_mesh_data = create_fullscreen_quad_mesh();
     if (!particle_surface_composite_mesh_)
         particle_surface_composite_mesh_ = assets.create_mesh(fullscreen_quad_mesh_data);
-    static MeshData planetary_water_shell_mesh_data = g_shape::generate_sphere();
+    static MeshData planetary_water_shell_mesh_data = g_shape::generate_sphere(1.0f, 192, 96);
     if (!planetary_water_shell_mesh_)
         planetary_water_shell_mesh_ = assets.create_mesh(planetary_water_shell_mesh_data);
 }
 
-void simulation_state::ensure_planetary_water_atlas_targets(int width, int height) {
-    if (width <= 0 || height <= 0)
+void simulation_state::render_planetary_wave_debug_overlay(const gpu_fluid_system_component& system) {
+    if (terrain_debug_mode_ < 6 || terrain_debug_mode_ > 11 || !planetary_wave_debug_shell_shader_ || !planetary_water_shell_mesh_ || !cam_)
+        return;
+    if (!planetary_water_render_resource_)
         return;
 
-    if (planetary_water_atlas_framebuffer_ == 0)
-        glGenFramebuffers(1, &planetary_water_atlas_framebuffer_);
-    if (planetary_water_atlas_texture_ == 0)
-        glGenTextures(1, &planetary_water_atlas_texture_);
-    if (planetary_water_atlas_ping_texture_ == 0)
-        glGenTextures(1, &planetary_water_atlas_ping_texture_);
-    if (planetary_water_atlas_history_texture_ == 0)
-        glGenTextures(1, &planetary_water_atlas_history_texture_);
-
-    if (planetary_water_atlas_framebuffer_ == 0 || planetary_water_atlas_texture_ == 0 || planetary_water_atlas_ping_texture_ == 0 || planetary_water_atlas_history_texture_ == 0)
+    const auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.atlas_texture.get_id() == 0)
         return;
 
-    if (planetary_water_atlas_width_ == width && planetary_water_atlas_height_ == height)
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
+    const auto* node = system.get_node();
+    if (!node)
         return;
 
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    const auto& terrain_profile = system.get_planetary_terrain_profile();
+    planetary_wave_debug_shell_shader_->use();
+    planetary_wave_debug_shell_shader_->set_uniform_mat4("systemModel", node->get_global_matrix_model());
+    planetary_wave_debug_shell_shader_->set_uniform_mat4("view", cam_->GetViewMatrix());
+    int fbw = 1280;
+    int fbh = 720;
+    if (GLFWwindow* ctx = glfwGetCurrentContext())
+        glfwGetFramebufferSize(ctx, &fbw, &fbh);
+    const float aspect = fbh == 0 ? 1.0f : static_cast<float>(fbw) / static_cast<float>(fbh);
+    planetary_wave_debug_shell_shader_->set_uniform_mat4("projection", cam_->GetProjectionMatrix(aspect));
+    planetary_wave_debug_shell_shader_->set_uni_vec3("planetaryCenter", system.get_planetary_center());
+    planetary_wave_debug_shell_shader_->set_uni_float("planetaryRadius", system.get_planetary_radius());
+    planetary_wave_debug_shell_shader_->set_uni_float("planetaryShellThickness", system.get_planetary_shell_thickness());
+    planetary_wave_debug_shell_shader_->set_uni_float("planetaryWaterSurfaceRadius", system.get_planetary_water_surface_radius());
+    planetary_wave_debug_shell_shader_->set_uni_int("planetaryTerrainEnabled", system.is_planetary_terrain_enabled() ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainSeaLevel", terrain_profile.sea_level);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainContinentFrequency", terrain_profile.continent_frequency);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainContinentWarpStrength", terrain_profile.continent_warp_strength);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainLargeFrequency", terrain_profile.large_frequency);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainMediumFrequency", terrain_profile.medium_frequency);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainDetailFrequency", terrain_profile.detail_frequency);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainRidgeFrequency", terrain_profile.ridge_frequency);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainCraterStrength", terrain_profile.crater_strength);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainMountainSharpness", terrain_profile.mountain_sharpness);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainReliefStrength", terrain_profile.relief_strength);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainDisplacementStrength", terrain_profile.displacement_strength);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainContinentContrast", terrain_profile.continent_contrast);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainEarthMacroContinentStrength", terrain_profile.earth_macro_continent_strength);
+    planetary_wave_debug_shell_shader_->set_uni_float("terrainArchipelagoStrength", terrain_profile.archipelago_strength);
+    planetary_wave_debug_shell_shader_->set_uni_int("waveDebugMode", terrain_debug_mode_);
+    planetary_wave_debug_shell_shader_->set_uni_int("waterAtlasTexture", 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("waterContinuityTexture", 1);
+    planetary_wave_debug_shell_shader_->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("waterLevelTexture", 2);
+    planetary_wave_debug_shell_shader_->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("waveStateTexture", 3);
+    planetary_wave_debug_shell_shader_->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("tidalHeightTexture", 4);
+    planetary_wave_debug_shell_shader_->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("regionIdTexture", 5);
+    planetary_wave_debug_shell_shader_->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
+    planetary_wave_debug_shell_shader_->set_uni_int("shoreDistanceTexture", 6);
+    planetary_wave_debug_shell_shader_->set_uni_float("debugWaveHeightScale", planetary_wave_debug_height_scale_);
+    planetary_wave_debug_shell_shader_->set_uni_float("debugWaveVelocityScale", planetary_wave_debug_velocity_scale_);
+    planetary_wave_debug_shell_shader_->set_uni_float("debugTidalScale", planetary_wave_debug_tidal_scale_);
 
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_ping_texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, atlas_targets.atlas_texture.get_id());
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.continuity_texture);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, system.get_planetary_water_level_texture());
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, planetary_wave_field_.get_render_wave_state_texture());
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, atlas_targets.tide_height_texture.get_id());
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.region_id_texture);
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.shore_distance_texture);
+    glActiveTexture(GL_TEXTURE0);
 
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_history_texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    const float clear_history[4] = { 0.f, 0.f, 0.f, 0.f };
-    glClearTexImage(planetary_water_atlas_history_texture_, 0, GL_RGBA, GL_FLOAT, clear_history);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    planetary_water_shell_mesh_->Draw();
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, planetary_water_atlas_framebuffer_);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, planetary_water_atlas_texture_, 0);
-    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
-    glDrawBuffers(1, draw_buffers);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE6);
     glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
 
-    planetary_water_atlas_width_ = width;
-    planetary_water_atlas_height_ = height;
+void simulation_state::ensure_planetary_water_atlas_targets(int width, int height) {
+    if (!planetary_water_render_resource_)
+        return;
+
+    planetary_water_render_resource_->ensure_atlas_targets(width, height);
 }
 
 void simulation_state::release_planetary_water_atlas_resources() {
-    if (planetary_water_atlas_framebuffer_ != 0) {
-        glDeleteFramebuffers(1, &planetary_water_atlas_framebuffer_);
-        planetary_water_atlas_framebuffer_ = 0;
-    }
-
-    if (planetary_water_atlas_texture_ != 0) {
-        glDeleteTextures(1, &planetary_water_atlas_texture_);
-        planetary_water_atlas_texture_ = 0;
-    }
-    if (planetary_water_atlas_ping_texture_ != 0) {
-        glDeleteTextures(1, &planetary_water_atlas_ping_texture_);
-        planetary_water_atlas_ping_texture_ = 0;
-    }
-    if (planetary_water_atlas_history_texture_ != 0) {
-        glDeleteTextures(1, &planetary_water_atlas_history_texture_);
-        planetary_water_atlas_history_texture_ = 0;
-    }
-
-    planetary_water_atlas_width_ = 0;
-    planetary_water_atlas_height_ = 0;
+    if (planetary_water_render_resource_)
+        planetary_water_render_resource_->release_atlas_targets();
+    planetary_wave_field_.reset();
 }
 
-void simulation_state::blur_planetary_water_atlas() {
-    if (!planetary_water_atlas_blur_shader_ || !particle_surface_composite_mesh_ || planetary_water_atlas_framebuffer_ == 0 || planetary_water_atlas_texture_ == 0 || planetary_water_atlas_ping_texture_ == 0)
+void simulation_state::update_planetary_tide_field(const gpu_fluid_system_component& system) {
+    if (!planetary_tide_field_shader_ || !planetary_tide_field_shader_->is_vaild())
         return;
+    if (!planetary_water_render_resource_)
+        return;
+
+    auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.tide_height_texture.get_id() == 0 || atlas_targets.width <= 0 || atlas_targets.height <= 0)
+        return;
+
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
+    if (domain_textures.continuity_texture == 0 || domain_textures.water_level_texture == 0 || domain_textures.region_id_texture == 0 || domain_textures.shore_distance_texture == 0)
+        return;
+
+    planetary_tide_field_shader_->use();
+    planetary_tide_field_shader_->set_uni_vec2("waveResolution", glm::vec2(static_cast<float>(atlas_targets.width), static_cast<float>(atlas_targets.height)));
+    planetary_tide_field_shader_->set_uni_float("timeSeconds", static_cast<float>(glfwGetTime()));
+    planetary_tide_field_shader_->set_uni_float("planetaryRadius", system.get_planetary_radius());
+    planetary_tide_field_shader_->set_uni_float("planetaryShellThickness", system.get_planetary_shell_thickness());
+    planetary_tide_field_shader_->set_uni_float("planetaryWaterSurfaceRadius", system.get_planetary_water_surface_radius());
+    planetary_tide_field_shader_->set_uni_float("planetaryTidalStrength", system.get_planetary_tidal_strength());
+    planetary_tide_field_shader_->set_uni_vec3("planetaryAngularVelocity", system.get_planetary_angular_velocity());
+    planetary_tide_field_shader_->set_uni_int("planetaryExternalGravitySourceCount", system.get_planetary_external_gravity_source_count());
+    planetary_tide_field_shader_->set_uni_vec4_array("planetaryExternalGravitySources", system.get_planetary_external_gravity_sources().data(), 8);
+    planetary_tide_field_shader_->set_uni_int("waterContinuityTexture", 0);
+    planetary_tide_field_shader_->set_uni_int("waterLevelTexture", 1);
+    planetary_tide_field_shader_->set_uni_int("waterVetoTexture", 2);
+    planetary_tide_field_shader_->set_uni_int("regionIdTexture", 3);
+    planetary_tide_field_shader_->set_uni_int("shoreDistanceTexture", 4);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.continuity_texture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.water_level_texture);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.veto_texture);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.region_id_texture);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, domain_textures.shore_distance_texture);
+    glActiveTexture(GL_TEXTURE0);
+
+    atlas_targets.tide_height_texture.bind_image(0, GL_WRITE_ONLY, GL_R32F);
+    const GLuint groups_x = static_cast<GLuint>((atlas_targets.width + 15) / 16);
+    const GLuint groups_y = static_cast<GLuint>((atlas_targets.height + 15) / 16);
+    planetary_tide_field_shader_->dispatch({ groups_x, groups_y, 1u });
+    glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32F);
+
+    for (GLuint texture_unit = 0; texture_unit <= 4; ++texture_unit) {
+        glActiveTexture(GL_TEXTURE0 + texture_unit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    glActiveTexture(GL_TEXTURE0);
+
+    if (terrain_debug_mode_ == 7)
+        log_planetary_tide_texture_stats(atlas_targets.tide_height_texture.get_id(), atlas_targets.width, atlas_targets.height);
+}
+
+void simulation_state::blur_planetary_water_atlas(const gpu_fluid_system_component& system) {
+    if (!planetary_water_atlas_blur_shader_ || !particle_surface_composite_mesh_ || !planetary_water_render_resource_)
+        return;
+
+    auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.atlas_ping_texture.get_id() == 0)
+        return;
+
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
 
     GLint previous_framebuffer = 0;
     GLint previous_viewport[4] = { 0, 0, 0, 0 };
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_framebuffer);
     glGetIntegerv(GL_VIEWPORT, previous_viewport);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, planetary_water_atlas_framebuffer_);
-    glViewport(0, 0, planetary_water_atlas_width_, planetary_water_atlas_height_);
+    glBindFramebuffer(GL_FRAMEBUFFER, atlas_targets.framebuffer);
+    glViewport(0, 0, atlas_targets.width, atlas_targets.height);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
@@ -524,70 +880,118 @@ void simulation_state::blur_planetary_water_atlas() {
 
     planetary_water_atlas_blur_shader_->use();
     planetary_water_atlas_blur_shader_->set_uni_int("inputTexture", 0);
-    planetary_water_atlas_blur_shader_->set_uni_float("blurRadiusScale", 1.18f);
+    planetary_water_atlas_blur_shader_->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
+    planetary_water_atlas_blur_shader_->set_uni_int("waterDomainTexture", 1);
+    const auto blur_masked_texture = [&](GLuint source_texture, GLuint ping_texture, float blur_radius_scale) {
+        if (source_texture == 0 || ping_texture == 0)
+            return;
 
-    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, planetary_water_atlas_ping_texture_, 0);
-    glDrawBuffers(1, draw_buffers);
-    planetary_water_atlas_blur_shader_->set_uni_vec2("blurDirection", glm::vec2(1.0f, 0.0f));
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_texture_);
-    particle_surface_composite_mesh_->Draw();
+        planetary_water_atlas_blur_shader_->set_uni_float("blurRadiusScale", blur_radius_scale);
+        const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ping_texture, 0);
+        glDrawBuffers(1, draw_buffers);
+        planetary_water_atlas_blur_shader_->set_uni_vec2("blurDirection", glm::vec2(1.0f, 0.0f));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, source_texture);
+        if (domain_textures.render_mask_texture != 0) {
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
+            glActiveTexture(GL_TEXTURE0);
+        }
+        particle_surface_composite_mesh_->Draw();
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, planetary_water_atlas_texture_, 0);
-    glDrawBuffers(1, draw_buffers);
-    planetary_water_atlas_blur_shader_->set_uni_vec2("blurDirection", glm::vec2(0.0f, 1.0f));
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_ping_texture_);
-    particle_surface_composite_mesh_->Draw();
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, source_texture, 0);
+        glDrawBuffers(1, draw_buffers);
+        planetary_water_atlas_blur_shader_->set_uni_vec2("blurDirection", glm::vec2(0.0f, 1.0f));
+        glBindTexture(GL_TEXTURE_2D, ping_texture);
+        particle_surface_composite_mesh_->Draw();
+    };
+
+    blur_masked_texture(atlas_targets.atlas_texture.get_id(), atlas_targets.atlas_ping_texture.get_id(), 1.72f);
+    blur_masked_texture(atlas_targets.wave_forcing_texture.get_id(), atlas_targets.wave_forcing_ping_texture.get_id(), 1.42f);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+    if (domain_textures.render_mask_texture != 0) {
+        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    glActiveTexture(GL_TEXTURE0);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_framebuffer));
     glViewport(previous_viewport[0], previous_viewport[1], previous_viewport[2], previous_viewport[3]);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }
 
-void simulation_state::stabilize_planetary_water_atlas() {
-    if (!planetary_water_atlas_temporal_shader_ || !particle_surface_composite_mesh_ || planetary_water_atlas_framebuffer_ == 0 || planetary_water_atlas_texture_ == 0 || planetary_water_atlas_ping_texture_ == 0 || planetary_water_atlas_history_texture_ == 0)
+void simulation_state::stabilize_planetary_water_atlas(const gpu_fluid_system_component& system) {
+    if (!planetary_water_atlas_temporal_shader_ || !particle_surface_composite_mesh_ || !planetary_water_render_resource_)
         return;
+
+    auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.atlas_ping_texture.get_id() == 0 || atlas_targets.atlas_history_texture.get_id() == 0)
+        return;
+
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
 
     GLint previous_framebuffer = 0;
     GLint previous_viewport[4] = { 0, 0, 0, 0 };
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_framebuffer);
     glGetIntegerv(GL_VIEWPORT, previous_viewport);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, planetary_water_atlas_framebuffer_);
-    glViewport(0, 0, planetary_water_atlas_width_, planetary_water_atlas_height_);
+    glBindFramebuffer(GL_FRAMEBUFFER, atlas_targets.framebuffer);
+    glViewport(0, 0, atlas_targets.width, atlas_targets.height);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
     const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, planetary_water_atlas_ping_texture_, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, atlas_targets.atlas_ping_texture.get_id(), 0);
     glDrawBuffers(1, draw_buffers);
 
     planetary_water_atlas_temporal_shader_->use();
     planetary_water_atlas_temporal_shader_->set_uni_int("currentAtlasTexture", 0);
     planetary_water_atlas_temporal_shader_->set_uni_int("historyAtlasTexture", 1);
-    planetary_water_atlas_temporal_shader_->set_uni_float("historyBlend", 0.90f);
+    planetary_water_atlas_temporal_shader_->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
+    planetary_water_atlas_temporal_shader_->set_uni_int("waterDomainTexture", 2);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_texture_);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_history_texture_);
-    glActiveTexture(GL_TEXTURE0);
-    particle_surface_composite_mesh_->Draw();
+    const auto stabilize_masked_texture = [&](GLuint current_texture, GLuint ping_texture, GLuint history_texture, float history_blend) {
+        if (current_texture == 0 || ping_texture == 0 || history_texture == 0)
+            return;
 
-    glCopyImageSubData(planetary_water_atlas_ping_texture_, GL_TEXTURE_2D, 0, 0, 0, 0,
-        planetary_water_atlas_texture_, GL_TEXTURE_2D, 0, 0, 0, 0,
-        planetary_water_atlas_width_, planetary_water_atlas_height_, 1);
-    glCopyImageSubData(planetary_water_atlas_ping_texture_, GL_TEXTURE_2D, 0, 0, 0, 0,
-        planetary_water_atlas_history_texture_, GL_TEXTURE_2D, 0, 0, 0, 0,
-        planetary_water_atlas_width_, planetary_water_atlas_height_, 1);
+        const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ping_texture, 0);
+        glDrawBuffers(1, draw_buffers);
+        planetary_water_atlas_temporal_shader_->set_uni_float("historyBlend", history_blend);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, current_texture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, history_texture);
+        if (domain_textures.render_mask_texture != 0) {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
+        }
+        glActiveTexture(GL_TEXTURE0);
+        particle_surface_composite_mesh_->Draw();
+
+        glCopyImageSubData(ping_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+            current_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+            atlas_targets.width, atlas_targets.height, 1);
+        glCopyImageSubData(ping_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+            history_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+            atlas_targets.width, atlas_targets.height, 1);
+    };
+
+    stabilize_masked_texture(atlas_targets.atlas_texture.get_id(), atlas_targets.atlas_ping_texture.get_id(), atlas_targets.atlas_history_texture.get_id(), 0.82f);
+    stabilize_masked_texture(atlas_targets.wave_forcing_texture.get_id(), atlas_targets.wave_forcing_ping_texture.get_id(), atlas_targets.wave_forcing_history_texture.get_id(), 0.76f);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, 0);
+    if (domain_textures.render_mask_texture != 0) {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_framebuffer));
@@ -670,7 +1074,11 @@ void simulation_state::blur_particle_surface_targets() {
 }
 
 void simulation_state::render_planetary_water_atlas_input(const gpu_fluid_system_component& system) {
-    if (!planetary_water_atlas_shader_ || planetary_water_atlas_framebuffer_ == 0 || planetary_water_atlas_texture_ == 0)
+    if (!planetary_water_atlas_shader_ || !planetary_water_render_resource_)
+        return;
+
+    auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.wave_forcing_texture.get_id() == 0)
         return;
 
     GLint previous_framebuffer = 0;
@@ -678,33 +1086,95 @@ void simulation_state::render_planetary_water_atlas_input(const gpu_fluid_system
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previous_framebuffer);
     glGetIntegerv(GL_VIEWPORT, previous_viewport);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, planetary_water_atlas_framebuffer_);
-    glViewport(0, 0, planetary_water_atlas_width_, planetary_water_atlas_height_);
+    glBindFramebuffer(GL_FRAMEBUFFER, atlas_targets.framebuffer);
+    glViewport(0, 0, atlas_targets.width, atlas_targets.height);
     const float clear_color[4] = { 0.f, 0.f, 0.f, 0.f };
+    const GLenum draw_buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, atlas_targets.atlas_texture.get_id(), 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, atlas_targets.wave_forcing_texture.get_id(), 0);
+    glDrawBuffers(2, draw_buffers);
     glClearBufferfv(GL_COLOR, 0, clear_color);
+    glClearBufferfv(GL_COLOR, 1, clear_color);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
-    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunci(0, GL_ONE, GL_ONE);
+    glBlendEquationi(0, GL_FUNC_ADD);
+    glBlendFunci(1, GL_ONE, GL_ONE);
+    glBlendEquationi(1, GL_FUNC_ADD);
     glDepthMask(GL_FALSE);
 
     system.draw_planetary_water_atlas_input(
         planetary_water_atlas_shader_,
-        glm::ivec2(planetary_water_atlas_width_, planetary_water_atlas_height_));
+        glm::ivec2(atlas_targets.width, atlas_targets.height));
 
     glDisable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    const GLenum restore_draw_buffers[] = { GL_COLOR_ATTACHMENT0 };
+    glDrawBuffers(1, restore_draw_buffers);
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previous_framebuffer));
     glViewport(previous_viewport[0], previous_viewport[1], previous_viewport[2], previous_viewport[3]);
 
-    blur_planetary_water_atlas();
-    stabilize_planetary_water_atlas();
+    blur_planetary_water_atlas(system);
+    stabilize_planetary_water_atlas(system);
+}
+
+void simulation_state::update_planetary_wave_field(const gpu_fluid_system_component& system) {
+    if (!planetary_water_render_resource_)
+        return;
+
+    const auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.width <= 0 || atlas_targets.height <= 0)
+        return;
+
+    const auto& domain = system.get_planetary_water_domain();
+    const auto& domain_textures = domain.get_textures();
+    if (atlas_targets.atlas_texture.get_id() == 0
+        || domain_textures.physics_mask_texture == 0
+        || domain_textures.region_id_texture == 0
+        || domain_textures.shore_distance_texture == 0)
+        return;
+
+    planetary_wave_field_.resize_if_needed(atlas_targets.width, atlas_targets.height);
+    planetary_wave_update_context update_context;
+    update_context.support_atlas_texture = atlas_targets.atlas_texture.get_id();
+    update_context.forcing_texture = atlas_targets.wave_forcing_texture.get_id();
+    update_context.water_domain_texture = domain_textures.physics_mask_texture;
+    update_context.water_level_texture = domain_textures.water_level_texture;
+    update_context.tidal_height_texture = atlas_targets.tide_height_texture.get_id();
+    update_context.water_veto_texture = domain_textures.veto_texture;
+    update_context.region_id_texture = domain_textures.region_id_texture;
+    update_context.shore_distance_texture = domain_textures.shore_distance_texture;
+    update_context.dt = 1.0f / 60.0f;
+    update_context.time_seconds = static_cast<float>(glfwGetTime());
+    update_context.propagation_speed = 1.05f;
+    update_context.forcing_scale = 0.34f;
+    update_context.open_water_damping = 1.05f;
+    update_context.shore_damping = 3.25f;
+    update_context.shore_transition_distance = glm::max(system.get_planetary_shell_thickness() * 0.035f, 0.0016f);
+    update_context.solver_forcing_scale = 0.58f;
+    planetary_wave_field_.update(update_context);
+    log_planetary_wave_texture_stats(
+        planetary_wave_field_.get_wave_state_texture(),
+        atlas_targets.atlas_texture.get_id(),
+        atlas_targets.tide_height_texture.get_id(),
+        domain,
+        atlas_targets.width,
+        atlas_targets.height,
+        update_context,
+        terrain_debug_mode_ == 7,
+        planetary_wave_debug_height_scale_,
+        planetary_wave_debug_velocity_scale_,
+        planetary_wave_debug_tidal_scale_);
 }
 
 void simulation_state::render_planetary_water_shell(const gpu_fluid_system_component& system, const glm::vec3& light_position, const glm::vec3& light_color, float light_intensity) {
-    if (!planetary_water_shell_shader_ || !planetary_water_shell_mesh_ || planetary_water_atlas_texture_ == 0 || !cam_)
+    if (!planetary_water_shell_shader_ || !planetary_water_shell_mesh_ || !planetary_water_render_resource_ || !cam_)
+        return;
+
+    const auto& atlas_targets = planetary_water_render_resource_->get_atlas_targets();
+    if (atlas_targets.atlas_texture.get_id() == 0)
         return;
 
     const auto* node = system.get_node();
@@ -752,16 +1222,49 @@ void simulation_state::render_planetary_water_shell(const gpu_fluid_system_compo
         std::max(glm::length(glm::vec3(system_model[2])), 1.0f));
     planetary_water_shell_shader_->set_uni_vec3("planetaryCenterWorld", glm::vec3(system_model * glm::vec4(system.get_planetary_center(), 1.0f)));
     planetary_water_shell_shader_->set_uni_float("planetarySolidRadiusWorld", system.get_planetary_radius() * system_scale);
+    planetary_water_shell_shader_->set_uni_float("planetaryShellThicknessWorld", system.get_planetary_shell_thickness() * system_scale);
     planetary_water_shell_shader_->set_uni_float("planetDepthBiasWorld", std::max(system.get_planetary_shell_thickness() * system_scale * 0.42f, system.get_planetary_radius() * system_scale * 0.004f));
+    planetary_water_shell_shader_->set_uni_int("waveDebugMode", terrain_debug_mode_);
     planetary_water_shell_shader_->set_uni_int("waterAtlasTexture", 0);
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
+    planetary_water_shell_shader_->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
+    planetary_water_shell_shader_->set_uni_int("waterContinuityTexture", 1);
     planetary_water_shell_shader_->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
-    planetary_water_shell_shader_->set_uni_int("waterLevelTexture", 1);
+    planetary_water_shell_shader_->set_uni_int("waterLevelTexture", 2);
+    planetary_water_shell_shader_->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
+    planetary_water_shell_shader_->set_uni_int("waveStateTexture", 3);
+    planetary_water_shell_shader_->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
+    planetary_water_shell_shader_->set_uni_int("tidalHeightTexture", 4);
+    planetary_water_shell_shader_->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
+    planetary_water_shell_shader_->set_uni_int("regionIdTexture", 5);
+    planetary_water_shell_shader_->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
+    planetary_water_shell_shader_->set_uni_int("shoreDistanceTexture", 6);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, planetary_water_atlas_texture_);
-    if (system.get_planetary_water_level_texture() != 0) {
+    glBindTexture(GL_TEXTURE_2D, atlas_targets.atlas_texture.get_id());
+    if (domain_textures.continuity_texture != 0) {
         glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.continuity_texture);
+    }
+    if (system.get_planetary_water_level_texture() != 0) {
+        glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, system.get_planetary_water_level_texture());
+    }
+    if (planetary_wave_field_.get_render_wave_state_texture() != 0) {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, planetary_wave_field_.get_render_wave_state_texture());
+    }
+    if (atlas_targets.tide_height_texture.get_id() != 0) {
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, atlas_targets.tide_height_texture.get_id());
+    }
+    if (domain_textures.region_id_texture != 0) {
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.region_id_texture);
+    }
+    if (domain_textures.shore_distance_texture != 0) {
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.shore_distance_texture);
     }
     glActiveTexture(GL_TEXTURE0);
 
@@ -778,8 +1281,28 @@ void simulation_state::render_planetary_water_shell(const gpu_fluid_system_compo
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glDisable(GL_CULL_FACE);
-    if (system.get_planetary_water_level_texture() != 0) {
+    if (domain_textures.continuity_texture != 0) {
         glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (system.get_planetary_water_level_texture() != 0) {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (planetary_wave_field_.get_wave_state_texture() != 0) {
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (atlas_targets.tide_height_texture.get_id() != 0) {
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (domain_textures.region_id_texture != 0) {
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    if (domain_textures.shore_distance_texture != 0) {
+        glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
     glActiveTexture(GL_TEXTURE0);
@@ -802,16 +1325,16 @@ void simulation_state::render_particle_surface_composite() {
     particle_surface_composite_shader_->set_uni_int("particleSurfaceCoverageTexture", 0);
     particle_surface_composite_shader_->set_uni_int("particleSurfaceDepthTexture", 1);
     particle_surface_composite_shader_->set_uni_int("sceneDepthTexture", 2);
-    particle_surface_composite_shader_->set_uni_int("useSceneDepth", scene_depth_texture_ != 0 ? 1 : 0);
+    particle_surface_composite_shader_->set_uni_int("useSceneDepth", render_pipeline_.get_scene_depth_texture_id() != 0 ? 1 : 0);
     particle_surface_composite_shader_->set_uni_float("particleSurfaceDetailBlend", scene_ ? compute_particle_surface_detail_blend(*scene_, *cam_) : 0.0f);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, targets.coverage_blur_texture);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, surface_depth_texture);
-    if (scene_depth_texture_ != 0) {
+    if (render_pipeline_.get_scene_depth_texture_id() != 0) {
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, scene_depth_texture_);
+        glBindTexture(GL_TEXTURE_2D, render_pipeline_.get_scene_depth_texture_id());
     }
     glActiveTexture(GL_TEXTURE0);
 
@@ -851,7 +1374,7 @@ void simulation_state::on_enter(engine& engine) {
     }
 
     if (GLFWwindow* window = engine.get_window())
-        glfwSetWindowTitle(window, build_window_title(scene_kind_).c_str());
+        glfwSetWindowTitle(window, build_window_title(scene_kind_, terrain_debug_mode_).c_str());
 }
 
 void simulation_state::on_exit(engine& engine) {
@@ -860,8 +1383,9 @@ void simulation_state::on_exit(engine& engine) {
     loading_feedback_presenter_.reset();
     loading_feedback_active_ = false;
     cam_ = nullptr;
-    release_scene_depth_texture();
+    render_pipeline_.release_scene_depth_texture();
     release_planetary_water_atlas_resources();
+    planetary_water_render_resource_ = nullptr;
     scene_.reset();
 }
 
@@ -884,8 +1408,12 @@ void simulation_state::handle_input(engine& engine, float dt) {
         }
     }
 
-    if (poll_toggle_key(GLFW_KEY_H, previous_terrain_debug_down_))
-        terrain_debug_mode_ = (terrain_debug_mode_ + 1) % 6;
+    if (poll_toggle_key(GLFW_KEY_H, previous_terrain_debug_down_)) {
+        terrain_debug_mode_ = (terrain_debug_mode_ + 1) % 11;
+        std::cout << "[terrain_debug_mode] " << terrain_debug_mode_ << std::endl;
+        if (GLFWwindow* window = engine.get_window())
+            glfwSetWindowTitle(window, build_window_title(scene_kind_, terrain_debug_mode_).c_str());
+    }
 
     if (poll_toggle_key(GLFW_KEY_B, previous_bounding_box_debug_down_))
         draw_bounding_boxes_ = !draw_bounding_boxes_;
@@ -1010,7 +1538,7 @@ void simulation_state::render(engine& engine) {
             int framebuffer_height = 0;
             glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
             if (framebuffer_width > 0 && framebuffer_height > 0)
-                capture_scene_depth_texture(framebuffer_width, framebuffer_height);
+                render_pipeline_.capture_scene_depth_texture(framebuffer_width, framebuffer_height);
 
             bool needs_particle_surface_pass = false;
             for (auto* system : scene_->get_gpu_fluid_systems()) {
@@ -1036,16 +1564,20 @@ void simulation_state::render(engine& engine) {
             continue;
         if (system->supports_particle_surface_pass()) {
             if (system->get_debug_visualization_mode() != fluid_debug_visualization_mode::none) {
-                system->draw(cam_, system->requires_scene_depth_texture() ? scene_depth_texture_ : 0);
+                system->draw(cam_, system->requires_scene_depth_texture() ? render_pipeline_.get_scene_depth_texture_id() : 0);
                 continue;
             }
 
             render_planetary_water_atlas_input(*system);
+            update_planetary_tide_field(*system);
+            update_planetary_wave_field(*system);
             render_planetary_water_shell(*system, light_position, light_color, light_intensity);
+            if (terrain_debug_mode_ >= 6 && terrain_debug_mode_ <= 9)
+                render_planetary_wave_debug_overlay(*system);
             continue;
         }
 
-        system->draw(cam_, system->requires_scene_depth_texture() ? scene_depth_texture_ : 0);
+        system->draw(cam_, system->requires_scene_depth_texture() ? render_pipeline_.get_scene_depth_texture_id() : 0);
     }
 
     render_bounding_boxes(engine);
@@ -1195,6 +1727,7 @@ void simulation_state::update_loading_feedback(engine& engine) {
 
 std::unique_ptr<loading_feedback_presenter> simulation_state::create_loading_feedback_presenter(engine& engine) {
     return std::make_unique<window_title_loading_feedback>(build_window_title(scene_kind_));
+
 }
 
 void simulation_state::try_begin_focus() {

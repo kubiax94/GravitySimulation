@@ -29,6 +29,24 @@ constexpr size_t planetary_flood_guidance_sample_count = 16384u;
 constexpr float planetary_flood_active_threshold = 0.68f;
 constexpr float planetary_respawn_depth_threshold = 0.28f;
 
+void log_planetary_force_integration_state(
+    const gpu_fluid_system_component& system,
+    float dt,
+    const glm::vec3& simulation_gravity,
+    const glm::mat3& world_from_simulation,
+    const glm::mat3& planetary_surface_from_simulation,
+    int external_gravity_source_count,
+    const std::array<glm::vec4, 8>& external_gravity_sources);
+
+uint64_t mix_respawn_seed(uint64_t seed) {
+    seed ^= seed >> 30;
+    seed *= 0xbf58476d1ce4e5b9ULL;
+    seed ^= seed >> 27;
+    seed *= 0x94d049bb133111ebULL;
+    seed ^= seed >> 31;
+    return seed;
+}
+
 float build_aspect_ratio() {
     int fbw = 1280;
     int fbh = 720;
@@ -167,7 +185,6 @@ gpu_fluid_system_component::gpu_fluid_system_component(scene_node* owner,
 
 gpu_fluid_system_component::~gpu_fluid_system_component() {
     release_gpu_completion_fence();
-    release_planetary_flood_mask_texture();
     release_render_flood_mask_gpu_query();
 }
 
@@ -220,23 +237,6 @@ void gpu_fluid_system_component::release_gpu_completion_fence() {
     if (gpu_completion_fence_) {
         glDeleteSync(gpu_completion_fence_);
         gpu_completion_fence_ = 0;
-    }
-}
-
-void gpu_fluid_system_component::release_planetary_flood_mask_texture() {
-    if (planetary_physics_flood_mask_texture_ != 0) {
-        glDeleteTextures(1, &planetary_physics_flood_mask_texture_);
-        planetary_physics_flood_mask_texture_ = 0;
-    }
-
-    if (planetary_flood_mask_texture_ != 0) {
-        glDeleteTextures(1, &planetary_flood_mask_texture_);
-        planetary_flood_mask_texture_ = 0;
-    }
-
-    if (planetary_water_level_texture_ != 0) {
-        glDeleteTextures(1, &planetary_water_level_texture_);
-        planetary_water_level_texture_ = 0;
     }
 }
 
@@ -371,10 +371,7 @@ void gpu_fluid_system_component::rebuild_planetary_water_surface_radius() {
 void gpu_fluid_system_component::rebuild_planetary_flood_guidance() {
     planetary_flood_respawn_normals_.clear();
     planetary_flood_respawn_radii_.clear();
-    planetary_physics_flood_mask_data_.clear();
-    planetary_flood_mask_data_.clear();
-    planetary_water_level_data_.clear();
-    release_planetary_flood_mask_texture();
+    planetary_water_domain_.clear();
     planetary_respawn_cursor_ = 0u;
     planetary_respawn_scan_cursor_ = 0u;
 
@@ -408,7 +405,12 @@ void gpu_fluid_system_component::rebuild_planetary_flood_guidance() {
             if (depth01 < planetary_respawn_depth_threshold)
                 continue;
 
-            const size_t repeat_count = 1u + static_cast<size_t>(glm::floor((depth01 - planetary_respawn_depth_threshold) * 7.0f));
+            const float latitude_area_weight = glm::mix(0.35f, 1.0f, glm::sqrt(glm::max(1.0f - sample.normal.y * sample.normal.y, 0.0f)));
+            const size_t repeat_count = std::max<size_t>(
+                1u,
+                static_cast<size_t>(glm::round(
+                    static_cast<float>(1u + static_cast<size_t>(glm::floor((depth01 - planetary_respawn_depth_threshold) * 7.0f)))
+                    * latitude_area_weight)));
             const float respawn_fill = glm::clamp(0.30f + depth01 * 0.30f, 0.24f, 0.68f);
             const float respawn_radius = glm::mix(sample.floor_radius, region.water_surface_radius, respawn_fill);
             for (size_t repeat = 0; repeat < repeat_count; ++repeat) {
@@ -427,7 +429,12 @@ void gpu_fluid_system_component::rebuild_planetary_flood_guidance() {
                     (region.water_surface_radius - sample.floor_radius) / glm::max(planetary_shell_thickness_, 0.0001f),
                     0.0f,
                     1.0f);
-                const size_t repeat_count = 1u + static_cast<size_t>(glm::floor(depth01 * 4.0f));
+                const float latitude_area_weight = glm::mix(0.35f, 1.0f, glm::sqrt(glm::max(1.0f - sample.normal.y * sample.normal.y, 0.0f)));
+                const size_t repeat_count = std::max<size_t>(
+                    1u,
+                    static_cast<size_t>(glm::round(
+                        static_cast<float>(1u + static_cast<size_t>(glm::floor(depth01 * 4.0f)))
+                        * latitude_area_weight)));
                 const float respawn_fill = glm::clamp(0.24f + depth01 * 0.24f, 0.20f, 0.58f);
                 const float respawn_radius = glm::mix(sample.floor_radius, region.water_surface_radius, respawn_fill);
                 for (size_t repeat = 0; repeat < repeat_count; ++repeat) {
@@ -437,234 +444,18 @@ void gpu_fluid_system_component::rebuild_planetary_flood_guidance() {
             }
         }
     }
-
-    rebuild_planetary_flood_mask_texture(basin_graph, flood_state);
-    report_planetary_hydrology_debug(basin_graph, flood_state, planetary_flood_mask_data_, planetary_water_coverage_);
-}
-
-void gpu_fluid_system_component::rebuild_planetary_flood_mask_texture(const planet_terrain::ocean_basin_graph& basin_graph, const planet_terrain::ocean_flood_state& flood_state) {
-    if (basin_graph.samples.empty() || flood_state.sample_region_indices.empty())
-        return;
-
-    planetary_physics_flood_mask_data_.assign(static_cast<size_t>(planetary_flood_mask_texture_width_) * static_cast<size_t>(planetary_flood_mask_texture_height_), 0u);
-    planetary_flood_mask_data_.assign(static_cast<size_t>(planetary_flood_mask_texture_width_) * static_cast<size_t>(planetary_flood_mask_texture_height_), 0u);
-    planetary_water_level_data_.assign(static_cast<size_t>(planetary_flood_mask_texture_width_) * static_cast<size_t>(planetary_flood_mask_texture_height_), 0.0f);
-    std::vector<float> physics_mask(planetary_flood_mask_data_.size(), 0.0f);
-    std::vector<float> coverage_mask(planetary_flood_mask_data_.size(), 0.0f);
-    std::vector<float> next_mask(planetary_flood_mask_data_.size(), 0.0f);
-    std::vector<float> next_physics_mask(planetary_flood_mask_data_.size(), 0.0f);
-    std::vector<float> water_level_accum(planetary_flood_mask_data_.size(), 0.0f);
-
-    for (size_t sample_index = 0; sample_index < basin_graph.samples.size(); ++sample_index) {
-        const int region_index = flood_state.sample_region_indices[sample_index];
-        if (region_index < 0)
-            continue;
-
-        const auto& sample = basin_graph.samples[sample_index];
-        const glm::vec3& normal = sample.normal;
-        const float latitude = std::asin(glm::clamp(normal.y, -1.0f, 1.0f));
-        const float longitude = std::atan2(normal.z, normal.x);
-        const float u = (longitude + glm::pi<float>()) / glm::two_pi<float>();
-        const float v = (latitude + glm::half_pi<float>()) / glm::pi<float>();
-        const int center_x = glm::clamp(static_cast<int>(u * static_cast<float>(planetary_flood_mask_texture_width_)), 0, planetary_flood_mask_texture_width_ - 1);
-        const int center_y = glm::clamp(static_cast<int>(v * static_cast<float>(planetary_flood_mask_texture_height_)), 0, planetary_flood_mask_texture_height_ - 1);
-        const float water_surface_radius = flood_state.regions[static_cast<size_t>(region_index)].water_surface_radius;
-        const float normalized_water_level = glm::clamp(
-            (water_surface_radius - planetary_radius_) / glm::max(planetary_shell_thickness_, 0.0001f),
-            0.0f,
-            1.0f);
-        const float depth01 = glm::clamp(
-            (water_surface_radius - sample.floor_radius) / glm::max(planetary_shell_thickness_, 0.0001f),
-            0.0f,
-            1.0f);
-        const float latitude_cos = glm::max(std::cos(latitude), 0.35f);
-        const float longitude_scale = glm::clamp(1.0f / latitude_cos, 1.0f, 2.25f);
-        const float physics_texel_radius_x = glm::mix(0.9f, 1.8f, depth01) * longitude_scale;
-        const float physics_texel_radius_y = glm::mix(0.9f, 1.6f, depth01);
-        const float texel_radius_x = glm::mix(1.75f, 4.6f, depth01) * longitude_scale;
-        const float texel_radius_y = glm::mix(1.75f, 4.2f, depth01);
-        const int physics_radius_x = std::max(1, static_cast<int>(glm::ceil(physics_texel_radius_x)));
-        const int physics_radius_y = std::max(1, static_cast<int>(glm::ceil(physics_texel_radius_y)));
-        const int radius_x = std::max(1, static_cast<int>(glm::ceil(texel_radius_x)));
-        const int radius_y = std::max(1, static_cast<int>(glm::ceil(texel_radius_y)));
-        const float physics_strength = glm::mix(0.78f, 1.0f, depth01);
-        const float sample_strength = glm::mix(0.42f, 0.96f, depth01);
-
-        for (int offset_y = -physics_radius_y; offset_y <= physics_radius_y; ++offset_y) {
-            const int y = center_y + offset_y;
-            if (y < 0 || y >= planetary_flood_mask_texture_height_)
-                continue;
-
-            for (int offset_x = -physics_radius_x; offset_x <= physics_radius_x; ++offset_x) {
-                const float normalized_offset_x = static_cast<float>(offset_x) / physics_texel_radius_x;
-                const float normalized_offset_y = static_cast<float>(offset_y) / physics_texel_radius_y;
-                const float distance_sq = normalized_offset_x * normalized_offset_x + normalized_offset_y * normalized_offset_y;
-                if (distance_sq > 1.0f)
-                    continue;
-
-                const int wrapped_x = (center_x + offset_x + planetary_flood_mask_texture_width_) % planetary_flood_mask_texture_width_;
-                const float falloff = 1.0f - distance_sq;
-                const size_t pixel_index = static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(wrapped_x);
-                physics_mask[pixel_index] = glm::clamp(std::max(physics_mask[pixel_index], physics_strength * falloff), 0.0f, 1.0f);
-                water_level_accum[pixel_index] = std::max(water_level_accum[pixel_index], normalized_water_level);
-            }
-        }
-
-        for (int offset_y = -radius_y; offset_y <= radius_y; ++offset_y) {
-            const int y = center_y + offset_y;
-            if (y < 0 || y >= planetary_flood_mask_texture_height_)
-                continue;
-
-            for (int offset_x = -radius_x; offset_x <= radius_x; ++offset_x) {
-                const float normalized_offset_x = static_cast<float>(offset_x) / texel_radius_x;
-                const float normalized_offset_y = static_cast<float>(offset_y) / texel_radius_y;
-                const float distance_sq = normalized_offset_x * normalized_offset_x + normalized_offset_y * normalized_offset_y;
-                if (distance_sq > 1.0f)
-                    continue;
-
-                const int wrapped_x = (center_x + offset_x + planetary_flood_mask_texture_width_) % planetary_flood_mask_texture_width_;
-                const float falloff = 1.0f - distance_sq;
-                const size_t pixel_index = static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(wrapped_x);
-                coverage_mask[pixel_index] = glm::clamp(
-                    coverage_mask[pixel_index] + sample_strength * falloff,
-                    0.0f,
-                    1.0f);
-            }
-        }
-    }
-
-    auto sample_mask = [&](const std::vector<float>& mask, int x, int y) -> float {
-        x = (x + planetary_flood_mask_texture_width_) % planetary_flood_mask_texture_width_;
-        y = glm::clamp(y, 0, planetary_flood_mask_texture_height_ - 1);
-        return mask[static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(x)];
-    };
-
-    for (int pass = 0; pass < 1; ++pass) {
-        for (int y = 0; y < planetary_flood_mask_texture_height_; ++y) {
-            for (int x = 0; x < planetary_flood_mask_texture_width_; ++x) {
-                float neighbor_sum = 0.0f;
-                float weight_total = 0.0f;
-                float neighbor_max = 0.0f;
-                for (int offset_y = -1; offset_y <= 1; ++offset_y) {
-                    for (int offset_x = -1; offset_x <= 1; ++offset_x) {
-                        const float kernel = (offset_x == 0 && offset_y == 0) ? 0.34f : 0.0825f;
-                        const float value = sample_mask(physics_mask, x + offset_x, y + offset_y);
-                        neighbor_sum += value * kernel;
-                        weight_total += kernel;
-                        neighbor_max = std::max(neighbor_max, value);
-                    }
-                }
-
-                const size_t pixel_index = static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(x);
-                const float center = physics_mask[pixel_index];
-                const float averaged = weight_total > 0.0f ? neighbor_sum / weight_total : center;
-                next_physics_mask[pixel_index] = glm::clamp(std::max(center, std::max(averaged * 0.92f, neighbor_max * 0.72f)), 0.0f, 1.0f);
-            }
-        }
-
-        physics_mask.swap(next_physics_mask);
-    }
-
-    for (int pass = 0; pass < 3; ++pass) {
-        for (int y = 0; y < planetary_flood_mask_texture_height_; ++y) {
-            for (int x = 0; x < planetary_flood_mask_texture_width_; ++x) {
-                float weighted_sum = 0.0f;
-                float weight_total = 0.0f;
-                float max_neighbor = 0.0f;
-                for (int offset_y = -1; offset_y <= 1; ++offset_y) {
-                    for (int offset_x = -1; offset_x <= 1; ++offset_x) {
-                        const float kernel = (offset_x == 0 && offset_y == 0)
-                            ? 0.24f
-                            : ((offset_x == 0 || offset_y == 0) ? 0.12f : 0.07f);
-                        const float value = sample_mask(coverage_mask, x + offset_x, y + offset_y);
-                        weighted_sum += value * kernel;
-                        weight_total += kernel;
-                        max_neighbor = std::max(max_neighbor, value);
-                    }
-                }
-
-                const size_t pixel_index = static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(x);
-                const float center = coverage_mask[pixel_index];
-                const float smoothed = weight_total > 0.0f ? weighted_sum / weight_total : center;
-                const float stitched = std::max(center, max_neighbor * 0.82f);
-                next_mask[pixel_index] = glm::clamp(std::max(stitched, smoothed * 0.96f), 0.0f, 1.0f);
-            }
-        }
-
-        coverage_mask.swap(next_mask);
-    }
-
-    for (size_t pixel_index = 0; pixel_index < coverage_mask.size(); ++pixel_index) {
-        const float physics_value = glm::smoothstep(0.42f, 0.74f, physics_mask[pixel_index]);
-        planetary_physics_flood_mask_data_[pixel_index] = static_cast<unsigned char>(glm::clamp(physics_value, 0.0f, 1.0f) * 255.0f);
-        const float value = glm::smoothstep(0.32f, 0.72f, coverage_mask[pixel_index]);
-        planetary_flood_mask_data_[pixel_index] = static_cast<unsigned char>(glm::clamp(value, 0.0f, 1.0f) * 255.0f);
-        planetary_water_level_data_[pixel_index] = physics_value > 0.01f ? water_level_accum[pixel_index] : 0.0f;
-    }
-
-    glGenTextures(1, &planetary_physics_flood_mask_texture_);
-    if (planetary_physics_flood_mask_texture_ != 0) {
-        glBindTexture(GL_TEXTURE_2D, planetary_physics_flood_mask_texture_);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_R8,
-            planetary_flood_mask_texture_width_,
-            planetary_flood_mask_texture_height_,
-            0,
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            planetary_physics_flood_mask_data_.data());
-    }
-
-    glGenTextures(1, &planetary_flood_mask_texture_);
-    if (planetary_flood_mask_texture_ == 0)
-        return;
-
-    glBindTexture(GL_TEXTURE_2D, planetary_flood_mask_texture_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_R8,
-        planetary_flood_mask_texture_width_,
-        planetary_flood_mask_texture_height_,
-        0,
-        GL_RED,
-        GL_UNSIGNED_BYTE,
-        planetary_flood_mask_data_.data());
-
-    glGenTextures(1, &planetary_water_level_texture_);
-    if (planetary_water_level_texture_ != 0) {
-        glBindTexture(GL_TEXTURE_2D, planetary_water_level_texture_);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_R16F,
-            planetary_flood_mask_texture_width_,
-            planetary_flood_mask_texture_height_,
-            0,
-            GL_RED,
-            GL_FLOAT,
-            planetary_water_level_data_.data());
-    }
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    planetary_water_domain_desc domain_desc;
+    domain_desc.width = planetary_flood_mask_texture_width_;
+    domain_desc.height = planetary_flood_mask_texture_height_;
+    domain_desc.planet_radius = planetary_radius_;
+    domain_desc.shell_thickness = planetary_shell_thickness_;
+    planetary_water_domain_.rebuild(domain_desc, basin_graph, flood_state);
+    report_planetary_hydrology_debug(basin_graph, flood_state, planetary_water_domain_.get_render_mask_data(), planetary_water_coverage_);
 }
 
 float gpu_fluid_system_component::sample_planetary_flood_mask(const glm::vec3& surface_normal) const {
-    if (planetary_physics_flood_mask_data_.empty())
+    const auto& physics_mask_data = planetary_water_domain_.get_physics_mask_data();
+    if (physics_mask_data.empty())
         return -1.0f;
 
     const glm::vec3 safe_normal = glm::dot(surface_normal, surface_normal) > 0.000001f
@@ -674,14 +465,16 @@ float gpu_fluid_system_component::sample_planetary_flood_mask(const glm::vec3& s
     const float longitude = std::atan2(safe_normal.z, safe_normal.x);
     const float u = (longitude + glm::pi<float>()) / glm::two_pi<float>();
     const float v = (latitude + glm::half_pi<float>()) / glm::pi<float>();
-    const int x = glm::clamp(static_cast<int>(u * static_cast<float>(planetary_flood_mask_texture_width_)), 0, planetary_flood_mask_texture_width_ - 1);
-    const int y = glm::clamp(static_cast<int>(v * static_cast<float>(planetary_flood_mask_texture_height_)), 0, planetary_flood_mask_texture_height_ - 1);
-    const float value = static_cast<float>(planetary_physics_flood_mask_data_[static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(x)]) / 255.0f;
+    const auto& domain_desc = planetary_water_domain_.get_desc();
+    const int x = glm::clamp(static_cast<int>(u * static_cast<float>(domain_desc.width)), 0, domain_desc.width - 1);
+    const int y = glm::clamp(static_cast<int>(v * static_cast<float>(domain_desc.height)), 0, domain_desc.height - 1);
+    const float value = static_cast<float>(physics_mask_data[static_cast<size_t>(y) * static_cast<size_t>(domain_desc.width) + static_cast<size_t>(x)]) / 255.0f;
     return glm::smoothstep(planetary_flood_active_threshold, 0.92f, value);
 }
 
 float gpu_fluid_system_component::sample_planetary_water_level(const glm::vec3& surface_normal) const {
-    if (planetary_water_level_data_.empty())
+    const auto& water_level_data = planetary_water_domain_.get_water_level_data();
+    if (water_level_data.empty())
         return -1.0f;
 
     const glm::vec3 safe_normal = glm::dot(surface_normal, surface_normal) > 0.000001f
@@ -691,9 +484,10 @@ float gpu_fluid_system_component::sample_planetary_water_level(const glm::vec3& 
     const float longitude = std::atan2(safe_normal.z, safe_normal.x);
     const float u = (longitude + glm::pi<float>()) / glm::two_pi<float>();
     const float v = (latitude + glm::half_pi<float>()) / glm::pi<float>();
-    const int x = glm::clamp(static_cast<int>(u * static_cast<float>(planetary_flood_mask_texture_width_)), 0, planetary_flood_mask_texture_width_ - 1);
-    const int y = glm::clamp(static_cast<int>(v * static_cast<float>(planetary_flood_mask_texture_height_)), 0, planetary_flood_mask_texture_height_ - 1);
-    return planetary_water_level_data_[static_cast<size_t>(y) * static_cast<size_t>(planetary_flood_mask_texture_width_) + static_cast<size_t>(x)];
+    const auto& domain_desc = planetary_water_domain_.get_desc();
+    const int x = glm::clamp(static_cast<int>(u * static_cast<float>(domain_desc.width)), 0, domain_desc.width - 1);
+    const int y = glm::clamp(static_cast<int>(v * static_cast<float>(domain_desc.height)), 0, domain_desc.height - 1);
+    return water_level_data[static_cast<size_t>(y) * static_cast<size_t>(domain_desc.width) + static_cast<size_t>(x)];
 }
 
 void gpu_fluid_system_component::update_planetary_particle_respawn(const glm::mat3& planetary_surface_from_simulation) {
@@ -770,13 +564,16 @@ void gpu_fluid_system_component::update_planetary_particle_respawn(const glm::ma
             if (physics_flood_mask >= 0.5f && water_level > planetary_respawn_depth_threshold)
                 continue;
 
-            const size_t respawn_slot = planetary_respawn_cursor_ % planetary_flood_respawn_normals_.size();
+            const uint64_t respawn_seed = mix_respawn_seed(
+                static_cast<uint64_t>(respawn_indices[processed_count] + 1u)
+                ^ (static_cast<uint64_t>(planetary_respawn_cursor_ + processed_count + 1u) << 1)
+                ^ (static_cast<uint64_t>(particles.size() + 1u) << 17));
+            const size_t respawn_slot = static_cast<size_t>(respawn_seed % planetary_flood_respawn_normals_.size());
             const glm::vec3 respawn_surface_normal = planetary_flood_respawn_normals_[respawn_slot];
             const float respawn_radius = glm::clamp(
                 planetary_flood_respawn_radii_[respawn_slot],
                 planetary_radius_ + particle_radius_ * 0.25f,
                 planetary_water_surface_radius_ - particle_radius_ * 0.2f);
-            ++planetary_respawn_cursor_;
             const glm::vec3 respawn_simulation_normal = glm::normalize(simulation_from_surface * respawn_surface_normal);
             const glm::vec3 respawn_position = planetary_center_ + respawn_simulation_normal * respawn_radius;
             particle.position = glm::vec4(respawn_position, particle.position.w);
@@ -786,6 +583,8 @@ void gpu_fluid_system_component::update_planetary_particle_respawn(const glm::ma
             particle.solver_data = glm::vec4(0.f);
             changed = true;
         }
+
+        planetary_respawn_cursor_ += respawn_indices.size();
 
         hydrology_classification_timing_.add_sample((glfwGetTime() - classification_start) * 1000.0);
     }
@@ -992,6 +791,7 @@ void gpu_fluid_system_component::fixed_update(float dt) {
 
     update_planetary_angular_velocity(world_from_simulation, dt);
     const int external_gravity_source_count = gather_planetary_external_gravity_sources(world_from_simulation);
+    planetary_external_gravity_source_count_ = external_gravity_source_count;
 
     glm::mat3 planetary_surface_from_simulation(1.0f);
     if (planetary_surface_frame_node_) {
@@ -1009,6 +809,15 @@ void gpu_fluid_system_component::fixed_update(float dt) {
             planetary_surface_from_simulation = glm::transpose(world_from_surface) * world_from_simulation;
         }
     }
+
+    log_planetary_force_integration_state(
+        *this,
+        dt,
+        simulation_gravity,
+        world_from_simulation,
+        planetary_surface_from_simulation,
+        external_gravity_source_count,
+        planetary_external_gravity_sources_);
 
     update_planetary_particle_respawn(planetary_surface_from_simulation);
 
@@ -1054,9 +863,10 @@ void gpu_fluid_system_component::fixed_update(float dt) {
     compute_shader_->set_uni_float("planetaryTidalStrength", planetary_tidal_strength_);
     compute_shader_->set_uni_int("planetaryExternalGravitySourceCount", external_gravity_source_count);
     compute_shader_->set_uni_vec4_array("planetaryExternalGravitySources", planetary_external_gravity_sources_.data(), max_planetary_external_gravity_sources_);
-    compute_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", planetary_physics_flood_mask_texture_ != 0 ? 1 : 0);
+    const auto& domain_textures = planetary_water_domain_.get_textures();
+    compute_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", domain_textures.physics_mask_texture != 0 ? 1 : 0);
     compute_shader_->set_uni_int("planetaryPhysicsMaskTexture", 8);
-    compute_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", planetary_water_level_texture_ != 0 ? 1 : 0);
+    compute_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", domain_textures.water_level_texture != 0 ? 1 : 0);
     compute_shader_->set_uni_int("planetaryWaterLevelTexture", 9);
     compute_shader_->set_uni_vec3("planetarySurfaceFrameX", planetary_surface_from_simulation[0]);
     compute_shader_->set_uni_vec3("planetarySurfaceFrameY", planetary_surface_from_simulation[1]);
@@ -1077,14 +887,14 @@ void gpu_fluid_system_component::fixed_update(float dt) {
     compute_shader_->set_uni_float("terrainEarthMacroContinentStrength", planetary_terrain_profile_.earth_macro_continent_strength);
     compute_shader_->set_uni_float("terrainArchipelagoStrength", planetary_terrain_profile_.archipelago_strength);
 
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
-        glBindTexture(GL_TEXTURE_2D, planetary_physics_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.physics_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
-        glBindTexture(GL_TEXTURE_2D, planetary_water_level_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.water_level_texture);
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -1121,12 +931,12 @@ void gpu_fluid_system_component::fixed_update(float dt) {
         compute_shader_->dispatch({ particle_groups_x, 1u, 1u });
     }
 
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
@@ -1247,6 +1057,54 @@ void gpu_fluid_system_component::update_debug_readback() {
     std::cout << stream.str() << std::endl;
 }
 
+namespace {
+void log_planetary_force_integration_state(
+    const gpu_fluid_system_component& system,
+    float dt,
+    const glm::vec3& simulation_gravity,
+    const glm::mat3& world_from_simulation,
+    const glm::mat3& planetary_surface_from_simulation,
+    int external_gravity_source_count,
+    const std::array<glm::vec4, 8>& external_gravity_sources) {
+    static int frame_counter = 0;
+    ++frame_counter;
+    if (frame_counter % 30 != 0)
+        return;
+
+    const glm::vec3 basis_x = world_from_simulation[0];
+    const glm::vec3 basis_y = world_from_simulation[1];
+    const glm::vec3 basis_z = world_from_simulation[2];
+    const glm::vec3 surface_basis_x = planetary_surface_from_simulation[0];
+    const glm::vec3 surface_basis_y = planetary_surface_from_simulation[1];
+    const glm::vec3 surface_basis_z = planetary_surface_from_simulation[2];
+
+    std::ostringstream stream;
+    stream << "[planetary_force_integration]"
+        << " dt=" << dt
+        << " particleCount=" << system.get_particle_count()
+        << " gravitySim=(" << simulation_gravity.x << ", " << simulation_gravity.y << ", " << simulation_gravity.z << ")"
+        << " angularVelocity=(" << system.get_planetary_angular_velocity().x << ", " << system.get_planetary_angular_velocity().y << ", " << system.get_planetary_angular_velocity().z << ")"
+        << " coriolisStrength=" << system.get_planetary_coriolis_strength()
+        << " tidalStrength=" << system.get_planetary_tidal_strength()
+        << " externalSources=" << external_gravity_source_count
+        << " worldBasisX=(" << basis_x.x << ", " << basis_x.y << ", " << basis_x.z << ")"
+        << " worldBasisY=(" << basis_y.x << ", " << basis_y.y << ", " << basis_y.z << ")"
+        << " worldBasisZ=(" << basis_z.x << ", " << basis_z.y << ", " << basis_z.z << ")"
+        << " surfaceBasisX=(" << surface_basis_x.x << ", " << surface_basis_x.y << ", " << surface_basis_x.z << ")"
+        << " surfaceBasisY=(" << surface_basis_y.x << ", " << surface_basis_y.y << ", " << surface_basis_y.z << ")"
+        << " surfaceBasisZ=(" << surface_basis_z.x << ", " << surface_basis_z.y << ", " << surface_basis_z.z << ")";
+
+    for (int i = 0; i < external_gravity_source_count; ++i) {
+        const glm::vec4 source = external_gravity_sources[static_cast<size_t>(i)];
+        stream << " source" << i
+            << "=(pos:" << source.x << "," << source.y << "," << source.z
+            << " gm:" << source.w << ")";
+    }
+
+    std::cout << stream.str() << std::endl;
+}
+}
+
 void gpu_fluid_system_component::draw(Camera* camera, GLuint scene_depth_texture) const {
     if (!camera || !render_shader_ || !render_mesh_ || !compute_shader_ || particle_count_ == 0)
         return;
@@ -1256,8 +1114,9 @@ void gpu_fluid_system_component::draw(Camera* camera, GLuint scene_depth_texture
         return;
 
     const glm::mat4& system_model = get_node()->get_global_matrix_model();
+    const auto& domain_textures = planetary_water_domain_.get_textures();
     const bool enable_render_flood_mask = debug_visualization_mode_ == fluid_debug_visualization_mode::ocean_fill;
-    const bool profile_render_flood_mask = enable_render_flood_mask && planetary_surface_enabled_ && planetary_flood_mask_texture_ != 0;
+    const bool profile_render_flood_mask = enable_render_flood_mask && planetary_surface_enabled_ && domain_textures.render_mask_texture != 0;
 
     collect_render_flood_mask_gpu_timing();
 
@@ -1275,11 +1134,11 @@ void gpu_fluid_system_component::draw(Camera* camera, GLuint scene_depth_texture
     render_shader_->set_uni_vec3("particleColor", glm::vec3(0.18f, 0.58f, 1.0f));
     render_shader_->set_uni_int("useSceneDepth", scene_depth_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("sceneDepthTexture", 7);
-    render_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", planetary_physics_flood_mask_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", domain_textures.physics_mask_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryPhysicsMaskTexture", 8);
-    render_shader_->set_uni_int("planetaryRenderMaskTextureAvailable", planetary_flood_mask_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryRenderMaskTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryRenderMaskTexture", 9);
-    render_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", planetary_water_level_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", domain_textures.water_level_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryWaterLevelTexture", 10);
     render_shader_->set_uni_int("debugVisualizationMode", static_cast<int>(debug_visualization_mode_));
     render_shader_->set_uni_int("simulationMode", planetary_surface_enabled_ ? 1 : 0);
@@ -1310,19 +1169,19 @@ void gpu_fluid_system_component::draw(Camera* camera, GLuint scene_depth_texture
         glBindTexture(GL_TEXTURE_2D, scene_depth_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
-        glBindTexture(GL_TEXTURE_2D, planetary_physics_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.physics_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
-        glBindTexture(GL_TEXTURE_2D, planetary_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
-        glBindTexture(GL_TEXTURE_2D, planetary_water_level_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.water_level_texture);
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -1352,17 +1211,17 @@ void gpu_fluid_system_component::draw(Camera* camera, GLuint scene_depth_texture
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
@@ -1382,6 +1241,7 @@ void gpu_fluid_system_component::draw_particle_surface_input(Camera* camera, GLu
         return;
 
     const glm::mat4& system_model = get_node()->get_global_matrix_model();
+    const auto& domain_textures = planetary_water_domain_.get_textures();
     render_shader_->use();
     render_shader_->set_uniform_mat4("systemModel", system_model);
     render_shader_->set_uniform_mat4("view", camera->GetViewMatrix());
@@ -1395,11 +1255,11 @@ void gpu_fluid_system_component::draw_particle_surface_input(Camera* camera, GLu
     render_shader_->set_uni_vec3("particleColor", glm::vec3(1.0f));
     render_shader_->set_uni_int("useSceneDepth", scene_depth_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("sceneDepthTexture", 7);
-    render_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", planetary_physics_flood_mask_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryPhysicsMaskTextureAvailable", domain_textures.physics_mask_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryPhysicsMaskTexture", 8);
-    render_shader_->set_uni_int("planetaryRenderMaskTextureAvailable", planetary_flood_mask_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryRenderMaskTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryRenderMaskTexture", 9);
-    render_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", planetary_water_level_texture_ != 0 ? 1 : 0);
+    render_shader_->set_uni_int("planetaryWaterLevelTextureAvailable", domain_textures.water_level_texture != 0 ? 1 : 0);
     render_shader_->set_uni_int("planetaryWaterLevelTexture", 10);
     render_shader_->set_uni_int("debugVisualizationMode", static_cast<int>(fluid_debug_visualization_mode::none));
     render_shader_->set_uni_int("simulationMode", planetary_surface_enabled_ ? 1 : 0);
@@ -1438,19 +1298,19 @@ void gpu_fluid_system_component::draw_particle_surface_input(Camera* camera, GLu
         glBindTexture(GL_TEXTURE_2D, scene_depth_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
-        glBindTexture(GL_TEXTURE_2D, planetary_physics_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.physics_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
-        glBindTexture(GL_TEXTURE_2D, planetary_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
-        glBindTexture(GL_TEXTURE_2D, planetary_water_level_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.water_level_texture);
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -1463,17 +1323,17 @@ void gpu_fluid_system_component::draw_particle_surface_input(Camera* camera, GLu
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_physics_flood_mask_texture_ != 0) {
+    if (domain_textures.physics_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE8);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
@@ -1493,6 +1353,7 @@ void gpu_fluid_system_component::draw_planetary_water_atlas_input(shader* atlas_
     if (ssbo == 0)
         return;
 
+    const auto& domain_textures = planetary_water_domain_.get_textures();
     atlas_shader->use();
     atlas_shader->set_uni_vec2("atlasResolution", glm::vec2(atlas_resolution));
     atlas_shader->set_uni_float("particleRadius", particle_radius_);
@@ -1502,19 +1363,33 @@ void gpu_fluid_system_component::draw_planetary_water_atlas_input(shader* atlas_
     atlas_shader->set_uni_float("planetaryShellThickness", planetary_shell_thickness_);
     atlas_shader->set_uni_float("planetaryWaterSurfaceRadius", planetary_water_surface_radius_);
     atlas_shader->set_uni_int("planetaryTerrainEnabled", planetary_terrain_enabled_ ? 1 : 0);
-    atlas_shader->set_uni_int("planetaryRenderMaskTextureAvailable", planetary_flood_mask_texture_ != 0 ? 1 : 0);
+    atlas_shader->set_uni_float("terrainSeaLevel", planetary_terrain_profile_.sea_level);
+    atlas_shader->set_uni_float("terrainContinentFrequency", planetary_terrain_profile_.continent_frequency);
+    atlas_shader->set_uni_float("terrainContinentWarpStrength", planetary_terrain_profile_.continent_warp_strength);
+    atlas_shader->set_uni_float("terrainLargeFrequency", planetary_terrain_profile_.large_frequency);
+    atlas_shader->set_uni_float("terrainMediumFrequency", planetary_terrain_profile_.medium_frequency);
+    atlas_shader->set_uni_float("terrainDetailFrequency", planetary_terrain_profile_.detail_frequency);
+    atlas_shader->set_uni_float("terrainRidgeFrequency", planetary_terrain_profile_.ridge_frequency);
+    atlas_shader->set_uni_float("terrainCraterStrength", planetary_terrain_profile_.crater_strength);
+    atlas_shader->set_uni_float("terrainMountainSharpness", planetary_terrain_profile_.mountain_sharpness);
+    atlas_shader->set_uni_float("terrainReliefStrength", planetary_terrain_profile_.relief_strength);
+    atlas_shader->set_uni_float("terrainDisplacementStrength", planetary_terrain_profile_.displacement_strength);
+    atlas_shader->set_uni_float("terrainContinentContrast", planetary_terrain_profile_.continent_contrast);
+    atlas_shader->set_uni_float("terrainEarthMacroContinentStrength", planetary_terrain_profile_.earth_macro_continent_strength);
+    atlas_shader->set_uni_float("terrainArchipelagoStrength", planetary_terrain_profile_.archipelago_strength);
+    atlas_shader->set_uni_int("planetaryRenderMaskTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
     atlas_shader->set_uni_int("planetaryRenderMaskTexture", 9);
-    atlas_shader->set_uni_int("planetaryWaterLevelTextureAvailable", planetary_water_level_texture_ != 0 ? 1 : 0);
+    atlas_shader->set_uni_int("planetaryWaterLevelTextureAvailable", domain_textures.water_level_texture != 0 ? 1 : 0);
     atlas_shader->set_uni_int("planetaryWaterLevelTexture", 10);
 
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
-        glBindTexture(GL_TEXTURE_2D, planetary_flood_mask_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
-        glBindTexture(GL_TEXTURE_2D, planetary_water_level_texture_);
+        glBindTexture(GL_TEXTURE_2D, domain_textures.water_level_texture);
         glActiveTexture(GL_TEXTURE0);
     }
 
@@ -1523,18 +1398,22 @@ void gpu_fluid_system_component::draw_planetary_water_atlas_input(shader* atlas_
     render_mesh_->DrawInstanced(static_cast<GLsizei>(particle_count_));
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, particle_binding_, 0);
 
-    if (planetary_flood_mask_texture_ != 0) {
+    if (domain_textures.render_mask_texture != 0) {
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
-    if (planetary_water_level_texture_ != 0) {
+    if (domain_textures.water_level_texture != 0) {
         glActiveTexture(GL_TEXTURE10);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
     }
 
     glDisable(GL_PROGRAM_POINT_SIZE);
+}
+
+void gpu_fluid_system_component::draw_planetary_wave_forcing_input(shader* forcing_shader, const glm::ivec2& atlas_resolution) const {
+    draw_planetary_water_atlas_input(forcing_shader, atlas_resolution);
 }
 
 GLuint gpu_fluid_system_component::get_ssbo_id() const {

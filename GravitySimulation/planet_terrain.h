@@ -164,6 +164,30 @@ inline rocky_planet_profile make_rocky_planet_profile(std::string_view planet_na
         profile.ice_color = glm::vec3(0.84f, 0.88f, 0.90f);
         profile.continent_contrast = 1.28f;
     }
+    else if (planet_name == "Moon") {
+        profile.sea_level = 0.18f;
+        profile.continent_frequency = 2.35f;
+        profile.continent_warp_strength = 0.10f;
+        profile.biome_frequency = 4.8f;
+        profile.large_frequency = 6.1f;
+        profile.medium_frequency = 13.8f;
+        profile.detail_frequency = 24.0f;
+        profile.ridge_frequency = 16.8f;
+        profile.crater_strength = 0.42f;
+        profile.mountain_sharpness = 0.78f;
+        profile.relief_strength = 1.45f;
+        profile.displacement_strength = 0.030f;
+        profile.ocean_coverage = 0.0f;
+        profile.ocean_motion_scale = 0.0f;
+        profile.ocean_candidate_multiplier = 3u;
+        profile.rock_dark_color = glm::vec3(0.14f, 0.14f, 0.16f);
+        profile.rock_mid_color = glm::vec3(0.34f, 0.34f, 0.38f);
+        profile.rock_bright_color = glm::vec3(0.68f, 0.68f, 0.72f);
+        profile.dust_color = glm::vec3(0.54f, 0.54f, 0.58f);
+        profile.ice_color = glm::vec3(0.78f, 0.80f, 0.84f);
+        profile.continent_contrast = 1.18f;
+        profile.static_ocean_tint_enabled = false;
+    }
 
     return profile;
 }

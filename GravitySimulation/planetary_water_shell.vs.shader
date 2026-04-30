@@ -26,11 +26,24 @@ uniform float terrainContinentContrast;
 uniform float terrainEarthMacroContinentStrength;
 uniform float terrainArchipelagoStrength;
 uniform sampler2D waterAtlasTexture;
+uniform int waterContinuityTextureAvailable;
+uniform sampler2D waterContinuityTexture;
+uniform int waterVetoTextureAvailable;
+uniform sampler2D waterVetoTexture;
 uniform int waterLevelTextureAvailable;
 uniform sampler2D waterLevelTexture;
+uniform int waveStateTextureAvailable;
+uniform sampler2D waveStateTexture;
+uniform int tidalHeightTextureAvailable;
+uniform sampler2D tidalHeightTexture;
+uniform int regionIdTextureAvailable;
+uniform usampler2D regionIdTexture;
+uniform int shoreDistanceTextureAvailable;
+uniform sampler2D shoreDistanceTexture;
 
 out vec3 FragPos;
 out vec3 Normal;
+out vec3 LocalSurfaceDir;
 out vec2 AtlasUv;
 out vec3 AtlasData;
 out float AtlasFlood;
@@ -39,6 +52,14 @@ out float ShellSupport;
 out float ShorelineFade;
 out float BaseHydrologySupport;
 out float WaterLevel01;
+out float ContinuityCoverage;
+out float WaterVeto;
+out float TerrainOceanMask;
+flat out uint WaterRegionId;
+out float ShoreDistance;
+out float WaveHeight;
+out float WaveVelocity;
+out float TidalHeight;
 
 float wave_noise(vec3 p) {
     float n = 0.0;
@@ -170,7 +191,10 @@ float terrain_surface_displacement(vec3 n) {
 }
 
 void build_tangent_frame(vec3 normal, out vec3 tangent, out vec3 bitangent) {
-    vec3 helperAxis = abs(normal.y) > 0.82 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 absNormal = abs(normal);
+    vec3 helperAxis = absNormal.x <= absNormal.y && absNormal.x <= absNormal.z
+        ? vec3(1.0, 0.0, 0.0)
+        : (absNormal.y <= absNormal.z ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
     tangent = normalize(cross(helperAxis, normal));
     bitangent = normalize(cross(normal, tangent));
 }
@@ -220,57 +244,367 @@ vec2 build_planetary_hydrology_uv(vec3 normal) {
 
 vec4 sample_stabilized_atlas(vec2 uv) {
     vec2 texel = 1.0 / vec2(textureSize(waterAtlasTexture, 0));
-    vec4 value = textureLod(waterAtlasTexture, uv, 0.0) * 0.28;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.12;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.12;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.12;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.12;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.06;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.06;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.06;
-    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.06;
+    vec4 value = textureLod(waterAtlasTexture, uv, 0.0) * 0.24;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.10;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.10;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.10;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.10;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.05;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.05;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0) * 0.05;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0) * 0.05;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x * 2.0), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.04;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0) * 0.04;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y * 2.0, 0.0, 1.0)), 0.0) * 0.04;
+    value += textureLod(waterAtlasTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y * 2.0, 0.0, 1.0)), 0.0) * 0.04;
     return value;
+}
+
+vec4 sample_polar_stable_atlas(vec2 uv, vec3 normal) {
+    vec4 base = sample_stabilized_atlas(uv);
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    if (polarBlend <= 0.0)
+        return base;
+
+    vec2 texel = 1.0 / vec2(textureSize(waterAtlasTexture, 0));
+    vec4 filtered = textureLod(waterAtlasTexture, uv, 0.0) * 0.30;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x * 2.0), uv.y), 0.0) * 0.18;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), uv.y), 0.0) * 0.18;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x * 4.0), uv.y), 0.0) * 0.12;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y), 0.0) * 0.12;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x + texel.x * 8.0), uv.y), 0.0) * 0.05;
+    filtered += textureLod(waterAtlasTexture, vec2(fract(uv.x - texel.x * 8.0 + 1.0), uv.y), 0.0) * 0.05;
+    return mix(base, filtered, polarBlend);
+}
+
+vec4 decode_atlas_channels(vec4 atlasSample) {
+    float atlasWeight = max(atlasSample.r, 0.0);
+    if (atlasWeight <= 0.00001)
+        return vec4(0.0);
+
+    return vec4(
+        clamp(atlasWeight, 0.0, 1.0),
+        clamp(atlasSample.g / atlasWeight, 0.0, 1.0),
+        clamp(atlasSample.b / atlasWeight, 0.0, 1.0),
+        clamp(atlasSample.a / atlasWeight, 0.0, 1.0));
+}
+
+vec4 sample_continuous_atlas_data(vec2 uv, vec3 normal) {
+    vec2 texel = 1.0 / vec2(textureSize(waterAtlasTexture, 0));
+    vec4 center = decode_atlas_channels(sample_polar_stable_atlas(uv, normal));
+    vec4 accumulated = center * 0.42;
+    float weightSum = 0.42;
+
+    const vec2 offsets[8] = vec2[8](
+        vec2(1.0, 0.0),
+        vec2(-1.0, 0.0),
+        vec2(0.0, 1.0),
+        vec2(0.0, -1.0),
+        vec2(2.0, 0.0),
+        vec2(-2.0, 0.0),
+        vec2(0.0, 2.0),
+        vec2(0.0, -2.0));
+    const float offsetWeights[8] = float[8](0.14, 0.14, 0.10, 0.10, 0.05, 0.05, 0.04, 0.04);
+
+    for (int i = 0; i < 8; ++i) {
+        vec2 sampleUv = vec2(
+            fract(uv.x + offsets[i].x * texel.x + 1.0),
+            clamp(uv.y + offsets[i].y * texel.y, 0.0, 1.0));
+        vec4 sampleData = decode_atlas_channels(sample_polar_stable_atlas(sampleUv, normal));
+        float similarity = 1.0 - smoothstep(0.16, 0.58,
+            abs(sampleData.y - center.y) + abs(sampleData.w - center.w) + abs(sampleData.x - center.x) * 0.45);
+        float weight = offsetWeights[i] * similarity;
+        accumulated += sampleData * weight;
+        weightSum += weight;
+    }
+
+    return weightSum > 0.0 ? accumulated / weightSum : center;
+}
+
+float sample_smoothed_water_level(vec2 uv, vec3 normal) {
+    if (waterLevelTextureAvailable == 0)
+        return 1.0;
+
+    vec2 texel = 1.0 / vec2(textureSize(waterLevelTexture, 0));
+    float value = textureLod(waterLevelTexture, uv, 0.0).r * 0.36;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    float base = clamp(value, 0.0, 1.0);
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    if (polarBlend <= 0.0)
+        return base;
+
+    float filtered = textureLod(waterLevelTexture, uv, 0.0).r * 0.34;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x * 2.0), uv.y), 0.0).r * 0.18;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), uv.y), 0.0).r * 0.18;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x * 4.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x + texel.x * 8.0), uv.y), 0.0).r * 0.03;
+    filtered += textureLod(waterLevelTexture, vec2(fract(uv.x - texel.x * 8.0 + 1.0), uv.y), 0.0).r * 0.03;
+    return mix(base, clamp(filtered, 0.0, 1.0), polarBlend);
+}
+
+float sample_water_veto(vec2 uv, vec3 normal) {
+    if (waterVetoTextureAvailable == 0)
+        return 0.0;
+
+    vec2 texel = 1.0 / vec2(textureSize(waterVetoTexture, 0));
+    float center = textureLod(waterVetoTexture, uv, 0.0).r;
+    float value = center * 0.44;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.14;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.14;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.08;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.08;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x + texel.x * 2.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.06;
+    value += textureLod(waterVetoTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.06;
+
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    float conservative = center * 0.56;
+    conservative += textureLod(waterVetoTexture, vec2(fract(uv.x + texel.x), uv.y), 0.0).r * 0.11;
+    conservative += textureLod(waterVetoTexture, vec2(fract(uv.x - texel.x + 1.0), uv.y), 0.0).r * 0.11;
+    return mix(value, conservative, polarBlend);
+}
+
+float sample_smoothed_water_continuity(vec2 uv, vec3 normal) {
+    if (waterContinuityTextureAvailable == 0)
+        return 0.0;
+
+    vec2 texel = 1.0 / vec2(textureSize(waterContinuityTexture, 0));
+    float value = textureLod(waterContinuityTexture, uv, 0.0).r * 0.36;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.12;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    value += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.04;
+    float base = clamp(value, 0.0, 1.0);
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    if (polarBlend <= 0.0)
+        return base;
+
+    float filtered = textureLod(waterContinuityTexture, uv, 0.0).r * 0.34;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x * 2.0), uv.y), 0.0).r * 0.18;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), uv.y), 0.0).r * 0.18;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x * 4.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y), 0.0).r * 0.12;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x + texel.x * 8.0), uv.y), 0.0).r * 0.03;
+    filtered += textureLod(waterContinuityTexture, vec2(fract(uv.x - texel.x * 8.0 + 1.0), uv.y), 0.0).r * 0.03;
+    return mix(base, clamp(filtered, 0.0, 1.0), polarBlend);
+}
+
+float sample_continuous_water_level(vec2 uv, vec3 normal) {
+    if (waterLevelTextureAvailable == 0)
+        return 1.0;
+
+    vec2 texel = 1.0 / vec2(textureSize(waterLevelTexture, 0));
+    float center = sample_smoothed_water_level(uv, normal);
+    float accumulated = center * 0.42;
+    float weightSum = 0.42;
+
+    const vec2 offsets[8] = vec2[8](
+        vec2(1.0, 0.0),
+        vec2(-1.0, 0.0),
+        vec2(0.0, 1.0),
+        vec2(0.0, -1.0),
+        vec2(2.0, 0.0),
+        vec2(-2.0, 0.0),
+        vec2(0.0, 2.0),
+        vec2(0.0, -2.0));
+    const float offsetWeights[8] = float[8](0.14, 0.14, 0.10, 0.10, 0.05, 0.05, 0.04, 0.04);
+
+    for (int i = 0; i < 8; ++i) {
+        vec2 sampleUv = vec2(
+            fract(uv.x + offsets[i].x * texel.x + 1.0),
+            clamp(uv.y + offsets[i].y * texel.y, 0.0, 1.0));
+        float sampleValue = sample_smoothed_water_level(sampleUv, normal);
+        float similarity = 1.0 - smoothstep(0.10, 0.42, abs(sampleValue - center));
+        float weight = offsetWeights[i] * similarity;
+        accumulated += sampleValue * weight;
+        weightSum += weight;
+    }
+
+    return clamp(weightSum > 0.0 ? accumulated / weightSum : center, 0.0, 1.0);
+}
+
+uint sample_region_id(vec2 uv) {
+    if (regionIdTextureAvailable == 0)
+        return 0u;
+
+    ivec2 size = textureSize(regionIdTexture, 0);
+    ivec2 coord = ivec2(
+        clamp(int(floor(fract(uv.x + 1.0) * float(size.x))), 0, size.x - 1),
+        clamp(int(floor(clamp(uv.y, 0.0, 1.0) * float(size.y))), 0, size.y - 1));
+    return texelFetch(regionIdTexture, coord, 0).r;
+}
+
+float sample_shore_distance(vec2 uv) {
+    if (shoreDistanceTextureAvailable == 0)
+        return 0.0;
+
+    return textureLod(shoreDistanceTexture, vec2(fract(uv.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r;
+}
+
+vec2 sample_wave_state(vec2 uv) {
+    if (waveStateTextureAvailable == 0)
+        return vec2(0.0);
+
+    return textureLod(waveStateTexture, vec2(fract(uv.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).rg;
+}
+
+vec2 sample_smoothed_wave_state(vec2 uv, vec3 normal) {
+    if (waveStateTextureAvailable == 0)
+        return vec2(0.0);
+
+    vec2 texel = 1.0 / vec2(textureSize(waveStateTexture, 0));
+    vec2 value = sample_wave_state(uv) * 0.36;
+    value += sample_wave_state(vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0))) * 0.12;
+    value += sample_wave_state(vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0))) * 0.12;
+    value += sample_wave_state(vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0))) * 0.12;
+    value += sample_wave_state(vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0))) * 0.12;
+    value += sample_wave_state(vec2(fract(uv.x + texel.x), clamp(uv.y + texel.y, 0.0, 1.0))) * 0.04;
+    value += sample_wave_state(vec2(fract(uv.x + texel.x), clamp(uv.y - texel.y, 0.0, 1.0))) * 0.04;
+    value += sample_wave_state(vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0))) * 0.04;
+    value += sample_wave_state(vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0))) * 0.04;
+
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    if (polarBlend <= 0.0)
+        return value;
+
+    vec2 polarFiltered = sample_wave_state(uv) * 0.34;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x + texel.x * 2.0), uv.y)) * 0.18;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x - texel.x * 2.0 + 1.0), uv.y)) * 0.18;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x + texel.x * 4.0), uv.y)) * 0.12;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y)) * 0.12;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x + texel.x * 8.0), uv.y)) * 0.03;
+    polarFiltered += sample_wave_state(vec2(fract(uv.x - texel.x * 8.0 + 1.0), uv.y)) * 0.03;
+    return mix(value, polarFiltered, polarBlend);
+}
+
+float sample_tidal_height(vec2 uv, vec3 normal) {
+    if (tidalHeightTextureAvailable == 0)
+        return 0.0;
+
+    vec2 texel = 1.0 / vec2(textureSize(tidalHeightTexture, 0));
+    float value = textureLod(tidalHeightTexture, uv, 0.0).r * 0.40;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x + texel.x), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.14;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x - texel.x + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.14;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x + 1.0), clamp(uv.y + texel.y, 0.0, 1.0)), 0.0).r * 0.10;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x + 1.0), clamp(uv.y - texel.y, 0.0, 1.0)), 0.0).r * 0.10;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x + texel.x * 2.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.06;
+    value += textureLod(tidalHeightTexture, vec2(fract(uv.x - texel.x * 2.0 + 1.0), clamp(uv.y, 0.0, 1.0)), 0.0).r * 0.06;
+    float polarBlend = smoothstep(0.78, 0.98, abs(normal.y));
+    float stretched = textureLod(tidalHeightTexture, uv, 0.0).r * 0.32;
+    stretched += textureLod(tidalHeightTexture, vec2(fract(uv.x + texel.x * 4.0), uv.y), 0.0).r * 0.18;
+    stretched += textureLod(tidalHeightTexture, vec2(fract(uv.x - texel.x * 4.0 + 1.0), uv.y), 0.0).r * 0.18;
+    return mix(value, stretched, polarBlend);
 }
 
 void main() {
     vec3 localNormal = normalize(aPos);
     AtlasUv = build_planetary_hydrology_uv(localNormal);
+    WaterRegionId = sample_region_id(AtlasUv);
+    ShoreDistance = sample_shore_distance(AtlasUv);
+    vec2 waveState = sample_smoothed_wave_state(AtlasUv, localNormal);
+    WaveHeight = waveState.x;
+    WaveVelocity = waveState.y;
+    TidalHeight = sample_tidal_height(AtlasUv, localNormal);
+    ContinuityCoverage = sample_smoothed_water_continuity(AtlasUv, localNormal);
+    WaterVeto = sample_water_veto(AtlasUv, localNormal);
 
-    vec4 atlasSample = sample_stabilized_atlas(AtlasUv);
-    float atlasWeight = max(atlasSample.r, 0.0);
-    float occupancy = smoothstep(0.015, 0.11, atlasWeight);
-    float depth01 = atlasWeight > 0.00001 ? clamp(atlasSample.g / atlasWeight, 0.0, 1.0) : 0.0;
-    float carrier = atlasWeight > 0.00001 ? clamp(atlasSample.b / atlasWeight, 0.0, 1.0) : 0.0;
-    float flood = atlasWeight > 0.00001 ? clamp(atlasSample.a / atlasWeight, 0.0, 1.0) : 0.0;
+    vec4 atlasDataSample = sample_continuous_atlas_data(AtlasUv, localNormal);
+    float occupancy = max(clamp(atlasDataSample.x, 0.0, 1.0), ContinuityCoverage * 0.92);
+    float depth01 = clamp(atlasDataSample.y, 0.0, 1.0);
+    float carrier = clamp(atlasDataSample.z, 0.0, 1.0);
+    float flood = clamp(atlasDataSample.w, 0.0, 1.0);
+
+    float terrainOceanMask = terrain_ocean_mask(localNormal);
+    TerrainOceanMask = terrainOceanMask;
+    float dynamicWaterLevel = waterLevelTextureAvailable != 0
+        ? sample_continuous_water_level(AtlasUv, localNormal)
+        : terrainOceanMask;
+    float waterLevelPresence = waterLevelTextureAvailable != 0
+        ? smoothstep(0.01, 0.08, dynamicWaterLevel)
+        : 0.0;
+    float blendedWaterLevel = waterLevelTextureAvailable != 0
+        ? clamp(max(terrainOceanMask * 0.72, mix(terrainOceanMask, dynamicWaterLevel, waterLevelPresence)), 0.0, 1.0)
+        : terrainOceanMask;
+    float terrainOceanSupport = smoothstep(0.16, 0.52, terrainOceanMask);
+    float particleOceanSupport = smoothstep(0.10, 0.34, occupancy) * smoothstep(0.08, 0.28, depth01) * smoothstep(0.18, 0.50, WaterVeto);
+    float continuityLandGate = max(terrainOceanSupport, particleOceanSupport);
+    float shorelineContinuity = smoothstep(0.08, 0.42, clamp(ShoreDistance / max(planetaryShellThickness * 0.30, 0.0001), 0.0, 1.0));
+    float atlasContinuity = clamp(max(occupancy * (0.32 + depth01 * 0.48), flood * 0.78), 0.0, 1.0) * shorelineContinuity;
+    blendedWaterLevel = clamp(max(blendedWaterLevel, max(atlasContinuity * 0.14, ContinuityCoverage * 0.10) * continuityLandGate * smoothstep(0.18, 0.48, WaterVeto)), 0.0, 1.0);
 
     float floorRadius = planetaryRadius + terrain_surface_displacement(localNormal);
     float globalCeilingRadius = min(planetaryWaterSurfaceRadius, planetaryRadius + planetaryShellThickness);
-    float availableDepth = max(globalCeilingRadius - floorRadius, 0.0);
-    float terrainOceanMask = terrain_ocean_mask(localNormal);
-    WaterLevel01 = terrainOceanMask;
+    WaterLevel01 = blendedWaterLevel;
+    float localCeilingRadius = clamp(mix(planetaryRadius, planetaryRadius + planetaryShellThickness, WaterLevel01), floorRadius, globalCeilingRadius);
+    float availableDepth = max(localCeilingRadius - floorRadius, 0.0);
     WaterColumnDepth01 = smoothstep(planetaryShellThickness * 0.003, max(planetaryShellThickness * 0.055, 0.0001), availableDepth);
-    ShorelineFade = smoothstep(planetaryShellThickness * 0.004, max(planetaryShellThickness * 0.045, 0.0001), availableDepth)
-        * smoothstep(planetaryShellThickness * 0.010, planetaryShellThickness * 0.080, availableDepth);
+    ShorelineFade = smoothstep(planetaryShellThickness * 0.002, max(planetaryShellThickness * 0.060, 0.0001), availableDepth)
+        * smoothstep(planetaryShellThickness * 0.006, planetaryShellThickness * 0.120, availableDepth);
     BaseHydrologySupport = clamp(
-        terrainOceanMask
-        * smoothstep(0.28, 0.68, WaterColumnDepth01)
-        * smoothstep(0.38, 0.82, ShorelineFade),
+        WaterLevel01
+        * smoothstep(0.16, 0.56, WaterColumnDepth01)
+        * smoothstep(0.18, 0.68, ShorelineFade),
         0.0,
         1.0);
-    ShellSupport = occupancy * (0.30 + carrier * 0.70) * (0.42 + flood * 0.58) * max(WaterColumnDepth01, 0.52) * max(ShorelineFade, 0.62);
-    float atlasSurfaceSupport = clamp(terrainOceanMask * (occupancy * 0.34 + carrier * 0.38 + flood * 0.28), 0.0, 1.0);
-    float shellInset = mix(planetaryShellThickness * 0.24, planetaryShellThickness * 0.40, 1.0 - atlasSurfaceSupport);
-    shellInset += (1.0 - WaterColumnDepth01) * planetaryShellThickness * 0.16;
-    shellInset += (1.0 - ShorelineFade) * planetaryShellThickness * 0.26;
-    shellInset += (1.0 - terrainOceanMask) * planetaryShellThickness * 0.30;
-    float shellUpperRadius = clamp(globalCeilingRadius - shellInset, floorRadius, globalCeilingRadius);
-    float shellLowerRadius = floorRadius + availableDepth * mix(0.16, 0.28, atlasSurfaceSupport);
-    float shellRadius = clamp(mix(shellLowerRadius, shellUpperRadius, 0.42), floorRadius, globalCeilingRadius);
+    float continuityShellBoost = ContinuityCoverage
+        * smoothstep(0.14, 0.42, WaterLevel01)
+        * smoothstep(0.10, 0.38, ShorelineFade)
+        * continuityLandGate;
+    float continuousShellSupport = clamp(
+        max(WaterLevel01, continuityShellBoost * 0.28)
+        * smoothstep(0.08, 0.34, WaterColumnDepth01)
+        * smoothstep(0.06, 0.42, ShorelineFade),
+        0.0,
+        1.0);
+    ShellSupport = continuousShellSupport;
+    float shellSurfaceLevel = clamp(
+        max(WaterLevel01 * smoothstep(0.04, 0.30, WaterColumnDepth01), continuousShellSupport),
+        0.0,
+        1.0);
+    float deepWaterBlend = smoothstep(0.18, 0.72, WaterColumnDepth01);
+    float minSurfaceLift = min(availableDepth, planetaryShellThickness * 0.0025);
+    float compressedDepthLift = min(
+        availableDepth * mix(0.045, 0.14, shellSurfaceLevel),
+        planetaryShellThickness * mix(0.012, 0.032, deepWaterBlend));
+    float shellHeightAboveFloor = mix(
+        minSurfaceLift,
+        max(minSurfaceLift, compressedDepthLift),
+        deepWaterBlend);
+    float waveShoreSupport = clamp(ShoreDistance / max(planetaryShellThickness * 0.28, 0.0001), 0.0, 1.0);
+    float waveDisplacement = WaveHeight
+        * planetaryShellThickness
+        * (0.010 + 0.032 * deepWaterBlend)
+        * waveShoreSupport
+        * smoothstep(0.08, 0.40, WaterLevel01)
+        * smoothstep(0.06, 0.34, WaterColumnDepth01);
+    float tideDisplacement = TidalHeight
+        * planetaryShellThickness
+        * (0.05 + 0.08 * smoothstep(0.14, 0.62, WaterLevel01))
+        * smoothstep(0.14, 0.34, ContinuityCoverage)
+        * smoothstep(0.10, 0.42, ShorelineFade)
+        * continuityLandGate;
+    float shellRadius = clamp(
+        floorRadius + shellHeightAboveFloor,
+        floorRadius,
+        localCeilingRadius);
+    shellRadius = clamp(shellRadius + tideDisplacement + waveDisplacement, floorRadius, localCeilingRadius);
 
     vec3 localPosition = planetaryCenter + localNormal * shellRadius;
     vec4 worldPos = systemModel * vec4(localPosition, 1.0);
     FragPos = worldPos.xyz;
     Normal = normalize(mat3(systemModel) * localNormal);
+    LocalSurfaceDir = localNormal;
     AtlasData = vec3(occupancy, depth01, carrier);
     AtlasFlood = flood;
     gl_Position = projection * view * worldPos;

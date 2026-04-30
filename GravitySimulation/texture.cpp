@@ -199,21 +199,63 @@ bool texture::finalize() {
     if (pixel_data_.empty() || width_ <= 0 || height_ <= 0)
         return false;
 
+    const bool allocated = allocate_2d(
+        width_,
+        height_,
+        internal_format_,
+        data_format_,
+        GL_UNSIGNED_BYTE,
+        pixel_data_.data(),
+        GL_REPEAT,
+        GL_REPEAT,
+        GL_LINEAR_MIPMAP_LINEAR,
+        GL_LINEAR,
+        true);
+
+    if (!allocated)
+        return false;
+
+    pixel_data_.clear();
+    pixel_data_.shrink_to_fit();
+    status_ = resource_status::LOADED;
+    return true;
+}
+
+bool texture::allocate_2d(
+    int width,
+    int height,
+    GLenum internal_format,
+    GLenum data_format,
+    GLenum data_type,
+    const void* data,
+    GLenum wrap_s,
+    GLenum wrap_t,
+    GLenum min_filter,
+    GLenum mag_filter,
+    bool generate_mipmaps) {
+    if (width <= 0 || height <= 0)
+        return false;
+
+    width_ = width;
+    height_ = height;
+    internal_format_ = internal_format;
+    data_format_ = data_format;
+    data_type_ = data_type;
+
     if (id_ == 0)
         glGenTextures(1, &id_);
 
     glBindTexture(target_, id_);
-    glTexParameteri(target_, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(target_, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(target_, GL_TEXTURE_WRAP_S, wrap_s);
+    glTexParameteri(target_, GL_TEXTURE_WRAP_T, wrap_t);
+    glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, min_filter);
+    glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, mag_filter);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(target_, 0, static_cast<GLint>(internal_format_), width_, height_, 0, data_format_, GL_UNSIGNED_BYTE, pixel_data_.data());
-    glGenerateMipmap(target_);
+    glTexImage2D(target_, 0, static_cast<GLint>(internal_format_), width_, height_, 0, data_format_, data_type_, data);
+    if (generate_mipmaps)
+        glGenerateMipmap(target_);
     glBindTexture(target_, 0);
 
-    pixel_data_.clear();
-    pixel_data_.shrink_to_fit();
     status_ = resource_status::LOADED;
     return true;
 }
@@ -245,4 +287,27 @@ void texture::bind(GLuint texture_unit) const {
 
     glActiveTexture(GL_TEXTURE0 + texture_unit);
     glBindTexture(target_, id_);
+}
+
+void texture::bind_image(GLuint image_unit, GLenum access, GLenum format, GLint level, GLboolean layered, GLint layer) const {
+    if (id_ == 0)
+        return;
+
+    glBindImageTexture(image_unit, id_, level, layered, layer, access, format);
+}
+
+void texture::clear(GLenum format, GLenum type, const void* data) const {
+    if (id_ == 0)
+        return;
+
+    glClearTexImage(id_, 0, format, type, data);
+}
+
+void texture::copy_from_framebuffer(int source_x, int source_y, int width, int height, int destination_x, int destination_y) const {
+    if (id_ == 0 || width <= 0 || height <= 0)
+        return;
+
+    glBindTexture(target_, id_);
+    glCopyTexSubImage2D(target_, 0, destination_x, destination_y, source_x, source_y, width, height);
+    glBindTexture(target_, 0);
 }
