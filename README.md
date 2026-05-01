@@ -1,5 +1,6 @@
 
 # C++ / OpenGL 3D Engine
+<img width="1277" height="717" alt="image" src="https://github.com/user-attachments/assets/fc8ff719-5176-476c-aaf2-32f7470e771d" />
 
 A modular, component-based 3D engine built from scratch in C++ with an OpenGL 4.6 rendering backend.  
 The repository includes a **Solar System gravity simulation** as a fully-working example scene that demonstrates how the engine's parts fit together.
