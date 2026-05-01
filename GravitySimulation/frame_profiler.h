@@ -21,6 +21,7 @@ class frame_profiler
     std::unordered_map<std::string, section_stat> stats_;
     int frame_count_ = 0;
     int report_interval_ = 120;
+    bool reporting_enabled_ = true;
 
     static inline thread_local frame_profiler* active_profiler_ = nullptr;
 
@@ -100,6 +101,10 @@ public:
         stats_.clear();
     }
 
+    void set_reporting_enabled(bool enabled) {
+        reporting_enabled_ = enabled;
+    }
+
     void end_frame() {
         for (auto& [name, stat] : stats_)
             stat.max_frame_ms = std::max(stat.max_frame_ms, stat.current_frame_ms);
@@ -108,6 +113,12 @@ public:
         if (frame_count_ < report_interval_) {
             for (auto& [name, stat] : stats_)
                 stat.current_frame_ms = 0.0;
+            return;
+        }
+
+        if (!reporting_enabled_) {
+            frame_count_ = 0;
+            stats_.clear();
             return;
         }
 

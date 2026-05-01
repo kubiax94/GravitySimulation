@@ -84,6 +84,10 @@ class gpu_fluid_system_component final : public transformable
     float planetary_surface_layer_attraction_strength_ = 0.78f;
     float planetary_surface_layer_normal_velocity_damping_ = 0.72f;
     std::vector<size_t> planetary_respawn_candidate_indices_;
+    std::vector<unsigned int> planetary_respawn_candidate_count_readback_;
+    std::vector<unsigned int> planetary_respawn_candidate_index_readback_;
+    std::vector<size_t> planetary_respawn_particle_readback_indices_;
+    bool planetary_respawn_particle_readback_pending_ = false;
     std::vector<glm::vec3> planetary_flood_respawn_normals_;
     std::vector<float> planetary_flood_respawn_radii_;
     planetary_water_domain planetary_water_domain_{};
@@ -120,6 +124,8 @@ class gpu_fluid_system_component final : public transformable
     mutable bool render_flood_mask_gpu_query_pending_ = false;
     mutable timing_stat render_flood_mask_gpu_timing_{};
     unsigned int runtime_timing_report_frames_ = 0u;
+    bool runtime_timing_reporting_enabled_ = false;
+    bool force_integration_logging_enabled_ = false;
     float cell_size_ = 0.42f;
     bool initialized_ = false;
     size_t particle_count_ = 0;
@@ -222,6 +228,8 @@ public:
     void set_planetary_terrain_profile(const planet_terrain::rocky_planet_profile& profile);
     void set_debug_visualization_mode(fluid_debug_visualization_mode mode);
     void set_debug_readback_enabled(bool enabled, unsigned int interval_frames = 30u);
+    void set_runtime_timing_reporting_enabled(bool enabled);
+    void set_force_integration_logging_enabled(bool enabled);
 
     ~gpu_fluid_system_component() override;
 };

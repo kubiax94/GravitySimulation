@@ -36,7 +36,8 @@ void log_planetary_force_integration_state(
     const glm::mat3& world_from_simulation,
     const glm::mat3& planetary_surface_from_simulation,
     int external_gravity_source_count,
-    const std::array<glm::vec4, 8>& external_gravity_sources);
+    const std::array<glm::vec4, 8>& external_gravity_sources,
+    bool logging_enabled);
 
 uint64_t mix_respawn_seed(uint64_t seed) {
     seed ^= seed >> 30;
@@ -336,6 +337,8 @@ void gpu_fluid_system_component::set_planetary_respawn_management(bool enabled, 
     planetary_respawn_interval_frames_ = std::max(1u, interval_frames);
     planetary_respawn_frame_counter_ = 0u;
     planetary_respawn_scan_cursor_ = 0u;
+    planetary_respawn_particle_readback_pending_ = false;
+    planetary_respawn_particle_readback_indices_.clear();
 }
 
 void gpu_fluid_system_component::set_planetary_water_coverage(float coverage) {
@@ -500,42 +503,58 @@ void gpu_fluid_system_component::update_planetary_particle_respawn(const glm::ma
 
     const double respawn_start = glfwGetTime();
 
-    ++planetary_respawn_frame_counter_;
-    if (planetary_respawn_frame_counter_ < planetary_respawn_interval_frames_)
-        return;
-
-    planetary_respawn_frame_counter_ = 0u;
-
-    std::vector<unsigned int> respawn_candidate_count_data;
-    std::vector<unsigned int> respawn_candidate_indices;
-    {
-        auto section = frame_profiler::measure_active("fixed_update_fluid_respawn_readback");
-        const double readback_start = glfwGetTime();
-        compute_shader_->get_binding_data<unsigned int>(respawn_candidate_count_binding_, respawn_candidate_count_data);
-        if (!respawn_candidate_count_data.empty() && respawn_candidate_count_data[0] > 0u) {
-            const unsigned int available_count = std::min<unsigned int>(respawn_candidate_count_data[0], static_cast<unsigned int>(max_respawn_candidate_count_));
-            std::vector<size_t> candidate_index_readback_indices(available_count);
-            std::iota(candidate_index_readback_indices.begin(), candidate_index_readback_indices.end(), size_t{ 0u });
-            compute_shader_->get_binding_data_indices<unsigned int>(respawn_candidate_indices_binding_, candidate_index_readback_indices, respawn_candidate_indices);
-        }
-        respawn_ssbo_readback_timing_.add_sample((glfwGetTime() - readback_start) * 1000.0);
-    }
-
-    if (respawn_candidate_indices.empty()) {
-        respawn_total_timing_.add_sample((glfwGetTime() - respawn_start) * 1000.0);
-        return;
-    }
-
-    std::sort(respawn_candidate_indices.begin(), respawn_candidate_indices.end());
-    respawn_candidate_indices.erase(std::unique(respawn_candidate_indices.begin(), respawn_candidate_indices.end()), respawn_candidate_indices.end());
-
-    std::vector<size_t> respawn_indices(respawn_candidate_indices.begin(), respawn_candidate_indices.end());
+    std::vector<size_t> respawn_indices;
     std::vector<fluid_particle> particles;
     {
         auto section = frame_profiler::measure_active("fixed_update_fluid_respawn_readback_particles");
         const double particle_readback_start = glfwGetTime();
-        compute_shader_->get_binding_data_indices<fluid_particle>(particle_binding_, respawn_indices, particles);
+        if (planetary_respawn_particle_readback_pending_
+            && compute_shader_->try_dequeue_readback_indices<fluid_particle>(particle_binding_, planetary_respawn_particle_readback_indices_, particles)) {
+            respawn_indices = planetary_respawn_particle_readback_indices_;
+            planetary_respawn_particle_readback_pending_ = false;
+            planetary_respawn_particle_readback_indices_.clear();
+        }
         respawn_ssbo_readback_timing_.add_sample((glfwGetTime() - particle_readback_start) * 1000.0);
+    }
+
+    ++planetary_respawn_frame_counter_;
+    const bool schedule_respawn_readback = planetary_respawn_frame_counter_ >= planetary_respawn_interval_frames_;
+    if (!schedule_respawn_readback && particles.empty())
+        return;
+
+    if (schedule_respawn_readback)
+        planetary_respawn_frame_counter_ = 0u;
+
+    std::vector<unsigned int> respawn_candidate_count_data;
+    std::vector<unsigned int> respawn_candidate_indices;
+    if (schedule_respawn_readback) {
+        auto section = frame_profiler::measure_active("fixed_update_fluid_respawn_readback");
+        const double readback_start = glfwGetTime();
+        compute_shader_->try_readback<unsigned int>(respawn_candidate_count_binding_, planetary_respawn_candidate_count_readback_);
+        if (!planetary_respawn_candidate_count_readback_.empty() && planetary_respawn_candidate_count_readback_[0] > 0u) {
+            compute_shader_->try_readback<unsigned int>(respawn_candidate_indices_binding_, planetary_respawn_candidate_index_readback_);
+            if (!planetary_respawn_candidate_index_readback_.empty()) {
+                const unsigned int available_count = std::min<unsigned int>(planetary_respawn_candidate_count_readback_[0], static_cast<unsigned int>(max_respawn_candidate_count_));
+                const size_t readback_count = std::min<size_t>(available_count, planetary_respawn_candidate_index_readback_.size());
+                respawn_candidate_indices.assign(
+                    planetary_respawn_candidate_index_readback_.begin(),
+                    planetary_respawn_candidate_index_readback_.begin() + readback_count);
+            }
+        }
+        respawn_ssbo_readback_timing_.add_sample((glfwGetTime() - readback_start) * 1000.0);
+    }
+
+    if (schedule_respawn_readback && !respawn_candidate_indices.empty()) {
+        std::sort(respawn_candidate_indices.begin(), respawn_candidate_indices.end());
+        respawn_candidate_indices.erase(std::unique(respawn_candidate_indices.begin(), respawn_candidate_indices.end()), respawn_candidate_indices.end());
+
+        std::vector<size_t> scheduled_respawn_indices(respawn_candidate_indices.begin(), respawn_candidate_indices.end());
+        if (!scheduled_respawn_indices.empty() && !planetary_respawn_particle_readback_pending_) {
+            auto section = frame_profiler::measure_active("fixed_update_fluid_respawn_readback_particles_enqueue");
+            compute_shader_->enqueue_readback_indices<fluid_particle>(particle_binding_, scheduled_respawn_indices);
+            planetary_respawn_particle_readback_indices_ = std::move(scheduled_respawn_indices);
+            planetary_respawn_particle_readback_pending_ = true;
+        }
     }
 
     if (particles.empty()) {
@@ -680,6 +699,9 @@ void gpu_fluid_system_component::ensure_initialized() {
 
     compute_shader_->use();
     compute_shader_->add_ssbo(particle_binding_, initial_particles_);
+    compute_shader_->clear_readback_state(particle_binding_);
+    planetary_respawn_particle_readback_pending_ = false;
+    planetary_respawn_particle_readback_indices_.clear();
     rebuild_grid_buffers();
     initialized_ = true;
 }
@@ -817,7 +839,8 @@ void gpu_fluid_system_component::fixed_update(float dt) {
         world_from_simulation,
         planetary_surface_from_simulation,
         external_gravity_source_count,
-        planetary_external_gravity_sources_);
+        planetary_external_gravity_sources_,
+        force_integration_logging_enabled_);
 
     update_planetary_particle_respawn(planetary_surface_from_simulation);
 
@@ -940,6 +963,16 @@ void gpu_fluid_system_component::fixed_update(float dt) {
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE0);
+    }
+
+    if (planetary_respawn_management_enabled_
+        && planetary_terrain_enabled_
+        && !planetary_flood_respawn_normals_.empty()
+        && !planetary_flood_respawn_radii_.empty()
+        && planetary_respawn_frame_counter_ + 1u >= planetary_respawn_interval_frames_) {
+        auto section = frame_profiler::measure_active("fixed_update_fluid_respawn_readback_enqueue");
+        compute_shader_->enqueue_readback<unsigned int>(respawn_candidate_count_binding_);
+        compute_shader_->enqueue_readback<unsigned int>(respawn_candidate_indices_binding_);
     }
 
     queue_gpu_completion_fence();
@@ -1065,7 +1098,11 @@ void log_planetary_force_integration_state(
     const glm::mat3& world_from_simulation,
     const glm::mat3& planetary_surface_from_simulation,
     int external_gravity_source_count,
-    const std::array<glm::vec4, 8>& external_gravity_sources) {
+    const std::array<glm::vec4, 8>& external_gravity_sources,
+    bool logging_enabled) {
+    if (!logging_enabled)
+        return;
+
     static int frame_counter = 0;
     ++frame_counter;
     if (frame_counter % 30 != 0)

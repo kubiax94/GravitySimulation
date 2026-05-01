@@ -82,6 +82,7 @@ class physics_system
 	std::unordered_map<uuid, std::vector<rigid_body* >> compute_groups_;
    std::unordered_map<uuid, physics_gpu_stage> compute_shader_stages_;
 	std::unordered_map<uuid, bool> readback_pending_;
+ std::unordered_map<uuid, bool> collision_readback_pending_;
 	std::unordered_set<uuid> gpu_driven_nodes_;
   std::unordered_map<uuid, rigid_body*> rigid_bodies_by_node_id_;
   uuid default_compute_shader_id_;
@@ -106,13 +107,20 @@ class physics_system
  compute_shader* collision_detect_comp_ = nullptr;
  compute_shader* collision_resolve_comp_ = nullptr;
  bool gpu_buffer_dirty_ = true;
+  std::unordered_map<uuid, std::vector<size_t>> cpu_readback_indices_cache_;
  std::vector<physics_data> get_physics_data(const std::vector<rigid_body*>& bodies) const;
    std::vector<collision_data> get_collision_data(const std::vector<rigid_body*>& bodies) const;
+   [[nodiscard]] std::vector<size_t> get_cpu_readback_indices(const std::vector<rigid_body*>& bodies) const;
 	void rebuild_order_indices();
  void sync_gpu_buffer(compute_shader* compute, const std::vector<rigid_body*>& bodies);
     void sync_collision_buffer(compute_shader* compute, const std::vector<rigid_body*>& bodies);
     void sync_collision_contact_buffer(compute_shader* compute, const std::vector<rigid_body*>& bodies);
  void apply_gpu_results_to_bodies(const std::vector<rigid_body*>& bodies, const std::vector<physics_data>& gpu_result);
+	void apply_gpu_results_to_body_indices(const std::vector<rigid_body*>& bodies, const std::vector<size_t>& indices, const std::vector<physics_data>& gpu_result);
+	void consume_async_gpu_results(const uuid& shader_id, compute_shader* compute, const std::vector<rigid_body*>& bodies, const std::vector<size_t>& readback_indices);
+	void enqueue_async_gpu_readback(const uuid& shader_id, compute_shader* compute);
+  [[nodiscard]] bool consume_async_collision_contacts(const uuid& shader_id, compute_shader* compute, const std::vector<rigid_body*>& bodies);
+	void enqueue_async_collision_readback(const uuid& shader_id, compute_shader* compute);
 	void sync_collision_contacts_from_gpu_data(const std::vector<collision_contact_data>& gpu_contacts, const std::vector<rigid_body*>& bodies);
     [[nodiscard]] bool requires_cpu_collision_stage(const std::vector<rigid_body*>& bodies) const;
  void run_default_gpu_pipeline(const float& dt);

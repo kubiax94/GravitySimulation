@@ -30,6 +30,17 @@ public:
         GLuint texture = 0;
     };
 
+    struct render_state_desc {
+        bool depth_test_enabled = true;
+        GLenum depth_func = GL_LESS;
+        bool depth_write_enabled = true;
+        bool blend_enabled = false;
+        GLenum blend_src = GL_SRC_ALPHA;
+        GLenum blend_dst = GL_ONE_MINUS_SRC_ALPHA;
+        bool cull_enabled = true;
+        GLenum cull_face = GL_BACK;
+    };
+
     struct image_binding {
         GLuint unit = 0;
         GLuint texture = 0;
@@ -46,6 +57,13 @@ public:
         std::vector<texture_binding> textures;
         std::vector<image_binding> images;
         std::function<void(compute_shader&)> pre_dispatch;
+    };
+
+    struct fullscreen_pass_desc {
+        shader& shader_program;
+        Mesh& fullscreen_mesh;
+        std::vector<texture_binding> textures;
+        std::function<void(shader&)> pre_draw;
     };
 
     struct particle_surface_targets {
@@ -128,10 +146,14 @@ public:
     bool begin_offscreen_pass(GLuint framebuffer, int width, int height, const std::vector<offscreen_attachment>& color_attachments, GLuint depth_texture = 0);
     void clear_offscreen_color(GLint draw_buffer_index, const float clear_color[4]) const;
     void set_offscreen_draw_attachments(const std::vector<GLenum>& draw_buffers) const;
+    void set_offscreen_color_attachment(GLenum attachment, GLuint texture) const;
+    void apply_render_state(const render_state_desc& state_desc) const;
     void bind_textures(const std::vector<texture_binding>& bindings) const;
     void unbind_textures(const std::vector<texture_binding>& bindings) const;
     void draw_fullscreen(shader& shader_program, Mesh& fullscreen_mesh, const std::function<void(shader&)>& pre_draw = nullptr) const;
+    void draw_fullscreen_pass(const fullscreen_pass_desc& pass_desc) const;
     void dispatch_compute(const compute_dispatch_desc& dispatch_desc) const;
+    void copy_texture_2d(GLuint source_texture, GLuint destination_texture, int width, int height) const;
     void end_offscreen_pass();
     bool begin_particle_surface_input_pass(int width, int height);
     void end_particle_surface_input_pass();

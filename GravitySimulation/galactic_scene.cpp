@@ -371,103 +371,155 @@ void galactic_scene::initialize_scene_content() {
     galaxies->set_particle_visual_mode(2);
 }
 
+planetary_water_render_resource* galactic_scene::get_water_render_resource() const {
+    return runtime_resources_.get<planetary_water_render_resource>(runtime_resource_key::planetary_water_render);
+}
+
+shader* galactic_scene::get_particle_surface_composite_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::particle_surface_composite_shader);
+}
+
+Mesh* galactic_scene::get_particle_surface_composite_mesh() const {
+    return runtime_resources_.get<Mesh>(runtime_resource_key::particle_surface_composite_mesh);
+}
+
+shader* galactic_scene::get_water_atlas_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_shader);
+}
+
+shader* galactic_scene::get_water_atlas_blur_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_blur_shader);
+}
+
+shader* galactic_scene::get_water_atlas_temporal_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_temporal_shader);
+}
+
+shader* galactic_scene::get_water_shell_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::planetary_water_shell_shader);
+}
+
+shader* galactic_scene::get_wave_debug_shell_shader() const {
+    return runtime_resources_.get<shader>(runtime_resource_key::planetary_wave_debug_shell_shader);
+}
+
+compute_shader* galactic_scene::get_wave_propagation_shader() const {
+    return runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_wave_propagation_shader);
+}
+
+compute_shader* galactic_scene::get_wave_render_filter_shader() const {
+    return runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_wave_render_filter_shader);
+}
+
+compute_shader* galactic_scene::get_tide_field_shader() const {
+    return runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_tide_field_shader);
+}
+
+Mesh* galactic_scene::get_water_shell_mesh() const {
+    return runtime_resources_.get<Mesh>(runtime_resource_key::planetary_water_shell_mesh);
+}
+
 void galactic_scene::initialize_runtime_resources() {
     auto& assets = get_asset_manager();
-    if (!runtime_resources_.planetary_water_render_resource)
-        runtime_resources_.planetary_water_render_resource = assets.create_planetary_water_render_resource("galactic.planetary.water.render.targets");
-    if (!runtime_resources_.particle_surface_composite_shader) {
-        runtime_resources_.particle_surface_composite_shader = assets.create_shader(
+    if (!runtime_resources_.get<planetary_water_render_resource>(runtime_resource_key::planetary_water_render))
+        runtime_resources_.set(runtime_resource_key::planetary_water_render, assets.create_planetary_water_render_resource("galactic.planetary.water.render.targets"));
+    if (!runtime_resources_.get<shader>(runtime_resource_key::particle_surface_composite_shader)) {
+        runtime_resources_.set(runtime_resource_key::particle_surface_composite_shader, assets.create_shader(
             "particle.surface.composite",
             "GravitySimulation/particle_surface_composite.vs.shader",
-            "GravitySimulation/particle_surface_composite.fs.shader");
+            "GravitySimulation/particle_surface_composite.fs.shader"));
     }
-    if (!runtime_resources_.particle_surface_blur_shader) {
-        runtime_resources_.particle_surface_blur_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::particle_surface_blur_shader)) {
+        runtime_resources_.set(runtime_resource_key::particle_surface_blur_shader, assets.create_shader(
             "particle.surface.blur",
             "GravitySimulation/particle_surface_composite.vs.shader",
-            "GravitySimulation/particle_surface_blur.fs.shader");
+            "GravitySimulation/particle_surface_blur.fs.shader"));
     }
-    if (!runtime_resources_.planetary_water_atlas_shader) {
-        runtime_resources_.planetary_water_atlas_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_water_atlas_shader, assets.create_shader(
             "planetary.water.atlas.input",
             "GravitySimulation/planetary_water_atlas_input.vs.shader",
-            "GravitySimulation/planetary_water_atlas_input.fs.shader");
+            "GravitySimulation/planetary_water_atlas_input.fs.shader"));
     }
-    if (!runtime_resources_.planetary_water_atlas_blur_shader) {
-        runtime_resources_.planetary_water_atlas_blur_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_blur_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_water_atlas_blur_shader, assets.create_shader(
             "planetary.water.atlas.blur",
             "GravitySimulation/particle_surface_composite.vs.shader",
-            "GravitySimulation/planetary_water_atlas_blur.fs.shader");
+            "GravitySimulation/planetary_water_atlas_blur.fs.shader"));
     }
-    if (!runtime_resources_.planetary_water_atlas_temporal_shader) {
-        runtime_resources_.planetary_water_atlas_temporal_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::planetary_water_atlas_temporal_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_water_atlas_temporal_shader, assets.create_shader(
             "planetary.water.atlas.temporal",
             "GravitySimulation/particle_surface_composite.vs.shader",
-            "GravitySimulation/planetary_water_atlas_temporal.fs.shader");
+            "GravitySimulation/planetary_water_atlas_temporal.fs.shader"));
     }
-    if (!runtime_resources_.planetary_water_shell_shader) {
-        runtime_resources_.planetary_water_shell_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::planetary_water_shell_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_water_shell_shader, assets.create_shader(
             "planetary.water.shell",
             "GravitySimulation/planetary_water_shell.vs.shader",
-            "GravitySimulation/planetary_water_shell.fs.shader");
+            "GravitySimulation/planetary_water_shell.fs.shader"));
     }
-    if (!runtime_resources_.planetary_wave_debug_shell_shader) {
-        runtime_resources_.planetary_wave_debug_shell_shader = assets.create_shader(
+    if (!runtime_resources_.get<shader>(runtime_resource_key::planetary_wave_debug_shell_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_wave_debug_shell_shader, assets.create_shader(
             "planetary.water.wave.debug.shell",
             "GravitySimulation/planetary_water_shell.vs.shader",
-            "GravitySimulation/planetary_wave_debug_shell.fs.shader");
+            "GravitySimulation/planetary_wave_debug_shell.fs.shader"));
     }
-    if (!runtime_resources_.planetary_wave_propagation_shader) {
-        runtime_resources_.planetary_wave_propagation_shader = assets.create_compute_shader(
+    if (!runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_wave_propagation_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_wave_propagation_shader, assets.create_compute_shader(
             "planetary.water.wave.propagation",
-            "GravitySimulation/planetary_wave_propagation.glsl");
+            "GravitySimulation/planetary_wave_propagation.glsl"));
     }
-    if (!runtime_resources_.planetary_wave_render_filter_shader) {
-        runtime_resources_.planetary_wave_render_filter_shader = assets.create_compute_shader(
+    if (!runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_wave_render_filter_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_wave_render_filter_shader, assets.create_compute_shader(
             "planetary.water.wave.render.filter",
-            "GravitySimulation/planetary_wave_render_filter.glsl");
+            "GravitySimulation/planetary_wave_render_filter.glsl"));
     }
-    if (!runtime_resources_.planetary_tide_field_shader) {
-        runtime_resources_.planetary_tide_field_shader = assets.create_compute_shader(
+    if (!runtime_resources_.get<compute_shader>(runtime_resource_key::planetary_tide_field_shader)) {
+        runtime_resources_.set(runtime_resource_key::planetary_tide_field_shader, assets.create_compute_shader(
             "planetary.water.tide.field",
-            "GravitySimulation/planetary_tide_field.glsl");
+            "GravitySimulation/planetary_tide_field.glsl"));
     }
-    if (runtime_resources_.planetary_wave_propagation_shader)
-        planetary_wave_field_.initialize(runtime_resources_.planetary_wave_propagation_shader, runtime_resources_.planetary_wave_render_filter_shader);
+    if (auto* propagation_shader = get_wave_propagation_shader())
+        planetary_wave_field_.initialize(propagation_shader, get_wave_render_filter_shader());
     static MeshData fullscreen_quad_mesh_data = create_fullscreen_quad_mesh();
-    if (!runtime_resources_.particle_surface_composite_mesh)
-        runtime_resources_.particle_surface_composite_mesh = assets.create_mesh(fullscreen_quad_mesh_data);
+    if (!runtime_resources_.get<Mesh>(runtime_resource_key::particle_surface_composite_mesh))
+        runtime_resources_.set(runtime_resource_key::particle_surface_composite_mesh, assets.create_mesh(fullscreen_quad_mesh_data));
     static MeshData planetary_water_shell_mesh_data = g_shape::generate_sphere(1.0f, 192, 96);
-    if (!runtime_resources_.planetary_water_shell_mesh)
-        runtime_resources_.planetary_water_shell_mesh = assets.create_mesh(planetary_water_shell_mesh_data);
+    if (!runtime_resources_.get<Mesh>(runtime_resource_key::planetary_water_shell_mesh))
+        runtime_resources_.set(runtime_resource_key::planetary_water_shell_mesh, assets.create_mesh(planetary_water_shell_mesh_data));
 }
 
 void galactic_scene::release_runtime_resources() {
     release_planetary_water_atlas_resources();
-    runtime_resources_.planetary_water_render_resource = nullptr;
+    runtime_resources_.clear();
 }
 
 void galactic_scene::ensure_planetary_water_atlas_targets(int width, int height) {
-    if (!runtime_resources_.planetary_water_render_resource)
+    auto* render_resource = get_water_render_resource();
+    if (!render_resource)
         return;
 
-    runtime_resources_.planetary_water_render_resource->ensure_atlas_targets(width, height);
+    render_resource->ensure_atlas_targets(width, height);
 }
 
 void galactic_scene::release_planetary_water_atlas_resources() {
-    if (runtime_resources_.planetary_water_render_resource)
-        runtime_resources_.planetary_water_render_resource->release_atlas_targets();
+    if (auto* render_resource = get_water_render_resource())
+        render_resource->release_atlas_targets();
 
     planetary_wave_field_.reset();
 }
 
 void galactic_scene::blur_planetary_water_atlas(const gpu_fluid_system_component& system) {
-    if (!runtime_resources_.planetary_water_atlas_blur_shader || !runtime_resources_.particle_surface_composite_mesh || !runtime_resources_.planetary_water_render_resource)
+    auto* blur_shader = get_water_atlas_blur_shader();
+    auto* composite_mesh = get_particle_surface_composite_mesh();
+    auto* render_resource = get_water_render_resource();
+    if (!blur_shader || !composite_mesh || !render_resource)
         return;
     if (!active_render_pipeline_)
         return;
 
-    auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.atlas_ping_texture.get_id() == 0)
         return;
 
@@ -484,56 +536,58 @@ void galactic_scene::blur_planetary_water_atlas(const gpu_fluid_system_component
     glDisable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
-    runtime_resources_.planetary_water_atlas_blur_shader->use();
-    runtime_resources_.planetary_water_atlas_blur_shader->set_uni_int("inputTexture", 0);
-    runtime_resources_.planetary_water_atlas_blur_shader->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_atlas_blur_shader->set_uni_int("waterDomainTexture", 1);
+    blur_shader->use();
+    blur_shader->set_uni_int("inputTexture", 0);
+    blur_shader->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
+    blur_shader->set_uni_int("waterDomainTexture", 1);
     const auto blur_masked_texture = [&](GLuint source_texture, GLuint ping_texture, float blur_radius_scale) {
         if (source_texture == 0 || ping_texture == 0)
             return;
 
-        runtime_resources_.planetary_water_atlas_blur_shader->set_uni_float("blurRadiusScale", blur_radius_scale);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ping_texture, 0);
+        blur_shader->set_uni_float("blurRadiusScale", blur_radius_scale);
+        active_render_pipeline_->set_offscreen_color_attachment(GL_COLOR_ATTACHMENT0, ping_texture);
         active_render_pipeline_->set_offscreen_draw_attachments({ GL_COLOR_ATTACHMENT0 });
-        runtime_resources_.planetary_water_atlas_blur_shader->set_uni_vec2("blurDirection", glm::vec2(1.0f, 0.0f));
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, source_texture);
-        if (domain_textures.render_mask_texture != 0) {
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
-            glActiveTexture(GL_TEXTURE0);
-        }
-        active_render_pipeline_->draw_fullscreen(*runtime_resources_.planetary_water_atlas_blur_shader, *runtime_resources_.particle_surface_composite_mesh);
+        blur_shader->set_uni_vec2("blurDirection", glm::vec2(1.0f, 0.0f));
+        active_render_pipeline_->draw_fullscreen_pass({
+            *blur_shader,
+            *composite_mesh,
+            {
+                { 0u, GL_TEXTURE_2D, source_texture },
+                { 1u, GL_TEXTURE_2D, domain_textures.render_mask_texture }
+            }
+        });
 
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, source_texture, 0);
+        active_render_pipeline_->set_offscreen_color_attachment(GL_COLOR_ATTACHMENT0, source_texture);
         active_render_pipeline_->set_offscreen_draw_attachments({ GL_COLOR_ATTACHMENT0 });
-        runtime_resources_.planetary_water_atlas_blur_shader->set_uni_vec2("blurDirection", glm::vec2(0.0f, 1.0f));
-        glBindTexture(GL_TEXTURE_2D, ping_texture);
-        active_render_pipeline_->draw_fullscreen(*runtime_resources_.planetary_water_atlas_blur_shader, *runtime_resources_.particle_surface_composite_mesh);
+        blur_shader->set_uni_vec2("blurDirection", glm::vec2(0.0f, 1.0f));
+        active_render_pipeline_->draw_fullscreen_pass({
+            *blur_shader,
+            *composite_mesh,
+            {
+                { 0u, GL_TEXTURE_2D, ping_texture },
+                { 1u, GL_TEXTURE_2D, domain_textures.render_mask_texture }
+            }
+        });
     };
 
     blur_masked_texture(atlas_targets.atlas_texture.get_id(), atlas_targets.atlas_ping_texture.get_id(), 1.72f);
     blur_masked_texture(atlas_targets.wave_forcing_texture.get_id(), atlas_targets.wave_forcing_ping_texture.get_id(), 1.42f);
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-    if (domain_textures.render_mask_texture != 0) {
-        glActiveTexture(GL_TEXTURE0);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    glActiveTexture(GL_TEXTURE0);
     active_render_pipeline_->end_offscreen_pass();
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }
 
 void galactic_scene::stabilize_planetary_water_atlas(const gpu_fluid_system_component& system) {
-    if (!runtime_resources_.planetary_water_atlas_temporal_shader || !runtime_resources_.particle_surface_composite_mesh || !runtime_resources_.planetary_water_render_resource)
+    auto* temporal_shader = get_water_atlas_temporal_shader();
+    auto* composite_mesh = get_particle_surface_composite_mesh();
+    auto* render_resource = get_water_render_resource();
+    if (!temporal_shader || !composite_mesh || !render_resource)
         return;
     if (!active_render_pipeline_)
         return;
 
-    auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.atlas_ping_texture.get_id() == 0 || atlas_targets.atlas_history_texture.get_id() == 0)
         return;
 
@@ -550,60 +604,49 @@ void galactic_scene::stabilize_planetary_water_atlas(const gpu_fluid_system_comp
     glDisable(GL_BLEND);
     glDepthMask(GL_FALSE);
 
-    runtime_resources_.planetary_water_atlas_temporal_shader->use();
-    runtime_resources_.planetary_water_atlas_temporal_shader->set_uni_int("currentAtlasTexture", 0);
-    runtime_resources_.planetary_water_atlas_temporal_shader->set_uni_int("historyAtlasTexture", 1);
-    runtime_resources_.planetary_water_atlas_temporal_shader->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_atlas_temporal_shader->set_uni_int("waterDomainTexture", 2);
+    temporal_shader->use();
+    temporal_shader->set_uni_int("currentAtlasTexture", 0);
+    temporal_shader->set_uni_int("historyAtlasTexture", 1);
+    temporal_shader->set_uni_int("waterDomainTextureAvailable", domain_textures.render_mask_texture != 0 ? 1 : 0);
+    temporal_shader->set_uni_int("waterDomainTexture", 2);
 
     const auto stabilize_masked_texture = [&](GLuint current_texture, GLuint ping_texture, GLuint history_texture, float history_blend) {
         if (current_texture == 0 || ping_texture == 0 || history_texture == 0)
             return;
 
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ping_texture, 0);
+        active_render_pipeline_->set_offscreen_color_attachment(GL_COLOR_ATTACHMENT0, ping_texture);
         active_render_pipeline_->set_offscreen_draw_attachments({ GL_COLOR_ATTACHMENT0 });
-        runtime_resources_.planetary_water_atlas_temporal_shader->set_uni_float("historyBlend", history_blend);
+        temporal_shader->set_uni_float("historyBlend", history_blend);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, current_texture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, history_texture);
-        if (domain_textures.render_mask_texture != 0) {
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, domain_textures.render_mask_texture);
-        }
-        glActiveTexture(GL_TEXTURE0);
-        active_render_pipeline_->draw_fullscreen(*runtime_resources_.planetary_water_atlas_temporal_shader, *runtime_resources_.particle_surface_composite_mesh);
+        active_render_pipeline_->draw_fullscreen_pass({
+            *temporal_shader,
+            *composite_mesh,
+            {
+                { 0u, GL_TEXTURE_2D, current_texture },
+                { 1u, GL_TEXTURE_2D, history_texture },
+                { 2u, GL_TEXTURE_2D, domain_textures.render_mask_texture }
+            }
+        });
 
-        glCopyImageSubData(ping_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
-            current_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
-            atlas_targets.width, atlas_targets.height, 1);
-        glCopyImageSubData(ping_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
-            history_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
-            atlas_targets.width, atlas_targets.height, 1);
+        active_render_pipeline_->copy_texture_2d(ping_texture, current_texture, atlas_targets.width, atlas_targets.height);
+        active_render_pipeline_->copy_texture_2d(ping_texture, history_texture, atlas_targets.width, atlas_targets.height);
     };
 
     stabilize_masked_texture(atlas_targets.atlas_texture.get_id(), atlas_targets.atlas_ping_texture.get_id(), atlas_targets.atlas_history_texture.get_id(), 0.82f);
     stabilize_masked_texture(atlas_targets.wave_forcing_texture.get_id(), atlas_targets.wave_forcing_ping_texture.get_id(), atlas_targets.wave_forcing_history_texture.get_id(), 0.76f);
 
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    if (domain_textures.render_mask_texture != 0) {
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
     active_render_pipeline_->end_offscreen_pass();
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
 }
 
 void galactic_scene::render_planetary_water_atlas_input(const gpu_fluid_system_component& system) {
-    if (!runtime_resources_.planetary_water_atlas_shader || !runtime_resources_.planetary_water_render_resource || !active_render_pipeline_)
+    auto* atlas_shader = get_water_atlas_shader();
+    auto* render_resource = get_water_render_resource();
+    if (!atlas_shader || !render_resource || !active_render_pipeline_)
         return;
 
-    auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.framebuffer == 0 || atlas_targets.atlas_texture.get_id() == 0 || atlas_targets.wave_forcing_texture.get_id() == 0)
         return;
 
@@ -618,22 +661,26 @@ void galactic_scene::render_planetary_water_atlas_input(const gpu_fluid_system_c
     active_render_pipeline_->clear_offscreen_color(0, clear_color);
     active_render_pipeline_->clear_offscreen_color(1, clear_color);
 
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
+    active_render_pipeline_->apply_render_state({
+        false,
+        GL_LESS,
+        false,
+        true,
+        GL_SRC_ALPHA,
+        GL_ONE_MINUS_SRC_ALPHA,
+        false,
+        GL_BACK
+    });
     glBlendFunci(0, GL_ONE, GL_ONE);
     glBlendEquationi(0, GL_FUNC_ADD);
     glBlendFunci(1, GL_ONE, GL_ONE);
     glBlendEquationi(1, GL_FUNC_ADD);
-    glDepthMask(GL_FALSE);
 
     system.draw_planetary_water_atlas_input(
-        runtime_resources_.planetary_water_atlas_shader,
+        atlas_shader,
         glm::ivec2(atlas_targets.width, atlas_targets.height));
 
-    glDisable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
+    active_render_pipeline_->apply_render_state({});
     active_render_pipeline_->end_offscreen_pass();
 
     blur_planetary_water_atlas(system);
@@ -641,12 +688,14 @@ void galactic_scene::render_planetary_water_atlas_input(const gpu_fluid_system_c
 }
 
 void galactic_scene::update_planetary_tide_field(const gpu_fluid_system_component& system, int debug_mode) {
-    if (!runtime_resources_.planetary_tide_field_shader || !runtime_resources_.planetary_tide_field_shader->is_vaild() || !runtime_resources_.planetary_water_render_resource)
+    auto* tide_shader = get_tide_field_shader();
+    auto* render_resource = get_water_render_resource();
+    if (!tide_shader || !tide_shader->is_vaild() || !render_resource)
         return;
     if (!active_render_pipeline_)
         return;
 
-    auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.tide_height_texture.get_id() == 0 || atlas_targets.width <= 0 || atlas_targets.height <= 0)
         return;
 
@@ -657,7 +706,7 @@ void galactic_scene::update_planetary_tide_field(const gpu_fluid_system_componen
     const GLuint groups_x = static_cast<GLuint>((atlas_targets.width + 15) / 16);
     const GLuint groups_y = static_cast<GLuint>((atlas_targets.height + 15) / 16);
     active_render_pipeline_->dispatch_compute({
-        *runtime_resources_.planetary_tide_field_shader,
+        *tide_shader,
         { groups_x, groups_y, 1u },
         {
             { 0u, GL_TEXTURE_2D, domain_textures.continuity_texture },
@@ -692,10 +741,11 @@ void galactic_scene::update_planetary_tide_field(const gpu_fluid_system_componen
 }
 
 void galactic_scene::update_planetary_wave_field(const gpu_fluid_system_component& system, int debug_mode) {
-    if (!runtime_resources_.planetary_water_render_resource)
+    auto* render_resource = get_water_render_resource();
+    if (!render_resource)
         return;
 
-    const auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    const auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.width <= 0 || atlas_targets.height <= 0)
         return;
 
@@ -740,75 +790,45 @@ void galactic_scene::update_planetary_wave_field(const gpu_fluid_system_componen
         runtime_resources_.planetary_wave_debug_tidal_scale);
 }
 
-void galactic_scene::render_planetary_water_shell(const scene_render_context& context, const gpu_fluid_system_component& system) const {
-    if (!runtime_resources_.planetary_water_shell_shader || !runtime_resources_.planetary_water_shell_mesh || !runtime_resources_.planetary_water_render_resource)
-        return;
-    if (!active_render_pipeline_)
-        return;
-
-    const auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
-    if (atlas_targets.atlas_texture.get_id() == 0)
-        return;
-
+void galactic_scene::apply_planetary_shell_common_uniforms(shader& target_shader, const scene_render_context& context, const gpu_fluid_system_component& system) const {
     const auto* node = system.get_node();
     if (!node)
         return;
 
     const auto& terrain_profile = system.get_planetary_terrain_profile();
-    runtime_resources_.planetary_water_shell_shader->use();
-    runtime_resources_.planetary_water_shell_shader->set_uniform_mat4("systemModel", node->get_global_matrix_model());
-    runtime_resources_.planetary_water_shell_shader->set_uniform_mat4("view", context.camera.GetViewMatrix());
+    target_shader.set_uniform_mat4("systemModel", node->get_global_matrix_model());
+    target_shader.set_uniform_mat4("view", context.camera.GetViewMatrix());
     const float aspect = context.framebuffer_height == 0 ? 1.0f : static_cast<float>(context.framebuffer_width) / static_cast<float>(context.framebuffer_height);
-    runtime_resources_.planetary_water_shell_shader->set_uniform_mat4("projection", context.camera.GetProjectionMatrix(aspect));
-    runtime_resources_.planetary_water_shell_shader->set_uni_vec3("viewPos", context.camera.get_transform()->get_global_position());
-    runtime_resources_.planetary_water_shell_shader->set_uni_vec3("lightPos", context.light_position);
-    runtime_resources_.planetary_water_shell_shader->set_uni_vec3("lightColor", context.light_color);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("intensity", context.light_intensity);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("time", static_cast<float>(glfwGetTime()));
-    runtime_resources_.planetary_water_shell_shader->set_uni_vec3("planetaryCenter", system.get_planetary_center());
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetaryRadius", system.get_planetary_radius());
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetaryShellThickness", system.get_planetary_shell_thickness());
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetaryWaterSurfaceRadius", system.get_planetary_water_surface_radius());
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("planetaryTerrainEnabled", system.is_planetary_terrain_enabled() ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainSeaLevel", terrain_profile.sea_level);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainContinentFrequency", terrain_profile.continent_frequency);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainContinentWarpStrength", terrain_profile.continent_warp_strength);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainLargeFrequency", terrain_profile.large_frequency);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainMediumFrequency", terrain_profile.medium_frequency);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainDetailFrequency", terrain_profile.detail_frequency);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainRidgeFrequency", terrain_profile.ridge_frequency);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainCraterStrength", terrain_profile.crater_strength);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainMountainSharpness", terrain_profile.mountain_sharpness);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainReliefStrength", terrain_profile.relief_strength);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainDisplacementStrength", terrain_profile.displacement_strength);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainContinentContrast", terrain_profile.continent_contrast);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainEarthMacroContinentStrength", terrain_profile.earth_macro_continent_strength);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("terrainArchipelagoStrength", terrain_profile.archipelago_strength);
-    const glm::mat4 system_model = node->get_global_matrix_model();
-    const float system_scale = std::max(
-        std::max(glm::length(glm::vec3(system_model[0])), glm::length(glm::vec3(system_model[1]))),
-        std::max(glm::length(glm::vec3(system_model[2])), 1.0f));
-    runtime_resources_.planetary_water_shell_shader->set_uni_vec3("planetaryCenterWorld", glm::vec3(system_model * glm::vec4(system.get_planetary_center(), 1.0f)));
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetarySolidRadiusWorld", system.get_planetary_radius() * system_scale);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetaryShellThicknessWorld", system.get_planetary_shell_thickness() * system_scale);
-    runtime_resources_.planetary_water_shell_shader->set_uni_float("planetDepthBiasWorld", std::max(system.get_planetary_shell_thickness() * system_scale * 0.42f, system.get_planetary_radius() * system_scale * 0.004f));
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waveDebugMode", context.debug_mode);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waterAtlasTexture", 0);
-    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waterContinuityTexture", 1);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waterLevelTexture", 2);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("waveStateTexture", 3);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("tidalHeightTexture", 4);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("regionIdTexture", 5);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_water_shell_shader->set_uni_int("shoreDistanceTexture", 6);
+    target_shader.set_uniform_mat4("projection", context.camera.GetProjectionMatrix(aspect));
+    target_shader.set_uni_vec3("planetaryCenter", system.get_planetary_center());
+    target_shader.set_uni_float("planetaryRadius", system.get_planetary_radius());
+    target_shader.set_uni_float("planetaryShellThickness", system.get_planetary_shell_thickness());
+    target_shader.set_uni_float("planetaryWaterSurfaceRadius", system.get_planetary_water_surface_radius());
+    target_shader.set_uni_int("planetaryTerrainEnabled", system.is_planetary_terrain_enabled() ? 1 : 0);
+    target_shader.set_uni_float("terrainSeaLevel", terrain_profile.sea_level);
+    target_shader.set_uni_float("terrainContinentFrequency", terrain_profile.continent_frequency);
+    target_shader.set_uni_float("terrainContinentWarpStrength", terrain_profile.continent_warp_strength);
+    target_shader.set_uni_float("terrainLargeFrequency", terrain_profile.large_frequency);
+    target_shader.set_uni_float("terrainMediumFrequency", terrain_profile.medium_frequency);
+    target_shader.set_uni_float("terrainDetailFrequency", terrain_profile.detail_frequency);
+    target_shader.set_uni_float("terrainRidgeFrequency", terrain_profile.ridge_frequency);
+    target_shader.set_uni_float("terrainCraterStrength", terrain_profile.crater_strength);
+    target_shader.set_uni_float("terrainMountainSharpness", terrain_profile.mountain_sharpness);
+    target_shader.set_uni_float("terrainReliefStrength", terrain_profile.relief_strength);
+    target_shader.set_uni_float("terrainDisplacementStrength", terrain_profile.displacement_strength);
+    target_shader.set_uni_float("terrainContinentContrast", terrain_profile.continent_contrast);
+    target_shader.set_uni_float("terrainEarthMacroContinentStrength", terrain_profile.earth_macro_continent_strength);
+    target_shader.set_uni_float("terrainArchipelagoStrength", terrain_profile.archipelago_strength);
+}
 
-    const std::vector<render_pipeline::texture_binding> texture_bindings = {
+std::vector<render_pipeline::texture_binding> galactic_scene::build_planetary_shell_texture_bindings(const gpu_fluid_system_component& system) const {
+    auto* render_resource = get_water_render_resource();
+    if (!render_resource)
+        return {};
+
+    const auto& atlas_targets = render_resource->get_atlas_targets();
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
+    return {
         { 0u, GL_TEXTURE_2D, atlas_targets.atlas_texture.get_id() },
         { 1u, GL_TEXTURE_2D, domain_textures.continuity_texture },
         { 2u, GL_TEXTURE_2D, system.get_planetary_water_level_texture() },
@@ -817,30 +837,85 @@ void galactic_scene::render_planetary_water_shell(const scene_render_context& co
         { 5u, GL_TEXTURE_2D, domain_textures.region_id_texture },
         { 6u, GL_TEXTURE_2D, domain_textures.shore_distance_texture }
     };
+}
+
+void galactic_scene::render_planetary_water_shell(const scene_render_context& context, const gpu_fluid_system_component& system) const {
+    auto* shell_shader = get_water_shell_shader();
+    auto* shell_mesh = get_water_shell_mesh();
+    auto* render_resource = get_water_render_resource();
+    if (!shell_shader || !shell_mesh || !render_resource)
+        return;
+    if (!active_render_pipeline_)
+        return;
+
+    const auto& atlas_targets = render_resource->get_atlas_targets();
+    if (atlas_targets.atlas_texture.get_id() == 0)
+        return;
+
+    const auto* node = system.get_node();
+    if (!node)
+        return;
+
+    shell_shader->use();
+    apply_planetary_shell_common_uniforms(*shell_shader, context, system);
+    shell_shader->set_uni_vec3("viewPos", context.camera.get_transform()->get_global_position());
+    shell_shader->set_uni_vec3("lightPos", context.light_position);
+    shell_shader->set_uni_vec3("lightColor", context.light_color);
+    shell_shader->set_uni_float("intensity", context.light_intensity);
+    shell_shader->set_uni_float("time", static_cast<float>(glfwGetTime()));
+    const glm::mat4 system_model = node->get_global_matrix_model();
+    const float system_scale = std::max(
+        std::max(glm::length(glm::vec3(system_model[0])), glm::length(glm::vec3(system_model[1]))),
+        std::max(glm::length(glm::vec3(system_model[2])), 1.0f));
+    shell_shader->set_uni_vec3("planetaryCenterWorld", glm::vec3(system_model * glm::vec4(system.get_planetary_center(), 1.0f)));
+    shell_shader->set_uni_float("planetarySolidRadiusWorld", system.get_planetary_radius() * system_scale);
+    shell_shader->set_uni_float("planetaryShellThicknessWorld", system.get_planetary_shell_thickness() * system_scale);
+    shell_shader->set_uni_float("planetDepthBiasWorld", std::max(system.get_planetary_shell_thickness() * system_scale * 0.42f, system.get_planetary_radius() * system_scale * 0.004f));
+    shell_shader->set_uni_int("waveDebugMode", context.debug_mode);
+    shell_shader->set_uni_int("waterAtlasTexture", 0);
+    const auto& domain_textures = system.get_planetary_water_domain().get_textures();
+    shell_shader->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
+    shell_shader->set_uni_int("waterContinuityTexture", 1);
+    shell_shader->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
+    shell_shader->set_uni_int("waterLevelTexture", 2);
+    shell_shader->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
+    shell_shader->set_uni_int("waveStateTexture", 3);
+    shell_shader->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
+    shell_shader->set_uni_int("tidalHeightTexture", 4);
+    shell_shader->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
+    shell_shader->set_uni_int("regionIdTexture", 5);
+    shell_shader->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
+    shell_shader->set_uni_int("shoreDistanceTexture", 6);
+
+    const auto texture_bindings = build_planetary_shell_texture_bindings(system);
     active_render_pipeline_->bind_textures(texture_bindings);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    runtime_resources_.planetary_water_shell_mesh->Draw();
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
+    active_render_pipeline_->apply_render_state({
+        true,
+        GL_LEQUAL,
+        false,
+        true,
+        GL_SRC_ALPHA,
+        GL_ONE_MINUS_SRC_ALPHA,
+        true,
+        GL_BACK
+    });
+    shell_mesh->Draw();
+    active_render_pipeline_->apply_render_state({});
 
     active_render_pipeline_->unbind_textures(texture_bindings);
 }
 
 void galactic_scene::render_planetary_wave_debug_overlay(const scene_render_context& context, const gpu_fluid_system_component& system) const {
-    if (context.debug_mode < 6 || context.debug_mode > 11 || !runtime_resources_.planetary_wave_debug_shell_shader || !runtime_resources_.planetary_water_shell_mesh || !runtime_resources_.planetary_water_render_resource)
+    auto* debug_shell_shader = get_wave_debug_shell_shader();
+    auto* shell_mesh = get_water_shell_mesh();
+    auto* render_resource = get_water_render_resource();
+    if (context.debug_mode < 6 || context.debug_mode > 11 || !debug_shell_shader || !shell_mesh || !render_resource)
         return;
     if (!active_render_pipeline_)
         return;
 
-    const auto& atlas_targets = runtime_resources_.planetary_water_render_resource->get_atlas_targets();
+    const auto& atlas_targets = render_resource->get_atlas_targets();
     if (atlas_targets.atlas_texture.get_id() == 0)
         return;
 
@@ -849,71 +924,41 @@ void galactic_scene::render_planetary_wave_debug_overlay(const scene_render_cont
     if (!node)
         return;
 
-    const auto& terrain_profile = system.get_planetary_terrain_profile();
-    runtime_resources_.planetary_wave_debug_shell_shader->use();
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uniform_mat4("systemModel", node->get_global_matrix_model());
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uniform_mat4("view", context.camera.GetViewMatrix());
-    const float aspect = context.framebuffer_height == 0 ? 1.0f : static_cast<float>(context.framebuffer_width) / static_cast<float>(context.framebuffer_height);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uniform_mat4("projection", context.camera.GetProjectionMatrix(aspect));
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_vec3("planetaryCenter", system.get_planetary_center());
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("planetaryRadius", system.get_planetary_radius());
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("planetaryShellThickness", system.get_planetary_shell_thickness());
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("planetaryWaterSurfaceRadius", system.get_planetary_water_surface_radius());
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("planetaryTerrainEnabled", system.is_planetary_terrain_enabled() ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainSeaLevel", terrain_profile.sea_level);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainContinentFrequency", terrain_profile.continent_frequency);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainContinentWarpStrength", terrain_profile.continent_warp_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainLargeFrequency", terrain_profile.large_frequency);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainMediumFrequency", terrain_profile.medium_frequency);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainDetailFrequency", terrain_profile.detail_frequency);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainRidgeFrequency", terrain_profile.ridge_frequency);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainCraterStrength", terrain_profile.crater_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainMountainSharpness", terrain_profile.mountain_sharpness);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainReliefStrength", terrain_profile.relief_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainDisplacementStrength", terrain_profile.displacement_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainContinentContrast", terrain_profile.continent_contrast);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainEarthMacroContinentStrength", terrain_profile.earth_macro_continent_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("terrainArchipelagoStrength", terrain_profile.archipelago_strength);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waveDebugMode", context.debug_mode);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waterAtlasTexture", 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waterContinuityTexture", 1);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waterLevelTexture", 2);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("waveStateTexture", 3);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("tidalHeightTexture", 4);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("regionIdTexture", 5);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_int("shoreDistanceTexture", 6);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("debugWaveHeightScale", runtime_resources_.planetary_wave_debug_height_scale);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("debugWaveVelocityScale", runtime_resources_.planetary_wave_debug_velocity_scale);
-    runtime_resources_.planetary_wave_debug_shell_shader->set_uni_float("debugTidalScale", runtime_resources_.planetary_wave_debug_tidal_scale);
+    debug_shell_shader->use();
+    apply_planetary_shell_common_uniforms(*debug_shell_shader, context, system);
+    debug_shell_shader->set_uni_int("waveDebugMode", context.debug_mode);
+    debug_shell_shader->set_uni_int("waterAtlasTexture", 0);
+    debug_shell_shader->set_uni_int("waterContinuityTextureAvailable", domain_textures.continuity_texture != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("waterContinuityTexture", 1);
+    debug_shell_shader->set_uni_int("waterLevelTextureAvailable", system.get_planetary_water_level_texture() != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("waterLevelTexture", 2);
+    debug_shell_shader->set_uni_int("waveStateTextureAvailable", planetary_wave_field_.get_render_wave_state_texture() != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("waveStateTexture", 3);
+    debug_shell_shader->set_uni_int("tidalHeightTextureAvailable", atlas_targets.tide_height_texture.get_id() != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("tidalHeightTexture", 4);
+    debug_shell_shader->set_uni_int("regionIdTextureAvailable", domain_textures.region_id_texture != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("regionIdTexture", 5);
+    debug_shell_shader->set_uni_int("shoreDistanceTextureAvailable", domain_textures.shore_distance_texture != 0 ? 1 : 0);
+    debug_shell_shader->set_uni_int("shoreDistanceTexture", 6);
+    debug_shell_shader->set_uni_float("debugWaveHeightScale", runtime_resources_.planetary_wave_debug_height_scale);
+    debug_shell_shader->set_uni_float("debugWaveVelocityScale", runtime_resources_.planetary_wave_debug_velocity_scale);
+    debug_shell_shader->set_uni_float("debugTidalScale", runtime_resources_.planetary_wave_debug_tidal_scale);
 
-    const std::vector<render_pipeline::texture_binding> texture_bindings = {
-        { 0u, GL_TEXTURE_2D, atlas_targets.atlas_texture.get_id() },
-        { 1u, GL_TEXTURE_2D, domain_textures.continuity_texture },
-        { 2u, GL_TEXTURE_2D, system.get_planetary_water_level_texture() },
-        { 3u, GL_TEXTURE_2D, planetary_wave_field_.get_render_wave_state_texture() },
-        { 4u, GL_TEXTURE_2D, atlas_targets.tide_height_texture.get_id() },
-        { 5u, GL_TEXTURE_2D, domain_textures.region_id_texture },
-        { 6u, GL_TEXTURE_2D, domain_textures.shore_distance_texture }
-    };
+    const auto texture_bindings = build_planetary_shell_texture_bindings(system);
     active_render_pipeline_->bind_textures(texture_bindings);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_FALSE);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    runtime_resources_.planetary_water_shell_mesh->Draw();
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    glDisable(GL_CULL_FACE);
+    active_render_pipeline_->apply_render_state({
+        true,
+        GL_LEQUAL,
+        false,
+        true,
+        GL_SRC_ALPHA,
+        GL_ONE_MINUS_SRC_ALPHA,
+        true,
+        GL_BACK
+    });
+    shell_mesh->Draw();
+    active_render_pipeline_->apply_render_state({});
 
     active_render_pipeline_->unbind_textures(texture_bindings);
 }

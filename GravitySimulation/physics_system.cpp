@@ -19,6 +19,19 @@ std::vector<physics_data> physics_system::get_physics_data(const std::vector<rig
     return data;
 }
 
+std::vector<size_t> physics_system::get_cpu_readback_indices(const std::vector<rigid_body*>& bodies) const {
+    std::vector<size_t> indices;
+    indices.reserve(bodies.size());
+
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        const auto* body = bodies[i];
+        if (!body || !body->get_node() || !gpu_driven_nodes_.contains(body->get_node()->get_id()))
+            indices.push_back(i);
+    }
+
+    return indices;
+}
+
 std::vector<collision_data> physics_system::get_collision_data(const std::vector<rigid_body*>& bodies) const {
     std::vector<collision_data> data;
     data.reserve(bodies.size());
@@ -107,6 +120,76 @@ void physics_system::apply_gpu_results_to_bodies(const std::vector<rigid_body*>&
         body->get_node()->set_global_position(gpu_result[i].position);
         current_positions_[body->get_node()->get_id()] = gpu_result[i].position;
     }
+}
+
+void physics_system::apply_gpu_results_to_body_indices(const std::vector<rigid_body*>& bodies, const std::vector<size_t>& indices, const std::vector<physics_data>& gpu_result) {
+    const size_t count = std::min(indices.size(), gpu_result.size());
+    for (size_t i = 0; i < count; ++i) {
+        const size_t body_index = indices[i];
+        if (body_index >= bodies.size())
+            continue;
+
+        auto* body = bodies[body_index];
+        if (!body || !body->get_node() || !body->get_compute_data())
+            continue;
+
+        *body->get_compute_data() = gpu_result[i];
+        body->get_node()->set_global_position(gpu_result[i].position);
+        current_positions_[body->get_node()->get_id()] = gpu_result[i].position;
+    }
+}
+
+void physics_system::consume_async_gpu_results(const uuid& shader_id, compute_shader* compute, const std::vector<rigid_body*>& bodies, const std::vector<size_t>& readback_indices) {
+    if (!compute || !compute->is_vaild() || bodies.empty() || readback_indices.empty() || !readback_pending_[shader_id])
+        return;
+
+    std::vector<physics_data> gpu_result;
+    if (!compute->try_dequeue_readback_indices(0, readback_indices, gpu_result))
+        return;
+
+    apply_gpu_results_to_body_indices(bodies, readback_indices, gpu_result);
+    readback_pending_[shader_id] = false;
+}
+
+void physics_system::enqueue_async_gpu_readback(const uuid& shader_id, compute_shader* compute) {
+    if (!compute || !compute->is_vaild() || readback_pending_[shader_id])
+        return;
+
+    const int readback_interval = std::max(readback_interval_, 1);
+    if ((frame_idx_ % readback_interval) != 0)
+        return;
+
+    const auto indices_it = cpu_readback_indices_cache_.find(shader_id);
+    if (indices_it == cpu_readback_indices_cache_.end() || indices_it->second.empty())
+        return;
+
+    compute->enqueue_readback_indices<physics_data>(0, indices_it->second);
+    readback_pending_[shader_id] = true;
+}
+
+bool physics_system::consume_async_collision_contacts(const uuid& shader_id, compute_shader* compute, const std::vector<rigid_body*>& bodies) {
+    if (!compute || !compute->is_vaild() || bodies.empty() || !collision_readback_pending_[shader_id])
+        return false;
+
+    std::vector<collision_contact_data> gpu_contacts;
+    if (!compute->try_dequeue_readback(2, gpu_contacts))
+        return false;
+
+    sync_collision_contacts_from_gpu_data(gpu_contacts, bodies);
+    collision_readback_pending_[shader_id] = false;
+    return true;
+}
+
+void physics_system::enqueue_async_collision_readback(const uuid& shader_id, compute_shader* compute) {
+    if (!compute || !compute->is_vaild() || collision_readback_pending_[shader_id])
+        return;
+
+    const int readback_interval = std::max(readback_interval_, 1);
+    if ((frame_idx_ % readback_interval) != 0)
+        return;
+
+    compute->enqueue_readback<collision_contact_data>(2);
+    collision_readback_pending_[shader_id] = true;
 }
 
 void physics_system::sync_collision_contacts_from_gpu_data(const std::vector<collision_contact_data>& gpu_contacts, const std::vector<rigid_body*>& bodies) {
@@ -489,20 +572,34 @@ void physics_system::run_default_gpu_pipeline(const float& dt) {
         return;
 
     auto& bodies = group_it->second;
-    const bool requires_cpu_readback = std::ranges::any_of(bodies, [this](const rigid_body* body) {
-        return !body || !body->get_node() || !gpu_driven_nodes_.contains(body->get_node()->get_id());
-    });
+    auto& readback_indices = cpu_readback_indices_cache_[default_compute_shader_id_];
+    readback_indices = get_cpu_readback_indices(bodies);
+    const bool requires_cpu_readback = !readback_indices.empty();
 
     {
         auto section = frame_profiler::measure_active("fixed_update_gpu_default_upload_ssbo");
         if (gpu_buffer_dirty_) {
             sync_gpu_buffer(gravity_simulation_comp_, bodies);
-          sync_collision_buffer(gravity_simulation_comp_, bodies);
+            sync_collision_buffer(gravity_simulation_comp_, bodies);
+            gravity_simulation_comp_->clear_readback_state(0);
             readback_pending_[default_compute_shader_id_] = false;
         }
     }
 
-    readback_pending_[default_compute_shader_id_] = false;
+    if (requires_cpu_readback && !gpu_buffer_dirty_) {
+        auto section = frame_profiler::measure_active("fixed_update_gpu_default_readback_consume");
+        consume_async_gpu_results(default_compute_shader_id_, gravity_simulation_comp_, bodies, readback_indices);
+    }
+
+    run_collision_stage_gpu(bodies);
+
+    {
+        auto section = frame_profiler::measure_active("fixed_update_gpu_default_upload_post_collision");
+        sync_gpu_buffer(gravity_simulation_comp_, bodies);
+        sync_collision_buffer(gravity_simulation_comp_, bodies);
+        gravity_simulation_comp_->clear_readback_state(0);
+        readback_pending_[default_compute_shader_id_] = false;
+    }
 
     const GLuint groups_x = static_cast<GLuint>((bodies.size() + 64u - 1u) / 64u);
     {
@@ -516,18 +613,8 @@ void physics_system::run_default_gpu_pipeline(const float& dt) {
     }
 
     if (requires_cpu_readback) {
-        auto section = frame_profiler::measure_active("fixed_update_gpu_default_readback_sync");
-        std::vector<physics_data> gpu_result;
-        gravity_simulation_comp_->get_binding_data(0, gpu_result);
-        apply_gpu_results_to_bodies(bodies, gpu_result);
-    }
-
-    run_collision_stage_gpu(bodies);
-
-    {
-        auto section = frame_profiler::measure_active("fixed_update_gpu_default_upload_post_collision");
-        sync_gpu_buffer(gravity_simulation_comp_, bodies);
-       sync_collision_buffer(gravity_simulation_comp_, bodies);
+        auto section = frame_profiler::measure_active("fixed_update_gpu_default_readback_enqueue");
+        enqueue_async_gpu_readback(default_compute_shader_id_, gravity_simulation_comp_);
     }
 
 }
@@ -549,16 +636,22 @@ void physics_system::run_custom_gpu_groups(const float& dt) {
             continue;
 
         auto* compute = shader_it->second;
-        const bool requires_cpu_readback = std::ranges::any_of(bodies, [this](const rigid_body* body) {
-            return !body || !body->get_node() || !gpu_driven_nodes_.contains(body->get_node()->get_id());
-        });
+        auto& readback_indices = cpu_readback_indices_cache_[shader_id];
+        readback_indices = get_cpu_readback_indices(bodies);
+        const bool requires_cpu_readback = !readback_indices.empty();
 
         {
             auto section = frame_profiler::measure_active("fixed_update_gpu_upload_ssbo");
             if (gpu_buffer_dirty_) {
                 sync_gpu_buffer(compute, bodies);
+                compute->clear_readback_state(0);
                 readback_pending_[shader_id] = false;
             }
+        }
+
+        if (requires_cpu_readback && !gpu_buffer_dirty_) {
+            auto section = frame_profiler::measure_active("fixed_update_gpu_readback_consume");
+            consume_async_gpu_results(shader_id, compute, bodies, readback_indices);
         }
 
         const GLuint groups_x = static_cast<GLuint>((bodies.size() + 64u - 1u) / 64u);
@@ -573,18 +666,29 @@ void physics_system::run_custom_gpu_groups(const float& dt) {
         }
 
         if (requires_cpu_readback) {
-            auto section = frame_profiler::measure_active("fixed_update_gpu_apply_result_sync");
-            std::vector<physics_data> gpu_result;
-            compute->get_binding_data(0, gpu_result);
-            apply_gpu_results_to_bodies(bodies, gpu_result);
+            auto section = frame_profiler::measure_active("fixed_update_gpu_readback_enqueue");
+            enqueue_async_gpu_readback(shader_id, compute);
         }
     }
 }
 
 void physics_system::run_collision_stage_gpu(const std::vector<rigid_body*>& bodies) {
-  if (!collision_detect_comp_ || !collision_detect_comp_->is_vaild() || bodies.empty() || requires_cpu_collision_stage(bodies)) {
+    if (!collision_detect_comp_ || !collision_detect_comp_->is_vaild() || bodies.empty() || requires_cpu_collision_stage(bodies)) {
+        if (collision_detect_comp_ && collision_detect_comp_->is_vaild()) {
+            collision_detect_comp_->clear_readback_state(2);
+            collision_readback_pending_[collision_detect_comp_->get_id()] = false;
+        }
         run_collision_stage_cpu();
         return;
+    }
+
+    const uuid collision_shader_id = collision_detect_comp_->get_id();
+    bool collision_contacts_consumed = false;
+
+    {
+        auto section = frame_profiler::measure_active("fixed_update_gpu_collision_readback_consume");
+        [[maybe_unused]] const bool readback_consumed = consume_async_collision_contacts(collision_shader_id, collision_detect_comp_, bodies);
+        collision_contacts_consumed = readback_consumed;
     }
 
     {
@@ -601,9 +705,20 @@ void physics_system::run_collision_stage_gpu(const std::vector<rigid_body*>& bod
         collision_detect_comp_->dispatch({ groups_x, 1, 1 });
     }
 
-    std::vector<collision_contact_data> gpu_contacts;
-    collision_detect_comp_->get_binding_data(2, gpu_contacts);
-    sync_collision_contacts_from_gpu_data(gpu_contacts, bodies);
+    {
+        auto section = frame_profiler::measure_active("fixed_update_gpu_collision_readback_enqueue");
+        enqueue_async_collision_readback(collision_shader_id, collision_detect_comp_);
+    }
+
+    {
+        auto section = frame_profiler::measure_active("fixed_update_gpu_collision_contacts_sync");
+        if (!collision_contacts_consumed) {
+            collision_pairs_.clear();
+            contact_manifolds_.clear();
+            solid_collision_contacts_.clear();
+        }
+    }
+
     gpu_buffer_dirty_ = gpu_buffer_dirty_ || collision_solver_.solve(contact_manifolds_, collision_narrowphase_, rigid_bodies_by_node_id_, current_positions_, contact_solver_iterations_);
     update_collision_pairs();
     update_contact_manifolds();

@@ -249,6 +249,39 @@ void render_pipeline::set_offscreen_draw_attachments(const std::vector<GLenum>& 
     glDrawBuffers(static_cast<GLsizei>(draw_buffers.size()), draw_buffers.data());
 }
 
+void render_pipeline::set_offscreen_color_attachment(GLenum attachment, GLuint texture) const {
+    if (!offscreen_pass_active_)
+        return;
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture, 0);
+}
+
+void render_pipeline::apply_render_state(const render_state_desc& state_desc) const {
+    if (state_desc.depth_test_enabled)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+
+    glDepthFunc(state_desc.depth_func);
+    glDepthMask(state_desc.depth_write_enabled ? GL_TRUE : GL_FALSE);
+
+    if (state_desc.blend_enabled) {
+        glEnable(GL_BLEND);
+        glBlendFunc(state_desc.blend_src, state_desc.blend_dst);
+    }
+    else {
+        glDisable(GL_BLEND);
+    }
+
+    if (state_desc.cull_enabled) {
+        glEnable(GL_CULL_FACE);
+        glCullFace(state_desc.cull_face);
+    }
+    else {
+        glDisable(GL_CULL_FACE);
+    }
+}
+
 void render_pipeline::bind_textures(const std::vector<texture_binding>& bindings) const {
     for (const auto& binding : bindings) {
         glActiveTexture(GL_TEXTURE0 + binding.unit);
@@ -276,6 +309,12 @@ void render_pipeline::draw_fullscreen(shader& shader_program, Mesh& fullscreen_m
     fullscreen_mesh.Draw();
 }
 
+void render_pipeline::draw_fullscreen_pass(const fullscreen_pass_desc& pass_desc) const {
+    bind_textures(pass_desc.textures);
+    draw_fullscreen(pass_desc.shader_program, pass_desc.fullscreen_mesh, pass_desc.pre_draw);
+    unbind_textures(pass_desc.textures);
+}
+
 void render_pipeline::dispatch_compute(const compute_dispatch_desc& dispatch_desc) const {
     bind_textures(dispatch_desc.textures);
 
@@ -291,6 +330,15 @@ void render_pipeline::dispatch_compute(const compute_dispatch_desc& dispatch_des
         glBindImageTexture(image.unit, 0, 0, GL_FALSE, 0, image.access, image.format);
 
     unbind_textures(dispatch_desc.textures);
+}
+
+void render_pipeline::copy_texture_2d(GLuint source_texture, GLuint destination_texture, int width, int height) const {
+    if (source_texture == 0 || destination_texture == 0 || width <= 0 || height <= 0)
+        return;
+
+    glCopyImageSubData(source_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+        destination_texture, GL_TEXTURE_2D, 0, 0, 0, 0,
+        width, height, 1);
 }
 
 void render_pipeline::end_offscreen_pass() {
