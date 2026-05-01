@@ -81,5 +81,6 @@ public:
     void fixed_update(engine& engine, float dt) override;
     void update(engine& engine, float dt) override;
     void render(engine& engine) override;
-  virtual std::unique_ptr<loading_feedback_presenter> create_loading_feedback_presenter(engine& engine);
+    scene* get_scene_context() override { return scene_.get(); }
+    virtual std::unique_ptr<loading_feedback_presenter> create_loading_feedback_presenter(engine& engine);
 };

@@ -166,6 +166,7 @@
     <ClCompile Include="compute_group.cpp" />
     <ClCompile Include="compute_shader.cpp" />
     <ClCompile Include="engine.cpp" />
+    <ClCompile Include="engine_ui.cpp" />
     <ClCompile Include="fluid_scene.cpp" />
     <ClCompile Include="frame_profiler.cpp" />
     <ClCompile Include="galactic_scene.cpp" />
@@ -192,6 +193,8 @@
     <ClCompile Include="ssbo_manager.cpp" />
     <ClCompile Include="terrain_mesh_resource.cpp" />
     <ClCompile Include="texture.cpp" />
+    <ClCompile Include="ui_render_pipeline.cpp" />
+    <ClCompile Include="ui_text_renderer.cpp" />
     <ClCompile Include="uuid.cpp" />
     <ClCompile Include="i_scene_manager.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -235,9 +238,11 @@
     <ClInclude Include="contact_point.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="engine_state.h" />
+    <ClInclude Include="engine_ui.h" />
     <ClInclude Include="fluid_bounds.h" />
     <ClInclude Include="fluid_particle.h" />
     <ClInclude Include="fluid_scene.h" />
+    <ClInclude Include="font_resource.h" />
     <ClInclude Include="frame_profiler.h" />
     <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_simulation_test.h" />
@@ -267,6 +272,8 @@
     <ClInclude Include="ssbo_manager.h" />
     <ClInclude Include="terrain_mesh_resource.h" />
     <ClInclude Include="texture.h" />
+    <ClInclude Include="ui_render_pipeline.h" />
+    <ClInclude Include="ui_text_renderer.h" />
     <ClInclude Include="uuid.h" />
     <ClInclude Include="i_scene_manager.h" />
     <ClInclude Include="Mesh.h" />
@@ -315,6 +322,7 @@
     <None Include="lightsource.vs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="packages.config" />
     <None Include="particle_surface_blur.fs.shader" />
     <None Include="particle_surface_composite.fs.shader" />
     <None Include="particle_surface_composite.vs.shader" />
@@ -340,6 +348,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="sun_halo.fs.shader" />
+    <None Include="ui_panel.fs.shader" />
+    <None Include="ui_panel.vs.shader" />
+    <None Include="ui_text.fs.shader" />
+    <None Include="ui_text.vs.shader" />
   </ItemGroup>
   <ItemGroup>
     <None Include="gravity_simulation.glsl">
@@ -353,5 +365,14 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets" Condition="Exists('..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets')" />
+    <Import Project="..\packages\freetype.2.8.0.1\build\native\freetype.targets" Condition="Exists('..\packages\freetype.2.8.0.1\build\native\freetype.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>Ten projekt zawiera odwołania do pakietów NuGet, których nie ma na tym komputerze. Użyj przywracania pakietów NuGet, aby je pobrać. Aby uzyskać więcej informacji, zobacz http://go.microsoft.com/fwlink/?LinkID=322105. Brakujący plik: {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\freetype.redist.2.8.0.1\build\native\freetype.redist.targets'))" />
+    <Error Condition="!Exists('..\packages\freetype.2.8.0.1\build\native\freetype.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\freetype.2.8.0.1\build\native\freetype.targets'))" />
+  </Target>
 </Project>

@@ -2,6 +2,7 @@
 
 #include "base_manager.h"
 #include "compute_shader.h"
+#include "font_resource.h"
 #include "Mesh.h"
 #include "planetary_ocean_resource.h"
 #include "planetary_water_render_resource.h"
@@ -22,6 +23,7 @@ public:
 	shader* create_shader(const std::string& name, const char* vertx_path, const char* frag_path);
   compute_shader* create_compute_shader(const std::string& name, const char* compute_path);
 	texture* create_texture(const std::string& name, const std::string& texture_path);
+ font_resource* create_font_resource(const std::string& name, const std::string& font_path, unsigned int pixel_height = 32u, std::uint32_t first_codepoint = 32u, std::uint32_t last_codepoint = 126u);
 	Mesh* create_mesh(MeshData& mesh_data);
    planetary_ocean_resource* create_planetary_ocean_resource(
 		const std::string& name,

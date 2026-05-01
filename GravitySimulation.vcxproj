@@ -151,32 +151,50 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\..\..\OpenGL\glad\src\glad.c" />
-    <ClCompile Include="asset.cpp" />
     <ClCompile Include="aabb_collider.cpp" />
+    <ClCompile Include="asset.cpp" />
     <ClCompile Include="asset_manager.cpp" />
     <ClCompile Include="async_base.cpp" />
     <ClCompile Include="base_manager.cpp" />
-    <ClCompile Include="collision_broadphase.cpp" />
-    <ClCompile Include="collision_narrowphase.cpp" />
-    <ClCompile Include="collision_solver.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="cloth_scene.cpp" />
+    <ClCompile Include="collision_broadphase.cpp" />
     <ClCompile Include="collision_debug_scene.cpp" />
+    <ClCompile Include="collision_narrowphase.cpp" />
+    <ClCompile Include="collision_solver.cpp" />
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="compute_group.cpp" />
     <ClCompile Include="compute_shader.cpp" />
     <ClCompile Include="engine.cpp" />
+    <ClCompile Include="engine_ui.cpp" />
+    <ClCompile Include="fluid_scene.cpp" />
     <ClCompile Include="frame_profiler.cpp" />
+    <ClCompile Include="galactic_scene.cpp" />
     <ClCompile Include="galactic_simulation_test.cpp" />
+    <ClCompile Include="galactic_stress_scene.cpp" />
+    <ClCompile Include="gpu_fluid_system_component.cpp" />
+    <ClCompile Include="gpu_particle_system_component.cpp" />
     <ClCompile Include="GravitySimulation.cpp" />
     <ClCompile Include="input_system.cpp" />
     <ClCompile Include="instance_manager.cpp" />
     <ClCompile Include="i_data_provider.cpp" />
+    <ClCompile Include="loading_feedback_presenter.cpp" />
+    <ClCompile Include="planetary_ocean_resource.cpp" />
+    <ClCompile Include="planetary_water_domain.cpp" />
+    <ClCompile Include="planetary_water_render_resource.cpp" />
+    <ClCompile Include="planetary_wave_field.cpp" />
+    <ClCompile Include="procedural_mesh_resource.cpp" />
+    <ClCompile Include="ray_cast.cpp" />
+    <ClCompile Include="Renderer.Core.cpp" />
     <ClCompile Include="render_pipeline.cpp" />
-    <ClCompile Include="resource.cpp" />
+    <ClCompile Include="scene_loader.cpp" />
     <ClCompile Include="shader_group.cpp" />
     <ClCompile Include="simulation_state.cpp" />
     <ClCompile Include="ssbo_manager.cpp" />
+    <ClCompile Include="terrain_mesh_resource.cpp" />
+    <ClCompile Include="texture.cpp" />
+    <ClCompile Include="ui_render_pipeline.cpp" />
+    <ClCompile Include="ui_text_renderer.cpp" />
     <ClCompile Include="uuid.cpp" />
     <ClCompile Include="i_scene_manager.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -193,40 +211,69 @@
     <ClCompile Include="unit_system.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="asset.h" />
     <ClInclude Include="aabb_collider.h" />
+    <ClInclude Include="asset.h" />
     <ClInclude Include="asset_manager.h" />
     <ClInclude Include="async_base.h" />
     <ClInclude Include="base_manager.h" />
+    <ClInclude Include="bounding_box.h" />
     <ClInclude Include="broadphase_pair.h" />
     <ClInclude Include="broadphase_proxy.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="cloth_scene.h" />
+    <ClInclude Include="collider.h" />
     <ClInclude Include="collision_broadphase.h" />
-    <ClInclude Include="collision_narrowphase.h" />
-    <ClInclude Include="collision_solver.h" />
+    <ClInclude Include="collision_contact_data.h" />
     <ClInclude Include="collision_data.h" />
     <ClInclude Include="collision_debug_logger_component.h" />
-    <ClInclude Include="collision_contact_data.h" />
     <ClInclude Include="collision_debug_scene.h" />
+    <ClInclude Include="collision_event.h" />
+    <ClInclude Include="collision_layers.h" />
+    <ClInclude Include="collision_narrowphase.h" />
+    <ClInclude Include="collision_solver.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="compute_group.h" />
     <ClInclude Include="compute_shader.h" />
     <ClInclude Include="contact_manifold.h" />
+    <ClInclude Include="contact_point.h" />
     <ClInclude Include="engine.h" />
     <ClInclude Include="engine_state.h" />
+    <ClInclude Include="engine_ui.h" />
+    <ClInclude Include="fluid_bounds.h" />
+    <ClInclude Include="fluid_particle.h" />
+    <ClInclude Include="fluid_scene.h" />
+    <ClInclude Include="font_resource.h" />
     <ClInclude Include="frame_profiler.h" />
+    <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_simulation_test.h" />
+    <ClInclude Include="galactic_stress_scene.h" />
+    <ClInclude Include="gpu_fluid_system_component.h" />
+    <ClInclude Include="gpu_particle_system_component.h" />
     <ClInclude Include="input_system.h" />
     <ClInclude Include="instance_manager.h" />
     <ClInclude Include="i_data_provider.h" />
+    <ClInclude Include="loading_feedback_presenter.h" />
     <ClInclude Include="physics_buffer.h" />
     <ClInclude Include="physics_data.h" />
+    <ClInclude Include="planetary_ocean_resource.h" />
+    <ClInclude Include="planetary_water_domain.h" />
+    <ClInclude Include="planetary_water_domain_data.h" />
+    <ClInclude Include="planetary_water_render_resource.h" />
+    <ClInclude Include="planetary_wave_field.h" />
+    <ClInclude Include="planet_terrain.h" />
+    <ClInclude Include="procedural_mesh_resource.h" />
+    <ClInclude Include="ray_cast.h" />
     <ClInclude Include="render_pipeline.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="scene_loader.h" />
     <ClInclude Include="shader_group.h" />
     <ClInclude Include="simulation_state.h" />
+    <ClInclude Include="spatial_query.h" />
     <ClInclude Include="ssbo_manager.h" />
+    <ClInclude Include="terrain_mesh_resource.h" />
+    <ClInclude Include="texture.h" />
+    <ClInclude Include="ui_render_pipeline.h" />
+    <ClInclude Include="ui_text_renderer.h" />
     <ClInclude Include="uuid.h" />
     <ClInclude Include="i_scene_manager.h" />
     <ClInclude Include="Mesh.h" />
@@ -264,12 +311,15 @@
     <None Include="sun.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="collision_resolve.glsl">
+    <None Include="sun_halo.fs.shader" />
+    <None Include="ui_panel.fs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="collision_debug_gravity.glsl">
+    <None Include="ui_panel.vs.shader">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="ui_text.fs.shader" />
+    <None Include="ui_text.vs.shader" />
   </ItemGroup>
   <ItemGroup>
     <None Include="gravity_simulation.glsl">

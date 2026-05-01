@@ -25,6 +25,11 @@ bool input_system::is_key_released(int key) {
 	return !current_keys_[key] && previous_keys_[key];
 }
 
+void input_system::update(GLFWwindow* window) {
+	(void)window;
+	previous_keys_ = current_keys_;
+}
+
 const glm::vec3& input_system::get_mouse_pos() {
 	return mouse_pos_;
 }

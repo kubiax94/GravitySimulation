@@ -5,7 +5,9 @@
 #include <glad/glad.h>
 
 #include "engine_state.h"
+#include "Scene.h"
 #include "input_system.h"
+#include "simulation_state.h"
 
 void engine::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS)
@@ -109,6 +111,8 @@ void engine::run() {
                     glfwPollEvents();
                 }
 
+                input_system::update(window_);
+
                 const bool is_toggle_pressed = glfwGetKey(window_, GLFW_KEY_F8) == GLFW_PRESS;
                 if (is_toggle_pressed && !toggle_vsync_pressed) {
                     vsync_enabled_ = !vsync_enabled_;
@@ -142,6 +146,14 @@ void engine::run() {
                     auto section = frame_profiler_.measure("render");
                     current_state_->render(*this);
                 }
+
+                {
+                    auto section = frame_profiler_.measure("render_ui");
+                    engine_ui_.begin_frame();
+                    current_state_->render_ui(*this);
+                    engine_ui_.render(*this, current_state_.get(), current_state_ ? current_state_->get_scene_context() : nullptr);
+                    engine_ui_.end_frame();
+                }
             }
 
             {
@@ -165,6 +177,8 @@ void engine::run() {
 }
 
 void engine::shutdown() {
+    engine_ui_.shutdown();
+
     if (current_state_) {
         current_state_->on_exit(*this);
         current_state_.reset();

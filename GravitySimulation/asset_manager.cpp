@@ -48,6 +48,21 @@ texture* asset_manager::create_texture(const std::string& name, const std::strin
 	return n_texture_ptr;
 }
 
+font_resource* asset_manager::create_font_resource(const std::string& name, const std::string& font_path, unsigned int pixel_height, std::uint32_t first_codepoint, std::uint32_t last_codepoint) {
+	auto n_font = std::make_unique<font_resource>(font_path, name, pixel_height, first_codepoint, last_codepoint);
+	if (!n_font->load())
+		return nullptr;
+
+	if (!n_font->finalize()) {
+		n_font->unload();
+		return nullptr;
+	}
+
+	font_resource* n_font_ptr = n_font.get();
+	add_asset(std::move(n_font));
+	return n_font_ptr;
+}
+
 Mesh* asset_manager::create_mesh(MeshData& mesh_data) {
 	auto n_mesh = std::make_unique<Mesh>(mesh_data);
 	Mesh* n_mesh_ptr = n_mesh.get();

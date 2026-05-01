@@ -1,0 +1,19 @@
+<Project>
+  <ItemDefinitionGroup Condition="'$(MSBuildProjectName)' == 'GravitySimulation' and '$(Platform)' == 'x64' and '$(Configuration)' == 'Debug'">
+    <Link>
+      <AdditionalDependencies>$(MSBuildThisFileDirectory)packages\freetype.2.8.0.1\build\native\lib\x64\v141\dynamic\Debug\freetype28d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>if exist "$(MSBuildThisFileDirectory)packages\freetype.redist.2.8.0.1\build\native\bin\x64\v141\dynamic\Debug\freetype28d.dll" copy /Y "$(MSBuildThisFileDirectory)packages\freetype.redist.2.8.0.1\build\native\bin\x64\v141\dynamic\Debug\freetype28d.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(MSBuildProjectName)' == 'GravitySimulation' and '$(Platform)' == 'x64' and '$(Configuration)' == 'Release'">
+    <Link>
+      <AdditionalDependencies>$(MSBuildThisFileDirectory)packages\freetype.2.8.0.1\build\native\lib\x64\v141\dynamic\Release\freetype28.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>if exist "$(MSBuildThisFileDirectory)packages\freetype.redist.2.8.0.1\build\native\bin\x64\v141\dynamic\Release\freetype28.dll" copy /Y "$(MSBuildThisFileDirectory)packages\freetype.redist.2.8.0.1\build\native\bin\x64\v141\dynamic\Release\freetype28.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+</Project>

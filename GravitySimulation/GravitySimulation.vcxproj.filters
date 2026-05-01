@@ -217,6 +217,9 @@
     <ClCompile Include="planetary_water_domain.cpp" />
     <ClCompile Include="planetary_wave_field.cpp" />
     <ClCompile Include="planetary_water_render_resource.cpp" />
+    <ClCompile Include="ui_text_renderer.cpp" />
+    <ClCompile Include="ui_render_pipeline.cpp" />
+    <ClCompile Include="engine_ui.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
@@ -361,6 +364,10 @@
     <ClInclude Include="planetary_water_domain.h" />
     <ClInclude Include="planetary_wave_field.h" />
     <ClInclude Include="planetary_water_render_resource.h" />
+    <ClInclude Include="font_resource.h" />
+    <ClInclude Include="ui_text_renderer.h" />
+    <ClInclude Include="ui_render_pipeline.h" />
+    <ClInclude Include="engine_ui.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />
@@ -408,5 +415,10 @@
     <None Include="planetary_wave_debug_shell.fs.shader" />
     <None Include="planetary_wave_render_filter.glsl" />
     <None Include="planetary_tide_field.glsl" />
+    <None Include="packages.config" />
+    <None Include="ui_text.vs.shader" />
+    <None Include="ui_text.fs.shader" />
+    <None Include="ui_panel.vs.shader" />
+    <None Include="ui_panel.fs.shader" />
   </ItemGroup>
 </Project>

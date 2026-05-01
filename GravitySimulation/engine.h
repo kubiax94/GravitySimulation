@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Time.h"
+#include "engine_ui.h"
 #include "frame_profiler.h"
 
 class engine_state;
@@ -18,6 +19,7 @@ class engine
     std::unique_ptr<engine_state> current_state_;
     std::unique_ptr<engine_state> pending_state_;
     frame_profiler frame_profiler_;
+    engine_ui engine_ui_;
     bool vsync_enabled_ = true;
     bool processing_frame_ = false;
 
@@ -41,4 +43,7 @@ public:
     sim::time& get_time() { return time_; }
     const sim::time& get_time() const { return time_; }
     frame_profiler& get_frame_profiler() { return frame_profiler_; }
+    const frame_profiler& get_frame_profiler() const { return frame_profiler_; }
+    engine_ui& get_ui() { return engine_ui_; }
+    const engine_ui& get_ui() const { return engine_ui_; }
 };

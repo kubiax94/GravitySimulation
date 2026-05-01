@@ -1,6 +1,7 @@
 #pragma once
 
 class engine;
+class scene;
 
 class engine_state
 {
@@ -14,4 +15,6 @@ public:
     virtual void fixed_update(engine& engine, float dt) = 0;
     virtual void update(engine& engine, float dt) = 0;
     virtual void render(engine& engine) = 0;
+    virtual void render_ui(engine& engine) { (void)engine; }
+    virtual scene* get_scene_context() { return nullptr; }
 };
