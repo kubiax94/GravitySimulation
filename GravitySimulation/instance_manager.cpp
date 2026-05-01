@@ -31,6 +31,8 @@ void instance_manager::draw_instanced(shader* batch_shader,
 	batch_shader->set_uni_vec3("lightPos", frame_context.camera_position + glm::vec3(0.0f, 0.0f, 10.0f));
 	batch_shader->set_uni_vec3("lightColor", glm::vec3(1.0f, 0.85f, 0.6f));
 	batch_shader->set_uni_vec3("objectColor", glm::vec3(1.0f, 1.0f, 1.0f));
+	if (!renderers.empty() && renderers.front())
+		renderers.front()->apply_material(*batch_shader);
 
 	if (pre_draw) pre_draw(*batch_shader);
 

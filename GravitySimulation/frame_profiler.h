@@ -18,7 +18,16 @@ class frame_profiler
         double max_frame_ms = 0.0;
     };
 
+    struct value_stat {
+        double total_value = 0.0;
+        int frame_count = 0;
+        double current_frame_value = 0.0;
+        bool current_frame_has_value = false;
+        double max_frame_value = 0.0;
+    };
+
     std::unordered_map<std::string, section_stat> stats_;
+    std::unordered_map<std::string, value_stat> value_stats_;
     int frame_count_ = 0;
     int report_interval_ = 120;
     bool reporting_enabled_ = true;
@@ -96,9 +105,19 @@ public:
         return scope_timer(*active_profiler_, std::move(name));
     }
 
+    static void add_value_active(const std::string& name, double value) {
+        if (!active_profiler_)
+            return;
+
+        auto& stat = active_profiler_->value_stats_[name];
+        stat.current_frame_value = value;
+        stat.current_frame_has_value = true;
+    }
+
     void reset() {
         frame_count_ = 0;
         stats_.clear();
+        value_stats_.clear();
     }
 
     void set_reporting_enabled(bool enabled) {
@@ -109,16 +128,30 @@ public:
         for (auto& [name, stat] : stats_)
             stat.max_frame_ms = std::max(stat.max_frame_ms, stat.current_frame_ms);
 
+        for (auto& [name, stat] : value_stats_) {
+            if (!stat.current_frame_has_value)
+                continue;
+
+            stat.total_value += stat.current_frame_value;
+            stat.frame_count += 1;
+            stat.max_frame_value = std::max(stat.max_frame_value, stat.current_frame_value);
+        }
+
         ++frame_count_;
         if (frame_count_ < report_interval_) {
             for (auto& [name, stat] : stats_)
                 stat.current_frame_ms = 0.0;
+            for (auto& [name, stat] : value_stats_) {
+                stat.current_frame_value = 0.0;
+                stat.current_frame_has_value = false;
+            }
             return;
         }
 
         if (!reporting_enabled_) {
             frame_count_ = 0;
             stats_.clear();
+            value_stats_.clear();
             return;
         }
 
@@ -149,7 +182,18 @@ public:
             std::cout << "  " << entry.name << ": " << entry.avg_frame_ms << " ms/frame"
                       << " (avg call " << entry.avg_call_ms << " ms, max frame " << entry.max_frame_ms << " ms)\n";
 
+        for (const auto& [name, stat] : value_stats_) {
+            if (stat.frame_count <= 0)
+                continue;
+
+            std::cout << "  " << name << ": "
+                      << (stat.total_value / static_cast<double>(stat.frame_count))
+                      << " avg/frame"
+                      << " (max frame " << stat.max_frame_value << ")\n";
+        }
+
         frame_count_ = 0;
         stats_.clear();
+        value_stats_.clear();
     }
 };

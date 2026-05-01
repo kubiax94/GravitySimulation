@@ -86,13 +86,15 @@ public:
         renderer_blend_mode blend_mode = renderer_blend_mode::opaque;
         renderer_cull_mode cull_mode = renderer_cull_mode::back;
         bool depth_write_enabled = true;
+        uint64_t material_batch_key = 0;
 
         bool operator==(const batch_key& other) const {
             return shader_ptr == other.shader_ptr
                 && mesh_ptr == other.mesh_ptr
                 && blend_mode == other.blend_mode
                 && cull_mode == other.cull_mode
-                && depth_write_enabled == other.depth_write_enabled;
+                && depth_write_enabled == other.depth_write_enabled
+                && material_batch_key == other.material_batch_key;
         }
     };
 
@@ -102,7 +104,8 @@ public:
                 ^ (std::hash<void*>{}(key.mesh_ptr) << 1)
                 ^ (static_cast<size_t>(key.blend_mode) << 2)
                 ^ (static_cast<size_t>(key.cull_mode) << 3)
-                ^ (static_cast<size_t>(key.depth_write_enabled) << 4);
+                ^ (static_cast<size_t>(key.depth_write_enabled) << 4)
+                ^ (key.material_batch_key << 5);
         }
     };
 
@@ -112,7 +115,9 @@ public:
         bool uses_gpu_positions = false;
         std::vector<uint64_t> instance_revisions;
         std::vector<glm::mat4> instance_models;
-      std::vector<int> instance_physics_indices;
+        std::vector<int> instance_physics_indices;
+        std::vector<uint64_t> visibility_revisions;
+        std::vector<bounding_box> visibility_bounds;
     };
 
 private:

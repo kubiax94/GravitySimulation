@@ -120,3 +120,17 @@ void renderer::set_gpu_physics_index(int index) {
 int renderer::get_gpu_physics_index() const {
 	return gpu_physics_index_;
 }
+
+void renderer::set_material_pre_draw(std::function<void(shader&)> material_pre_draw, uint64_t material_batch_key) {
+	material_pre_draw_ = std::move(material_pre_draw);
+	material_batch_key_ = material_batch_key;
+}
+
+void renderer::apply_material(shader& target_shader) const {
+	if (material_pre_draw_)
+		material_pre_draw_(target_shader);
+}
+
+uint64_t renderer::get_material_batch_key() const {
+	return material_batch_key_;
+}

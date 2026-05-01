@@ -31,6 +31,7 @@ public:
 
 #include <ranges>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace {
 struct pipeline_render_state {
@@ -122,11 +123,12 @@ void render_pipeline::rebuild_cached_batches() {
             item.render->get_mesh(),
             item.render->get_blend_mode(),
             item.render->get_cull_mode(),
-            item.render->is_depth_write_enabled()
+            item.render->is_depth_write_enabled(),
+            item.render->get_material_batch_key()
         };
         auto [it, inserted] = batch_indices.emplace(key, cached_batches_.size());
         if (inserted)
-            cached_batches_.push_back({ key, {}, false, {}, {} });
+            cached_batches_.push_back({ key, {}, false, {}, {}, {}, {} });
 
         cached_batches_[it->second].renders.push_back(item.render);
     }
@@ -538,7 +540,7 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
    const view_frustum frustum = build_view_frustum(frame_context.projection * frame_context.view);
     pipeline_render_state current_render_state{};
     apply_pipeline_render_state(current_render_state);
-
+    
     {
         auto section = frame_profiler::measure_active("render_pipeline_flush_build_batches");
         if (!can_reuse_cached_batches()) {
@@ -552,69 +554,112 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
 
     {
         auto section = frame_profiler::measure_active("render_pipeline_flush_execute_batches");
+        size_t visible_batch_count = 0u;
+        size_t single_visible_batch_count = 0u;
+        size_t instanced_visible_batch_count = 0u;
+        size_t visible_renderer_count = 0u;
+        size_t instanced_renderer_count = 0u;
+        std::unordered_set<shader*> visible_shaders;
+        std::unordered_set<Mesh*> visible_meshes;
+
         for (auto& batch : cached_batches_) {
             auto& renders = batch.renders;
             if (renders.empty())
                 continue;
 
             std::vector<renderer*> visible_renders;
-            visible_renders.reserve(renders.size());
-            for (auto* render : renders) {
-                if (!render || !render->get_node())
-                    continue;
-                if (intersects(frustum, render->get_node()->get_subtree_world_bounding_box()))
-                    visible_renders.push_back(render);
+            {
+                auto cull_section = frame_profiler::measure_active("render_pipeline_flush_collect_visible");
+                visible_renders.reserve(renders.size());
+                if (batch.visibility_revisions.size() != renders.size()) {
+                    batch.visibility_revisions.assign(renders.size(), 0u);
+                    batch.visibility_bounds.assign(renders.size(), {});
+                }
+
+                for (size_t render_index = 0; render_index < renders.size(); ++render_index) {
+                    auto* render = renders[render_index];
+                    if (!render)
+                        continue;
+
+                    auto* node = render->get_node();
+                    if (!node)
+                        continue;
+
+                    const uint64_t visibility_revision = render->get_instance_revision(false);
+                    if (batch.visibility_revisions[render_index] != visibility_revision) {
+                        batch.visibility_revisions[render_index] = visibility_revision;
+                        batch.visibility_bounds[render_index] = render->get_world_bounding_box();
+                    }
+
+                    if (intersects(frustum, batch.visibility_bounds[render_index]))
+                        visible_renders.push_back(render);
+                }
             }
 
             if (visible_renders.empty())
                 continue;
 
-            const pipeline_render_state batch_render_state = make_pipeline_render_state(
-                batch.key.blend_mode,
-                batch.key.cull_mode,
-                batch.key.depth_write_enabled);
-            if (batch_render_state.blend_mode != current_render_state.blend_mode
-                || batch_render_state.cull_mode != current_render_state.cull_mode
-                || batch_render_state.depth_write_enabled != current_render_state.depth_write_enabled) {
-                apply_pipeline_render_state(batch_render_state);
-                current_render_state = batch_render_state;
+            ++visible_batch_count;
+            visible_renderer_count += visible_renders.size();
+            if (batch.key.shader_ptr)
+                visible_shaders.insert(batch.key.shader_ptr);
+            if (batch.key.mesh_ptr)
+                visible_meshes.insert(batch.key.mesh_ptr);
+
+            {
+                auto state_section = frame_profiler::measure_active("render_pipeline_flush_apply_batch_state");
+                const pipeline_render_state batch_render_state = make_pipeline_render_state(
+                    batch.key.blend_mode,
+                    batch.key.cull_mode,
+                    batch.key.depth_write_enabled);
+                if (batch_render_state.blend_mode != current_render_state.blend_mode
+                    || batch_render_state.cull_mode != current_render_state.cull_mode
+                    || batch_render_state.depth_write_enabled != current_render_state.depth_write_enabled) {
+                    apply_pipeline_render_state(batch_render_state);
+                    current_render_state = batch_render_state;
+                }
             }
 
-          if (visible_renders.size() == 1) {
+            if (visible_renders.size() == 1) {
+                ++single_visible_batch_count;
                 auto draw_section = frame_profiler::measure_active("render_pipeline_flush_draw_single");
-             auto single_frame_context = frame_context;
+                auto single_frame_context = frame_context;
                 if (scene_context && visible_renders.front()->uses_gpu_driven_positions()) {
+                    auto single_gpu_section = frame_profiler::measure_active("render_pipeline_flush_prepare_single_gpu_positions");
                     const GLuint physics_ssbo = scene_context->get_render_ssbo();
                     const size_t physics_index = scene_context->get_renderer_physics_index(visible_renders.front());
                     if (physics_ssbo != 0) {
                         single_frame_context.use_gpu_positions = true;
                         single_frame_context.physics_ssbo = physics_ssbo;
-                      single_frame_context.physics_body_index = physics_index != static_cast<size_t>(-1)
+                        single_frame_context.physics_body_index = physics_index != static_cast<size_t>(-1)
                             ? static_cast<int>(physics_index)
                             : -1;
                     }
                 }
 
-              visible_renders.front()->draw(single_frame_context, pre_draw);
+                visible_renders.front()->draw(single_frame_context, pre_draw);
             }
             else {
+                ++instanced_visible_batch_count;
+                instanced_renderer_count += visible_renders.size();
                 auto draw_section = frame_profiler::measure_active("render_pipeline_flush_draw_instanced");
                 bool use_gpu_positions = false;
                 int instance_base_index = -1;
                 GLuint physics_ssbo = 0;
 
                 if (scene_context) {
+                    auto instanced_gpu_section = frame_profiler::measure_active("render_pipeline_flush_prepare_instanced_gpu_positions");
                     physics_ssbo = scene_context->get_render_ssbo();
-                   const bool gpu_driven_batch = std::ranges::all_of(visible_renders, [](const renderer* render) {
+                    const bool gpu_driven_batch = std::ranges::all_of(visible_renders, [](const renderer* render) {
                         return render && render->uses_gpu_driven_positions();
                     });
                     if (gpu_driven_batch && physics_ssbo != 0) {
                         use_gpu_positions = true;
-                      const size_t first_index = scene_context->get_renderer_physics_index(visible_renders.front());
+                        const size_t first_index = scene_context->get_renderer_physics_index(visible_renders.front());
                         if (first_index != static_cast<size_t>(-1)) {
                             instance_base_index = static_cast<int>(first_index);
 
-                           for (size_t i = 1; i < visible_renders.size(); ++i) {
+                            for (size_t i = 1; i < visible_renders.size(); ++i) {
                                 const size_t expected = first_index + i;
                                 if (scene_context->get_renderer_physics_index(visible_renders[i]) != expected) {
                                     instance_base_index = -1;
@@ -622,6 +667,16 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
                                 }
                             }
                         }
+                        else {
+                            use_gpu_positions = false;
+                            physics_ssbo = 0;
+                            instance_base_index = -1;
+                        }
+                    }
+                    else if (!gpu_driven_batch) {
+                        use_gpu_positions = false;
+                        physics_ssbo = 0;
+                        instance_base_index = -1;
                     }
                 }
 
@@ -639,7 +694,25 @@ void render_pipeline::flush(Camera* camera, const scene* scene_context, const st
                 }
             }
         }
+
+        if (visible_batch_count > 0u) {
+            const double average_visible_batch_size = static_cast<double>(visible_renderer_count) / static_cast<double>(visible_batch_count);
+            const double average_instanced_batch_size = instanced_visible_batch_count > 0u
+                ? static_cast<double>(instanced_renderer_count) / static_cast<double>(instanced_visible_batch_count)
+                : 0.0;
+
+            frame_profiler::add_value_active("render_pipeline_batching_visible_batches", static_cast<double>(visible_batch_count));
+            frame_profiler::add_value_active("render_pipeline_batching_single_batches", static_cast<double>(single_visible_batch_count));
+            frame_profiler::add_value_active("render_pipeline_batching_instanced_batches", static_cast<double>(instanced_visible_batch_count));
+            frame_profiler::add_value_active("render_pipeline_batching_unique_visible_shaders", static_cast<double>(visible_shaders.size()));
+            frame_profiler::add_value_active("render_pipeline_batching_unique_visible_meshes", static_cast<double>(visible_meshes.size()));
+            frame_profiler::add_value_active("render_pipeline_batching_avg_visible_batch_size", average_visible_batch_size);
+            frame_profiler::add_value_active("render_pipeline_batching_avg_instanced_batch_size", average_instanced_batch_size);
+        }
     }
 
-    apply_pipeline_render_state(pipeline_render_state{});
+    {
+        auto reset_state_section = frame_profiler::measure_active("render_pipeline_flush_reset_state");
+        apply_pipeline_render_state(pipeline_render_state{});
+    }
 }

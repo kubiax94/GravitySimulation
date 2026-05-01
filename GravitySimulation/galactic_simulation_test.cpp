@@ -70,15 +70,10 @@ MeshData create_particle_point_mesh() {
 	return data;
 }
 
-shader* create_rocky_planet_shader(asset_manager& assets, const planet_data& planet, bool disable_static_ocean_tint = false) {
-	shader* rocky_shader = assets.create_shader(
-		"galactic.planets." + planet.name,
-       "GravitySimulation/rocky_planet.vs.shader",
-		"GravitySimulation/rocky_planet.fs.shader");
-  auto terrain_profile = planet_terrain::make_rocky_planet_profile(planet.name);
+planet_terrain::rocky_planet_profile create_rocky_planet_profile(const planet_data& planet, bool disable_static_ocean_tint = false) {
+	auto terrain_profile = planet_terrain::make_rocky_planet_profile(planet.name);
 	terrain_profile.static_ocean_tint_enabled = !disable_static_ocean_tint;
-	planet_terrain::apply_rocky_planet_profile(*rocky_shader, terrain_profile);
-	return rocky_shader;
+	return terrain_profile;
 }
 
 shader* create_planet_cloud_shader(
@@ -276,12 +271,13 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 		auto& assets = s_to_init->get_asset_manager();
 
        auto* sun_node = s_to_init->create_scene_node("Sun");
-		shader* mercury_shader = create_rocky_planet_shader(assets, data[0]);
-		shader* venus_shader = create_rocky_planet_shader(assets, data[1]);
-     shader* earth_shader = create_rocky_planet_shader(assets, data[2], true);
+       shader* rocky_planet_shader = assets.create_shader("galactic.planets.rocky.shared", "GravitySimulation/rocky_planet.vs.shader", "GravitySimulation/rocky_planet.fs.shader");
+		const auto mercury_profile = create_rocky_planet_profile(data[0]);
+		const auto venus_profile = create_rocky_planet_profile(data[1]);
+	 const auto earth_profile = create_rocky_planet_profile(data[2], true);
       planet_data moon_data{ "Moon", 0.07346e24f, 3474.8f, 0.0f };
-		shader* moon_shader = create_rocky_planet_shader(assets, moon_data);
-		shader* mars_shader = create_rocky_planet_shader(assets, data[3]);
+        const auto moon_profile = create_rocky_planet_profile(moon_data);
+		const auto mars_profile = create_rocky_planet_profile(data[3]);
      shader* earth_cloud_shader = create_planet_cloud_shader(assets, "galactic.planets.earth.clouds", 0.66f, 0.12f, 0.26f, 0.014f, glm::vec3(0.95f, 0.98f, 1.0f), glm::vec3(0.42f, 0.52f, 0.62f));
 		shader* venus_cloud_shader = create_planet_cloud_shader(assets, "galactic.planets.venus.clouds", 0.48f, 0.20f, 0.62f, 0.011f, glm::vec3(0.98f, 0.90f, 0.70f), glm::vec3(0.48f, 0.34f, 0.18f));
 		shader* gas_giant_shader = assets.create_shader("galactic.planets.gas_giant", "GravitySimulation/lightsource.vs.shader", "GravitySimulation/gas_giant.fs.shader");
@@ -352,17 +348,24 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
         for (size_t planet_index = 0; planet_index < data.size(); ++planet_index)
 		{
            auto planet = data[planet_index];
-           shader* current_planet_shader = nullptr;
+         planet_terrain::rocky_planet_profile current_rocky_profile{};
+			bool uses_rocky_shader = false;
+			shader* current_planet_shader = nullptr;
 			if (planet.name == "Mercury")
-				current_planet_shader = mercury_shader;
+             current_rocky_profile = mercury_profile;
 			else if (planet.name == "Venus")
-				current_planet_shader = venus_shader;
+               current_rocky_profile = venus_profile;
 			else if (planet.name == "Earth")
-				current_planet_shader = earth_shader;
+               current_rocky_profile = earth_profile;
 			else if (planet.name == "Mars")
-				current_planet_shader = mars_shader;
+                current_rocky_profile = mars_profile;
 			else if (is_gas_giant(planet))
 				current_planet_shader = gas_giant_shader;
+
+			if (current_planet_shader == nullptr) {
+				current_planet_shader = rocky_planet_shader;
+				uses_rocky_shader = true;
+			}
 
             const float orbital_radius = get_visual_orbital_radius(planet, u_sys, dia_scale);
            const float orbit_angle = get_initial_orbit_angle(planet_index);
@@ -381,6 +384,12 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 			planet_node->add_component<rigid_body>(planet_node, p_physics_data);
 			auto* planet_render = planet_visual_spin_node->add_component<renderer>(planet_visual_spin_node, current_planet_shader, sphere_mesh);
 			planet_render->set_visual_scale(glm::vec3(1.f));
+           if (uses_rocky_shader) {
+				const uint64_t material_batch_key = static_cast<uint64_t>(std::hash<std::string>{}(planet.name));
+				planet_render->set_material_pre_draw([current_rocky_profile](shader& rocky_shader) {
+					planet_terrain::apply_rocky_planet_profile(rocky_shader, current_rocky_profile);
+				}, material_batch_key);
+			}
 			planets_renders.push_back(planet_render);
 
             planet_node->set_global_position(p_physics_data->position);
@@ -454,7 +463,7 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 					ocean_system->set_planetary_surface_frame_node(ocean_node);
 					ocean_system->set_planetary_terrain_profile(terrain_profile);
 					ocean_system->set_debug_visualization_mode(fluid_debug_visualization_mode::none);
-					ocean_system->set_debug_readback_enabled(true, 20u);
+                    ocean_system->set_debug_readback_enabled(false, 20u);
 				});
 
 				const glm::vec3 moon_radial_direction(
@@ -473,8 +482,11 @@ void simtest::stress_test(scene* s_to_init, std::vector<renderer*>& planets_rend
 				auto* moon_visual_spin_node = s_to_init->create_scene_node("Moon_visual_spin");
 				moon_visual_spin_node->set_parent(moon_node, false);
 				moon_node->add_component<rigid_body>(moon_node, moon_physics_data);
-				auto* moon_render = moon_visual_spin_node->add_component<renderer>(moon_visual_spin_node, moon_shader, sphere_mesh);
+                auto* moon_render = moon_visual_spin_node->add_component<renderer>(moon_visual_spin_node, rocky_planet_shader, sphere_mesh);
 				moon_render->set_visual_scale(glm::vec3(1.f));
+             moon_render->set_material_pre_draw([moon_profile](shader& rocky_shader) {
+					planet_terrain::apply_rocky_planet_profile(rocky_shader, moon_profile);
+				}, static_cast<uint64_t>(std::hash<std::string>{}(moon_data.name)));
 				planets_renders.push_back(moon_render);
 				moon_node->set_global_position(moon_physics_data->position);
 				moon_visual_spin_node->set_scale(glm::vec3(moon_data.diameter / dia_scale));

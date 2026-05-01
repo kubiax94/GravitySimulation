@@ -46,12 +46,18 @@ private:
 	shader* shader_;
 	Mesh* mesh_;
 
-   glm::vec3 visual_scale_ = glm::vec3(1.f);
- renderer_blend_mode blend_mode_ = renderer_blend_mode::opaque;
+	glm::vec3 visual_scale_ = glm::vec3(1.f);
+	renderer_blend_mode blend_mode_ = renderer_blend_mode::opaque;
 	renderer_cull_mode cull_mode_ = renderer_cull_mode::back;
 	bool depth_write_enabled_ = true;
 	bool gpu_driven_positions_ = false;
 	int gpu_physics_index_ = -1;
+	mutable bounding_box local_bounding_box_cache_;
+	mutable bool local_bounding_box_cached_ = false;
+	mutable bounding_box world_bounding_box_cache_;
+	mutable uint64_t world_bounding_box_revision_ = 0;
+	std::function<void(shader&)> material_pre_draw_;
+	uint64_t material_batch_key_ = 0;
 
 public:
 	[[nodiscard]] type_id_t get_type_id() const override;
@@ -77,6 +83,9 @@ public:
 	[[nodiscard]] bool uses_gpu_driven_positions() const;
 	void set_gpu_physics_index(int index);
 	[[nodiscard]] int get_gpu_physics_index() const;
+    void set_material_pre_draw(std::function<void(shader&)> material_pre_draw, uint64_t material_batch_key = 0);
+	void apply_material(shader& target_shader) const;
+	[[nodiscard]] uint64_t get_material_batch_key() const;
   [[nodiscard]] bounding_box get_local_bounding_box() const;
 	[[nodiscard]] bounding_box get_world_bounding_box() const;
 	shader* get_shader() const { return shader_; }

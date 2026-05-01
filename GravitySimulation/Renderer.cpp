@@ -75,6 +75,7 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
        shader_->set_uni_float("time", static_cast<float>(glfwGetTime()));
 	}
 	catch(...) {}
+   apply_material(*shader_);
 	if (pre_draw) pre_draw(*shader_);
 
 	mesh_->Draw();
@@ -84,9 +85,20 @@ void renderer::draw(const render_frame_context& frame_context, const std::functi
 }
 
 bounding_box renderer::get_local_bounding_box() const {
-	return build_mesh_local_bounding_box(mesh_, visual_scale_ * renderer_scale);
+    if (!local_bounding_box_cached_) {
+		local_bounding_box_cache_ = build_mesh_local_bounding_box(mesh_, visual_scale_ * renderer_scale);
+		local_bounding_box_cached_ = true;
+	}
+
+	return local_bounding_box_cache_;
 }
 
 bounding_box renderer::get_world_bounding_box() const {
-	return transform_bounding_box(get_local_bounding_box(), get_visual_model_matrix());
+ const uint64_t revision = get_instance_revision(false);
+	if (world_bounding_box_revision_ != revision) {
+		world_bounding_box_cache_ = transform_bounding_box(get_local_bounding_box(), get_visual_model_matrix());
+		world_bounding_box_revision_ = revision;
+	}
+
+	return world_bounding_box_cache_;
 }

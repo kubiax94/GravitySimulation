@@ -9,6 +9,7 @@
 #include "gpu_particle_system_component.h"
 #include "planetary_water_render_resource.h"
 #include "render_pipeline.h"
+#include "frame_profiler.h"
 
 #include <algorithm>
 #include <cmath>
@@ -142,10 +143,13 @@ void log_planetary_tide_texture_stats(GLuint tidal_texture, int width, int heigh
     if (tidal_texture == 0 || width <= 0 || height <= 0)
         return;
 
+    constexpr int report_interval_frames = 120;
     static int frame_counter = 0;
     ++frame_counter;
-    if (frame_counter % 120 != 0)
+    if (frame_counter < report_interval_frames)
         return;
+
+    frame_counter = 0;
 
     std::vector<float> readback(static_cast<size_t>(width) * static_cast<size_t>(height), 0.0f);
     glBindTexture(GL_TEXTURE_2D, tidal_texture);
@@ -167,11 +171,10 @@ void log_planetary_tide_texture_stats(GLuint tidal_texture, int width, int heigh
     const float texel_count = static_cast<float>(std::max<size_t>(readback.size(), 1u));
     avg_abs /= texel_count;
 
-    std::cout << "[planetary_tide_texture] min=" << min_value
-        << " max=" << max_value
-        << " avgAbs=" << avg_abs
-        << " active=" << active_count << "/" << readback.size()
-        << std::endl;
+    frame_profiler::add_value_active("planetary_tide_texture_min", min_value);
+    frame_profiler::add_value_active("planetary_tide_texture_max", max_value);
+    frame_profiler::add_value_active("planetary_tide_texture_avg_abs", avg_abs);
+    frame_profiler::add_value_active("planetary_tide_texture_active_ratio", static_cast<double>(active_count) / static_cast<double>(std::max<size_t>(readback.size(), 1u)));
 }
 
 void log_planetary_wave_texture_stats(
@@ -189,10 +192,16 @@ void log_planetary_wave_texture_stats(
     if (wave_texture == 0 || support_atlas_texture == 0 || width <= 0 || height <= 0)
         return;
 
+    if (!enable_logging)
+        return;
+
+    constexpr int report_interval_frames = 120;
     static int frame_counter = 0;
     ++frame_counter;
-    if (frame_counter % 30 != 0)
+    if (frame_counter < report_interval_frames)
         return;
+
+    frame_counter = 0;
 
     const auto& desc = domain.get_desc();
     const auto& render_mask_data = domain.get_render_mask_data();
@@ -291,19 +300,16 @@ void log_planetary_wave_texture_stats(
     out_velocity_scale = build_debug_normalization_scale(max_abs_velocity, 0.85f, 50000.0f);
     out_tidal_scale = build_debug_normalization_scale(max_abs_tidal, 0.90f, 100000000.0f);
 
-    if (enable_logging) {
-        std::cout << "[planetary_wave_debug] height[min=" << min_height
-            << ", max=" << max_height
-            << ", avgAbs=" << avg_abs_height
-            << "] velocity[min=" << min_velocity
-            << ", max=" << max_velocity
-            << ", avgAbs=" << avg_abs_velocity
-            << "] tidal[maxAbs=" << max_abs_tidal
-            << "] active[domain=" << active_domain_texels << "/" << full_texel_count
-            << ", atlas=" << active_atlas_texels << "/" << full_texel_count
-            << ", energized=" << energized_wave_texels << "/" << full_texel_count
-            << "]" << std::endl;
-    }
+    frame_profiler::add_value_active("planetary_wave_debug_height_min", min_height);
+    frame_profiler::add_value_active("planetary_wave_debug_height_max", max_height);
+    frame_profiler::add_value_active("planetary_wave_debug_height_avg_abs", avg_abs_height);
+    frame_profiler::add_value_active("planetary_wave_debug_velocity_min", min_velocity);
+    frame_profiler::add_value_active("planetary_wave_debug_velocity_max", max_velocity);
+    frame_profiler::add_value_active("planetary_wave_debug_velocity_avg_abs", avg_abs_velocity);
+    frame_profiler::add_value_active("planetary_wave_debug_tidal_max_abs", max_abs_tidal);
+    frame_profiler::add_value_active("planetary_wave_debug_active_domain_ratio", static_cast<double>(active_domain_texels) / static_cast<double>(std::max<size_t>(full_texel_count, 1u)));
+    frame_profiler::add_value_active("planetary_wave_debug_active_atlas_ratio", static_cast<double>(active_atlas_texels) / static_cast<double>(std::max<size_t>(full_texel_count, 1u)));
+    frame_profiler::add_value_active("planetary_wave_debug_energized_ratio", static_cast<double>(energized_wave_texels) / static_cast<double>(std::max<size_t>(full_texel_count, 1u)));
 }
 }
 
@@ -986,17 +992,35 @@ bool galactic_scene::render_fluid_system(engine& engine, const scene_render_cont
         return false;
 
     if (system.get_debug_visualization_mode() != fluid_debug_visualization_mode::none) {
+        auto debug_draw_section = frame_profiler::measure_active("render_fluid_system_debug_draw");
         system.draw(&context.camera, system.requires_scene_depth_texture() ? context.render_pipeline.get_scene_depth_texture_id() : 0);
         return true;
     }
 
-    ensure_planetary_water_atlas_targets(planetary_water_atlas_default_width, planetary_water_atlas_default_height);
-    render_planetary_water_atlas_input(system);
-    update_planetary_tide_field(system, context.debug_mode);
-    update_planetary_wave_field(system, context.debug_mode);
-    render_planetary_water_shell(context, system);
-    if (context.debug_mode >= 6 && context.debug_mode <= 9)
+    {
+        auto ensure_targets_section = frame_profiler::measure_active("render_fluid_system_ensure_atlas_targets");
+        ensure_planetary_water_atlas_targets(planetary_water_atlas_default_width, planetary_water_atlas_default_height);
+    }
+    {
+        auto atlas_input_section = frame_profiler::measure_active("render_fluid_system_atlas_input");
+        render_planetary_water_atlas_input(system);
+    }
+    {
+        auto tide_field_section = frame_profiler::measure_active("render_fluid_system_tide_field");
+        update_planetary_tide_field(system, context.debug_mode);
+    }
+    {
+        auto wave_field_section = frame_profiler::measure_active("render_fluid_system_wave_field");
+        update_planetary_wave_field(system, context.debug_mode);
+    }
+    {
+        auto water_shell_section = frame_profiler::measure_active("render_fluid_system_water_shell");
+        render_planetary_water_shell(context, system);
+    }
+    if (context.debug_mode >= 6 && context.debug_mode <= 11) {
+        auto wave_debug_overlay_section = frame_profiler::measure_active("render_fluid_system_wave_debug_overlay");
         render_planetary_wave_debug_overlay(context, system);
+    }
     return true;
 }
 
