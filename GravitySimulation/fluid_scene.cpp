@@ -7,6 +7,7 @@
 #include "g_shape.h"
 #include "gpu_fluid_system_component.h"
 #include "Renderer.h"
+#include "input_system.h"
 
 #include <cmath>
 
@@ -96,7 +97,7 @@ void fluid_scene::initialize_scene_content() {
     bounds.restitution = 0.18f;
     bounds.damping = 0.98f;
 
-    auto* fluid_system = fluid_node_->add_component<gpu_fluid_system_component>(
+    fluid_system_ = fluid_node_->add_component<gpu_fluid_system_component>(
         fluid_node_,
         fluid_compute_shader_,
         fluid_shader_,
@@ -114,8 +115,39 @@ void fluid_scene::initialize_scene_content() {
         6.0f,
         3u,
         5u);
-    fluid_system->set_debug_visualization_mode(fluid_debug_visualization_mode::flow_direction);
-    fluid_system->set_debug_readback_enabled(true, 20u);
+    fluid_system_->set_debug_visualization_mode(fluid_debug_visualization_mode::flow_direction);
+    fluid_system_->set_debug_readback_enabled(true, 20u);
 
     fluid_node_->set_global_position(glm::vec3(0.f));
+}
+
+void fluid_scene::handle_input(engine& engine, float dt) {
+    (void)engine;
+    (void)dt;
+
+    if (!fluid_system_)
+        return;
+
+    bool debug_mode_changed = false;
+    const bool prev_down = input_system::is_key_down(GLFW_KEY_H);
+    if (prev_down && !previous_debug_prev_down_) {
+        auto mode = static_cast<int>(fluid_system_->get_debug_visualization_mode());
+        mode = (mode + 10 - 1) % 10;
+        fluid_system_->set_debug_visualization_mode(static_cast<fluid_debug_visualization_mode>(mode));
+        debug_mode_changed = true;
+    }
+    previous_debug_prev_down_ = prev_down;
+
+    const bool next_down = input_system::is_key_down(GLFW_KEY_J);
+    if (next_down && !previous_debug_next_down_) {
+        auto mode = static_cast<int>(fluid_system_->get_debug_visualization_mode());
+        mode = (mode + 1) % 10;
+        fluid_system_->set_debug_visualization_mode(static_cast<fluid_debug_visualization_mode>(mode));
+        debug_mode_changed = true;
+    }
+    previous_debug_next_down_ = next_down;
+
+    if (debug_mode_changed) {
+        std::cout << "[fluid_debug_mode] " << static_cast<int>(fluid_system_->get_debug_visualization_mode()) << std::endl;
+    }
 }

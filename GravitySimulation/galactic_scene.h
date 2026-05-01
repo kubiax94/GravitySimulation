@@ -74,6 +74,9 @@ class galactic_scene final : public scene
     render_pipeline* active_render_pipeline_ = nullptr;
     runtime_resources runtime_resources_{};
     planetary_wave_field planetary_wave_field_{};
+    int wave_debug_mode_ = 0;
+    bool previous_wave_debug_next_down_ = false;
+    bool previous_wave_debug_prev_down_ = false;
 
     void initialize_scene_content();
     planetary_water_render_resource* get_water_render_resource() const;
@@ -104,6 +107,8 @@ public:
     explicit galactic_scene(sim::time* time);
     void initialize_runtime_resources() override;
     void release_runtime_resources() override;
+    void handle_input(engine& engine, float dt) override;
+    [[nodiscard]] int get_wave_debug_mode() const { return wave_debug_mode_; }
     [[nodiscard]] bool render_fluid_system(engine& engine, const scene_render_context& context, const gpu_fluid_system_component& system) override;
     [[nodiscard]] bool render_runtime(engine& engine, const scene_render_context& context) override;
     void update() override;

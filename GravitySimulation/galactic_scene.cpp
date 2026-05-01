@@ -1048,3 +1048,22 @@ void galactic_scene::update() {
         node->set_rotation(rotation);
     }
 }
+
+void galactic_scene::handle_input(engine& engine, float dt) {
+    (void)engine;
+    (void)dt;
+
+    const bool prev_down = input_system::is_key_down(GLFW_KEY_H);
+    if (prev_down && !previous_wave_debug_prev_down_) {
+        wave_debug_mode_ = (wave_debug_mode_ + 12 - 1) % 12;
+        std::cout << "[galactic_wave_debug_mode] " << wave_debug_mode_ << std::endl;
+    }
+    previous_wave_debug_prev_down_ = prev_down;
+
+    const bool next_down = input_system::is_key_down(GLFW_KEY_J);
+    if (next_down && !previous_wave_debug_next_down_) {
+        wave_debug_mode_ = (wave_debug_mode_ + 1) % 12;
+        std::cout << "[galactic_wave_debug_mode] " << wave_debug_mode_ << std::endl;
+    }
+    previous_wave_debug_next_down_ = next_down;
+}

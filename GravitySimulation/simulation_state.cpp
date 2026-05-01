@@ -33,6 +33,11 @@ struct focus_pick_result {
     float world_radius = 1.f;
 };
 
+bool wave_debug_next_down = false;
+bool wave_debug_prev_down = false;
+
+constexpr int wave_debug_mode_count = 12;
+
 float build_debug_normalization_scale(float max_abs_value, float target_value, float max_scale) {
     if (max_abs_value <= 1e-9f)
         return 1.0f;
@@ -747,12 +752,14 @@ void simulation_state::handle_input(engine& engine, float dt) {
         }
     }
 
-    if (poll_toggle_key(GLFW_KEY_H, previous_terrain_debug_down_)) {
+    if (scene_kind_ != example_scene_kind::fluid && scene_kind_ != example_scene_kind::galactic && poll_toggle_key(GLFW_KEY_H, previous_terrain_debug_down_)) {
         terrain_debug_mode_ = (terrain_debug_mode_ + 1) % 11;
         std::cout << "[terrain_debug_mode] " << terrain_debug_mode_ << std::endl;
         if (GLFWwindow* window = engine.get_window())
             glfwSetWindowTitle(window, build_window_title(scene_kind_, terrain_debug_mode_).c_str());
     }
+
+    scene_->handle_input(engine, dt);
 
     if (poll_toggle_key(GLFW_KEY_B, previous_bounding_box_debug_down_))
         draw_bounding_boxes_ = !draw_bounding_boxes_;
@@ -892,7 +899,9 @@ void simulation_state::render(engine& engine) {
         light_position,
         light_color,
         light_intensity,
-        terrain_debug_mode_,
+        scene_kind_ == example_scene_kind::galactic
+            ? (dynamic_cast<galactic_scene*>(scene_.get()) ? dynamic_cast<galactic_scene*>(scene_.get())->get_wave_debug_mode() : terrain_debug_mode_)
+            : terrain_debug_mode_,
         0,
         0
     };

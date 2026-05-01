@@ -39,11 +39,11 @@ private:
     bool previous_terrain_debug_down_ = false;
     bool previous_bounding_box_debug_down_ = false;
     bool previous_collision_debug_down_ = false;
-  bool previous_fluid_debug_next_down_ = false;
+    bool previous_fluid_debug_next_down_ = false;
     bool previous_fluid_debug_prev_down_ = false;
     std::array<bool, 5> previous_scene_switch_down_{};
     int terrain_debug_mode_ = 5;
- fluid_debug_visualization_mode fluid_debug_mode_ = fluid_debug_visualization_mode::none;
+    fluid_debug_visualization_mode fluid_debug_mode_ = fluid_debug_visualization_mode::none;
     bool focus_active_ = false;
     bool loading_feedback_active_ = false;
     bool draw_bounding_boxes_ = false;

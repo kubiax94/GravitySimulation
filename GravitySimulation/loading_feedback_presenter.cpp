@@ -41,6 +41,10 @@ window_title_loading_feedback::window_title_loading_feedback(std::string base_ti
     : base_title_(std::move(base_title)) {
 }
 
+void window_title_loading_feedback::set_base_title(std::string base_title) {
+    base_title_ = std::move(base_title);
+}
+
 void window_title_loading_feedback::on_loading_begin(engine& engine, const scene& active_scene, const scene_loader& loader) {
     active_ = true;
     if (base_title_.empty())

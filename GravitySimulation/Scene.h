@@ -65,6 +65,7 @@ public:
 	void sync_render() const;
   virtual void initialize_runtime_resources() {}
 	virtual void release_runtime_resources() {}
+    virtual void handle_input(engine& engine, float dt) { (void)engine; (void)dt; }
     [[nodiscard]] virtual bool render_fluid_system(engine& engine, const scene_render_context& context, const gpu_fluid_system_component& system) { return false; }
 	[[nodiscard]] virtual bool render_runtime(engine& engine, const scene_render_context& context) { return false; }
     [[nodiscard]] virtual bool has_primary_light() const { return false; }
