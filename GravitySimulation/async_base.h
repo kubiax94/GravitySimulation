@@ -37,7 +37,7 @@ class async_base
 {
 protected:
 	std::atomic<async_status> status_{ async_status::IDLE };
-	std::future<ResultType> future_;
+    std::shared_future<ResultType> future_;
 	async_priority priority_;
 
 	// For Control
@@ -100,7 +100,7 @@ public:
 		should_pause_ = false;
 		start_time_ = std::chrono::steady_clock::now();
 
-		future_ = std::async(std::launch::async, [this]() -> ResultType {
+       auto future = std::async(std::launch::async, [this]() -> ResultType {
 			try {
 				ResultType result = execution_with_control();
 
@@ -124,7 +124,8 @@ public:
 				throw;
 			}
 		});
-      return std::future<ResultType>();
+     future_ = future.share();
+		return future;
 
 	}
 
