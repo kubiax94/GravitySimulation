@@ -51,9 +51,6 @@ compute_shader::compute_shader(const char* compute_source) : shader() {
 }
 
 compute_shader::~compute_shader() {
-	for (auto& [binding, info] : binding_data_) {
-		delete info;
-	}
 	binding_data_.clear();
 }
 

@@ -148,4 +148,3 @@ void main()
 	};
 }
 
-#include "..\GravitySimulation\render_pipeline.cpp"

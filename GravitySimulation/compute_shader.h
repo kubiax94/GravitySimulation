@@ -3,8 +3,11 @@
 #include "physics_data.h"
 #include "Shader.h"
 #include <cstddef>
+#include <memory>
+#include <utility>
 #include <vector>
 #include <cstring>
+#include <unordered_map>
 
 class compute_shader : public shader
 {
@@ -61,8 +64,23 @@ private:
 		std::vector<T> data;
 	}; 
 
-	std::unordered_map<GLuint, ssbo_info*> binding_data_;
+	std::unordered_map<GLuint, std::unique_ptr<ssbo_info>> binding_data_;
 	void change_buffor_size(const size_t& n_size);
+
+    ssbo_info* get_ssbo_info(GLuint binding) {
+        auto it = binding_data_.find(binding);
+        return it != binding_data_.end() ? it->second.get() : nullptr;
+    }
+
+    const ssbo_info* get_ssbo_info(GLuint binding) const {
+        auto it = binding_data_.find(binding);
+        return it != binding_data_.end() ? it->second.get() : nullptr;
+    }
+
+    template<typename T>
+    ssbo_data<T>* get_typed_ssbo_info(GLuint binding) {
+        return dynamic_cast<ssbo_data<T>*>(get_ssbo_info(binding));
+    }
 
 public:
 	compute_shader(const char* compute_source);
@@ -125,11 +143,10 @@ void compute_shader::add_ssbo(const GLuint& binding, const std::vector<T>& data)
 	use();
 
 	if (binding_data_.contains(binding)) {
-		delete binding_data_[binding];
 		binding_data_.erase(binding);
 	}
 
-	ssbo_data<T>* n_data = new ssbo_data<T>();
+   auto n_data = std::make_unique<ssbo_data<T>>();
 	n_data->size = data.size();
 	n_data->data = data;
 
@@ -139,7 +156,8 @@ void compute_shader::add_ssbo(const GLuint& binding, const std::vector<T>& data)
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, n_data->id);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-	binding_data_[binding] = n_data;
+ std::unique_ptr<ssbo_info> base_data = std::move(n_data);
+    binding_data_[binding] = std::move(base_data);
 }
 
 template <typename T>
@@ -149,7 +167,11 @@ void compute_shader::get_binding_data(GLuint bind, std::vector<T>& out) {
         return;
     }
 
-    auto* info = binding_data_.at(bind);
+  ssbo_info* info = get_ssbo_info(bind);
+    if (!info) {
+        out.clear();
+        return;
+    }
     const size_t count = info->size;
 
     use();
@@ -166,7 +188,11 @@ void compute_shader::get_binding_data_indices(GLuint bind, const std::vector<siz
         return;
     }
 
-    auto* info = binding_data_.at(bind);
+  ssbo_info* info = get_ssbo_info(bind);
+    if (!info) {
+        out.clear();
+        return;
+    }
     out.resize(indices.size());
 
     use();
@@ -195,7 +221,9 @@ void compute_shader::get_binding_data_indices(GLuint bind, const std::vector<siz
 template <typename T>
 void compute_shader::enqueue_readback(GLuint binding) {
     if (!binding_data_.contains(binding)) return;
-    auto* info = binding_data_.at(binding);
+  ssbo_info* info = get_ssbo_info(binding);
+    if (!info)
+        return;
 
     if (info->pbo_ids.empty()) {
         const int pbo_count = 4;
@@ -249,7 +277,9 @@ void compute_shader::enqueue_readback_indices(GLuint binding, const std::vector<
     if (!binding_data_.contains(binding) || indices.empty())
         return;
 
-    auto* info = binding_data_.at(binding);
+  ssbo_info* info = get_ssbo_info(binding);
+    if (!info)
+        return;
 
     if (info->pbo_ids.empty()) {
         const int pbo_count = 4;
@@ -318,7 +348,11 @@ void compute_shader::enqueue_readback_indices(GLuint binding, const std::vector<
 template <typename T>
 void compute_shader::try_readback(GLuint binding, std::vector<T>& out) {
     if (!binding_data_.contains(binding)) { out.clear(); return; }
-    auto* info = binding_data_.at(binding);
+  ssbo_info* info = get_ssbo_info(binding);
+    if (!info) {
+        out.clear();
+        return;
+    }
     const auto copy_latest_completed = [&]() {
         if (info->latest_completed_result.size() != sizeof(T) * info->size) {
             out.clear();
@@ -375,7 +409,9 @@ bool compute_shader::try_dequeue_readback(GLuint binding, std::vector<T>& out) {
     if (!binding_data_.contains(binding))
         return false;
 
-    auto* info = binding_data_.at(binding);
+  ssbo_info* info = get_ssbo_info(binding);
+    if (!info)
+        return false;
     if (info->pbo_ids.empty() || info->pbo_pending_count == 0)
         return false;
 
@@ -418,7 +454,9 @@ bool compute_shader::try_dequeue_readback_indices(GLuint binding, const std::vec
     if (!binding_data_.contains(binding) || indices.empty())
         return false;
 
-    auto* info = binding_data_.at(binding);
+  ssbo_info* info = get_ssbo_info(binding);
+    if (!info)
+        return false;
     if (info->pbo_ids.empty() || info->pbo_pending_count == 0)
         return false;
 
@@ -485,7 +523,9 @@ void compute_shader::update_ssbo(const GLuint& binding, const std::vector<T>& da
 
     use();
 
-    auto* old_data = static_cast<ssbo_data<T>*>(binding_data_[binding]);
+  auto* old_data = get_typed_ssbo_info<T>(binding);
+    if (!old_data)
+        return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, old_data->id);
 
    if (old_data->size != data.size())
@@ -514,7 +554,9 @@ void compute_shader::update_ssbo_indices(const GLuint& binding, const std::vecto
 
     use();
 
-    auto* old_data = static_cast<ssbo_data<T>*>(binding_data_[binding]);
+  auto* old_data = get_typed_ssbo_info<T>(binding);
+    if (!old_data)
+        return;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, old_data->id);
 
     size_t range_start = 0u;

@@ -5,7 +5,9 @@ class frame_profiler {
 public:
     struct scope_timer {};
     [[nodiscard]] static scope_timer measure_active(std::string) { return {}; }
+    static void add_value_active(const std::string&, double) {}
 };
+#include "compute_shader.h"
 #else
 #include "frame_profiler.h"
 #endif
