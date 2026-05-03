@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
 class input_system
@@ -19,6 +20,8 @@ public:
 
 	static const glm::vec3& get_mouse_pos();
 	static const glm::vec3& get_mouse_move();
+    static const glm::vec2& get_mouse_scroll();
+	static glm::vec2 consume_mouse_scroll();
 	static double get_mouse_x();
 	static double get_mouse_move_x();
 	static double get_mouse_y();
@@ -31,6 +34,7 @@ public:
 	static void on_mouse_button_release(int button);
 
 	static void on_mouse_move(const double x, const double y);
+    static void on_mouse_scroll(const double xoffset, const double yoffset);
 	static void reset_mouse_delta();
 
 private:
@@ -42,6 +46,7 @@ private:
 	static glm::vec3 mouse_pos_;
 	static glm::vec3 mouse_previous_pos_;
 	static glm::vec3 mouse_move_;
+   static glm::vec2 mouse_scroll_;
 	static bool dirty_mouse_pos_;
 
 	static void recalculate_move();

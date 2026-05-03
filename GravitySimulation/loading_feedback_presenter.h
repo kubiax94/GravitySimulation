@@ -18,6 +18,15 @@ public:
     virtual void render(engine& engine, const scene& active_scene, const scene_loader& loader);
 };
 
+class runtime_ui_loading_feedback final : public loading_feedback_presenter
+{
+public:
+    void on_loading_begin(engine& engine, const scene& active_scene, const scene_loader& loader) override;
+    void on_loading_update(engine& engine, const scene& active_scene, const scene_loader& loader) override;
+    void on_loading_complete(engine& engine, const scene& active_scene, const scene_loader& loader) override;
+    void on_loading_failed(engine& engine, const scene& active_scene, const scene_loader& loader) override;
+};
+
 class window_title_loading_feedback final : public loading_feedback_presenter
 {
     std::string base_title_;

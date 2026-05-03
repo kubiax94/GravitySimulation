@@ -16,6 +16,7 @@
 #include "Shader.h"
 #include "Transform.h"
 #include "engine.h"
+#include "frame_profiler.h"
 #include "input_system.h"
 #include "ui_text_renderer.h"
 
@@ -45,6 +46,7 @@ MeshData create_ui_quad_mesh() {
     data.indices = { 0u, 1u, 2u, 0u, 2u, 3u };
     return data;
 }
+
 }
 
 bool ui_render_pipeline::ensure_resources(scene& scene_context) {
@@ -92,6 +94,29 @@ bool ui_render_pipeline::is_ready() const {
         && text_renderer_->is_ready();
 }
 
+void ui_render_pipeline::begin_clip_rect(engine& engine, const glm::vec2& top_left, const glm::vec2& size) const {
+    GLFWwindow* window = engine.get_window();
+    if (!window)
+        return;
+
+    int framebuffer_width = 0;
+    int framebuffer_height = 0;
+    glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+    if (framebuffer_width <= 0 || framebuffer_height <= 0)
+        return;
+
+    const int scissor_x = static_cast<int>(std::max(top_left.x, 0.0f));
+    const int scissor_y = static_cast<int>(std::max(static_cast<float>(framebuffer_height) - top_left.y - size.y, 0.0f));
+    const int scissor_width = static_cast<int>(std::max(size.x, 0.0f));
+    const int scissor_height = static_cast<int>(std::max(size.y, 0.0f));
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(scissor_x, scissor_y, scissor_width, scissor_height);
+}
+
+void ui_render_pipeline::end_clip_rect() const {
+    glDisable(GL_SCISSOR_TEST);
+}
+
 void ui_render_pipeline::begin_frame(const scene* scene_context) {
     scene_context_ = scene_context;
     current_left_mouse_down_ = input_system::is_button_down(GLFW_MOUSE_BUTTON_LEFT);
@@ -134,6 +159,8 @@ glm::vec2 ui_render_pipeline::resolve_top_left(engine& engine, const glm::vec2& 
 }
 
 void ui_render_pipeline::draw_panel(engine& engine, const panel_desc& panel) const {
+    auto section = frame_profiler::measure_active("ui_draw_panel");
+
     if (!is_ready())
         return;
 
@@ -171,22 +198,41 @@ void ui_render_pipeline::draw_panel(engine& engine, const panel_desc& panel) con
 }
 
 void ui_render_pipeline::draw_label(engine& engine, const label_desc& label) const {
+    auto section = frame_profiler::measure_active("ui_draw_label");
+
     if (!is_ready())
         return;
 
     glm::vec2 draw_position = resolve_top_left(engine, label.top_left, label.anchor, label.anchor_offset);
+    ui_text_renderer::text_bounds bounds;
+    {
+        auto measure_section = frame_profiler::measure_active("ui_measure_text");
+        bounds = text_renderer_->measure_text(label.text, label.scale);
+    }
     if (label.horizontal_alignment != ui_horizontal_alignment::left && label.bounds_size.x > 0.0f) {
-        const auto bounds = text_renderer_->measure_text(label.text, label.scale);
         if (label.horizontal_alignment == ui_horizontal_alignment::center)
             draw_position.x += std::max((label.bounds_size.x - bounds.max_line_width) * 0.5f, 0.0f);
         else if (label.horizontal_alignment == ui_horizontal_alignment::right)
             draw_position.x += std::max(label.bounds_size.x - bounds.max_line_width, 0.0f);
     }
 
-    text_renderer_->render_text(engine, label.text, draw_position, label.scale, label.color);
+    if (label.vertical_alignment != ui_vertical_alignment::top && label.bounds_size.y > 0.0f) {
+        const float text_height = std::max(bounds.size.y, bounds.line_height);
+        if (label.vertical_alignment == ui_vertical_alignment::center)
+            draw_position.y += std::max((label.bounds_size.y - text_height) * 0.5f, 0.0f);
+        else if (label.vertical_alignment == ui_vertical_alignment::bottom)
+            draw_position.y += std::max(label.bounds_size.y - text_height, 0.0f);
+    }
+
+    {
+        auto render_text_section = frame_profiler::measure_active("ui_render_text");
+        text_renderer_->render_text(engine, label.text, draw_position, label.scale, label.color);
+    }
 }
 
 void ui_render_pipeline::draw_button(engine& engine, const button_desc& button) {
+    auto section = frame_profiler::measure_active("ui_draw_button");
+
     if (!is_ready())
         return;
 
@@ -202,8 +248,9 @@ void ui_render_pipeline::draw_button(engine& engine, const button_desc& button) 
         button_top_left + glm::vec2(button.padding.left, button.padding.top),
         0.72f,
         button.text_color,
-        button.size - glm::vec2(button.padding.left + button.padding.right, 0.0f),
+        button.size - glm::vec2(button.padding.left + button.padding.right, button.padding.top + button.padding.bottom),
         ui_horizontal_alignment::center,
+        ui_vertical_alignment::center,
         nullptr,
         glm::vec2(0.0f)
     });
@@ -213,6 +260,8 @@ void ui_render_pipeline::draw_button(engine& engine, const button_desc& button) 
 }
 
 void ui_render_pipeline::draw_metric_row(engine& engine, const metric_row_desc& row) const {
+    auto section = frame_profiler::measure_active("ui_draw_metric_row");
+
     if (!is_ready())
         return;
 
@@ -240,8 +289,12 @@ void ui_render_pipeline::draw_metric_row(engine& engine, const metric_row_desc& 
 
 void ui_render_pipeline::draw_panel_with_children(engine& engine, const panel_desc& panel, const std::function<void()>& content_draw) {
     draw_panel(engine, panel);
+    if (panel.clip_children)
+        begin_clip_rect(engine, resolve_top_left(engine, panel.top_left, panel.anchor, panel.anchor_offset), panel.size);
     if (content_draw)
         content_draw();
+    if (panel.clip_children)
+        end_clip_rect();
 }
 
 ui_render_pipeline::vertical_layout ui_render_pipeline::begin_vertical_layout(const panel_desc& panel, float spacing) const {

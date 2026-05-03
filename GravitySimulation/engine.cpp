@@ -27,6 +27,12 @@ void engine::mouse_buttons_callback(GLFWwindow* window, int button, int action, 
         input_system::on_mouse_button_release(button);
 }
 
+namespace {
+void mouse_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    input_system::on_mouse_scroll(xoffset, yoffset);
+}
+}
+
 void engine::framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -65,6 +71,7 @@ bool engine::init(int width, int height, const std::string& title) {
     glfwSetKeyCallback(window_, key_callback);
     glfwSetCursorPosCallback(window_, mouse_pos_callback);
     glfwSetMouseButtonCallback(window_, mouse_buttons_callback);
+    glfwSetScrollCallback(window_, mouse_scroll_callback);
     glfwSetFramebufferSizeCallback(window_, framebuffer_size_callback);
 
     int fbWidth = 0, fbHeight = 0;

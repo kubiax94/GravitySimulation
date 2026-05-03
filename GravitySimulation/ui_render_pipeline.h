@@ -8,38 +8,14 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include "ui_layout.h"
+
 class engine;
 class scene;
 class shader;
 class Mesh;
 class ui_text_renderer;
 class i_transformable;
-
-enum class ui_horizontal_alignment {
-    left,
-    center,
-    right
-};
-
-struct ui_spacing {
-    float left = 0.0f;
-    float top = 0.0f;
-    float right = 0.0f;
-    float bottom = 0.0f;
-
-    ui_spacing() = default;
-    explicit ui_spacing(float uniform)
-        : left(uniform), top(uniform), right(uniform), bottom(uniform) {
-    }
-
-    ui_spacing(float horizontal, float vertical)
-        : left(horizontal), top(vertical), right(horizontal), bottom(vertical) {
-    }
-
-    ui_spacing(float left_value, float top_value, float right_value, float bottom_value)
-        : left(left_value), top(top_value), right(right_value), bottom(bottom_value) {
-    }
-};
 
 class ui_render_pipeline
 {
@@ -51,6 +27,7 @@ public:
         ui_spacing padding = ui_spacing(0.0f);
         const i_transformable* anchor = nullptr;
         glm::vec2 anchor_offset = glm::vec2(0.0f);
+        bool clip_children = false;
     };
 
     struct label_desc {
@@ -60,6 +37,7 @@ public:
         glm::vec3 color = glm::vec3(1.0f);
         glm::vec2 bounds_size = glm::vec2(0.0f);
         ui_horizontal_alignment horizontal_alignment = ui_horizontal_alignment::left;
+        ui_vertical_alignment vertical_alignment = ui_vertical_alignment::top;
         const i_transformable* anchor = nullptr;
         glm::vec2 anchor_offset = glm::vec2(0.0f);
     };
@@ -108,7 +86,6 @@ private:
 
     bool ensure_resources(scene& scene_context);
     bool is_point_inside(const glm::vec2& point, const glm::vec2& top_left, const glm::vec2& size) const;
-    void draw_panel(engine& engine, const panel_desc& panel) const;
     glm::vec2 resolve_top_left(engine& engine, const glm::vec2& top_left, const i_transformable* anchor, const glm::vec2& anchor_offset) const;
 
 public:
@@ -118,6 +95,9 @@ public:
 
     void begin_frame(const scene* scene_context = nullptr);
     void end_frame();
+    void draw_panel(engine& engine, const panel_desc& panel) const;
+    void begin_clip_rect(engine& engine, const glm::vec2& top_left, const glm::vec2& size) const;
+    void end_clip_rect() const;
     void draw_label(engine& engine, const label_desc& label) const;
     void draw_button(engine& engine, const button_desc& button);
     void draw_metric_row(engine& engine, const metric_row_desc& row) const;

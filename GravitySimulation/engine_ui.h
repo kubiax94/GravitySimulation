@@ -1,10 +1,13 @@
 #pragma once
 
 #include <string>
+#include <memory>
 #include <vector>
 
 #include "frame_profiler.h"
 #include "transformable.h"
+#include "ui_loading_feedback_state.h"
+#include "ui_widget.h"
 #include "ui_render_pipeline.h"
 #include "ui_text_renderer.h"
 
@@ -26,11 +29,13 @@ public:
 private:
     ui_text_renderer text_renderer_;
     ui_render_pipeline ui_pipeline_;
-    bool profiler_visible_ = true;
     scene* bound_scene_ = nullptr;
     std::vector<anchored_label> anchored_labels_;
+    std::vector<std::unique_ptr<ui_widget>> runtime_widgets_;
+    std::vector<std::unique_ptr<ui_widget>> editor_widgets_;
+    ui_loading_feedback_state loading_feedback_state_{};
 
-    static std::string build_profiler_overlay_text(const frame_profiler::report_snapshot& report);
+    void ensure_default_widgets();
 
 public:
     bool initialize(scene& scene_context);
@@ -40,4 +45,9 @@ public:
     void end_frame();
     bool is_ready() const;
     void submit_anchored_label(anchored_label label);
+    void submit_loading_feedback(ui_loading_feedback_state state) { loading_feedback_state_ = std::move(state); }
+    void clear_loading_feedback() { loading_feedback_state_ = ui_loading_feedback_state{}; }
+    const ui_loading_feedback_state& get_loading_feedback_state() const { return loading_feedback_state_; }
+    void register_runtime_widget(std::unique_ptr<ui_widget> widget);
+    void register_editor_widget(std::unique_ptr<ui_widget> widget);
 };

@@ -7,6 +7,7 @@ std::unordered_map<int, bool> input_system::previous_keys_;
 glm::vec3 input_system::mouse_pos_ = glm::vec3(0);
 glm::vec3 input_system::mouse_previous_pos_ = glm::vec3(0);
 glm::vec3 input_system::mouse_move_ = glm::vec3(0);
+glm::vec2 input_system::mouse_scroll_ = glm::vec2(0.0f);
 bool input_system::dirty_mouse_pos_ = false;
 
 bool input_system::is_button_down(int key) {
@@ -39,6 +40,16 @@ const glm::vec3& input_system::get_mouse_move() {
 	return mouse_move_;
 }
 
+const glm::vec2& input_system::get_mouse_scroll() {
+	return mouse_scroll_;
+}
+
+glm::vec2 input_system::consume_mouse_scroll() {
+	const glm::vec2 scroll = mouse_scroll_;
+	mouse_scroll_ = glm::vec2(0.0f);
+	return scroll;
+}
+
 void input_system::on_key_press(int key) { current_keys_[key] = true; }
 
 void input_system::on_key_release(int key) { current_keys_[key] = false; }
@@ -66,6 +77,11 @@ void input_system::on_mouse_move(const double x, const double y) {
 	mouse_pos_ = glm::vec3(x, y, 0);
 
 	dirty_mouse_pos_ = true;
+}
+
+void input_system::on_mouse_scroll(const double xoffset, const double yoffset) {
+	mouse_scroll_.x += static_cast<float>(xoffset);
+	mouse_scroll_.y += static_cast<float>(yoffset);
 }
 
 void input_system::recalculate_move() {

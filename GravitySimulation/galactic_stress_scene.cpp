@@ -3,29 +3,16 @@
 #include "galactic_simulation_test.h"
 
 #include "Camera.h"
-#include "compute_shader.h"
 #include "Renderer.h"
 #include "g_shape.h"
-#include "gpu_particle_system_component.h"
 
 namespace {
-constexpr int stress_object_count = 25000;
+constexpr int stress_object_count = 1000;
 constexpr float camera_height = 820.f;
 constexpr float camera_distance = 2350.f;
 constexpr float grid_size = 5000.f;
 constexpr float sun_marker_scale = 65.f;
 constexpr float sun_halo_scale_multiplier = 1.08f;
-constexpr float particle_simulation_speed = 2500000.f;
-
-MeshData create_particle_point_mesh() {
-    MeshData data;
-    Vertex vertex{};
-    vertex.Position = glm::vec3(0.f);
-    vertex.Normal = glm::vec3(0.f, 1.f, 0.f);
-    data.vertecies.push_back(vertex);
-    data.indices = { 0u };
-    return data;
-}
 }
 
 galactic_stress_scene::galactic_stress_scene(sim::time* time)
@@ -64,19 +51,5 @@ void galactic_stress_scene::initialize_scene_content() {
     sun_halo_render->set_depth_write_enabled(false);
     sun_halo_render->set_cull_mode(renderer_cull_mode::front);
 
-    auto* particle_node = create_scene_node("galactic_stress_particles");
-    static MeshData particle_data = create_particle_point_mesh();
-    particle_mesh_ = assets.create_mesh(particle_data);
-    particle_mesh_->type = MeshType::POINTS;
-    particle_shader_ = assets.create_shader("stress.particles", "GravitySimulation/gpu_particle_system.vs.shader", "GravitySimulation/gpu_particle_system.fs.shader");
-    particle_compute_shader_ = assets.create_compute_shader("stress.compute", "GravitySimulation/gravity_defor.glsl");
-    particle_node->add_component<gpu_particle_system_component>(
-        particle_node,
-        particle_compute_shader_,
-        particle_shader_,
-        particle_mesh_,
-        get_unit_system(),
-        simtest::create_stress_particles(stress_object_count),
-        2.5f,
-        particle_simulation_speed);
+    simtest::stress_test(this, planet_renderers_, stress_object_count);
 }

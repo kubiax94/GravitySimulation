@@ -1066,7 +1066,7 @@ void simulation_state::update_loading_feedback(engine& engine) {
 }
 
 std::unique_ptr<loading_feedback_presenter> simulation_state::create_loading_feedback_presenter(engine& engine) {
-    return std::make_unique<window_title_loading_feedback>(build_window_title(scene_kind_));
+    return std::make_unique<runtime_ui_loading_feedback>();
 
 }
 

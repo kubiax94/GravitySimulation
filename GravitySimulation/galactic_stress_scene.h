@@ -4,6 +4,8 @@
 #include "Scene.h"
 #include "Shader.h"
 
+#include <vector>
+
 class compute_shader;
 
 class galactic_stress_scene final : public scene
@@ -12,9 +14,7 @@ class galactic_stress_scene final : public scene
     Mesh* grid_mesh_ = nullptr;
     shader* sun_shader_ = nullptr;
     Mesh* sun_mesh_ = nullptr;
-    shader* particle_shader_ = nullptr;
-    Mesh* particle_mesh_ = nullptr;
-    compute_shader* particle_compute_shader_ = nullptr;
+    std::vector<renderer*> planet_renderers_;
 
     void initialize_scene_content();
 
