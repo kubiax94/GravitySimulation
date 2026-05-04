@@ -172,6 +172,7 @@
     <ClCompile Include="galactic_scene.cpp" />
     <ClCompile Include="galactic_simulation_test.cpp" />
     <ClCompile Include="galactic_stress_scene.cpp" />
+    <ClCompile Include="galactic_stress_test.cpp" />
     <ClCompile Include="gpu_fluid_system_component.cpp" />
     <ClCompile Include="gpu_particle_system_component.cpp" />
     <ClCompile Include="GravitySimulation.cpp" />
@@ -190,6 +191,7 @@
     <ClCompile Include="scene_loader.cpp" />
     <ClCompile Include="shader_group.cpp" />
     <ClCompile Include="simulation_state.cpp" />
+    <ClCompile Include="sim_time.cpp" />
     <ClCompile Include="ssbo_manager.cpp" />
     <ClCompile Include="terrain_mesh_resource.cpp" />
     <ClCompile Include="texture.cpp" />
@@ -215,7 +217,6 @@
     <ClCompile Include="scene_node.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="g_shape.cpp" />
-    <ClCompile Include="Time.cpp" />
     <ClCompile Include="Transform.cpp" />
     <ClCompile Include="transformable.cpp" />
     <ClCompile Include="unit_system.cpp" />
@@ -257,6 +258,7 @@
     <ClInclude Include="galactic_scene.h" />
     <ClInclude Include="galactic_simulation_test.h" />
     <ClInclude Include="galactic_stress_scene.h" />
+    <ClInclude Include="galactic_stress_test.h" />
     <ClInclude Include="gpu_fluid_system_component.h" />
     <ClInclude Include="gpu_particle_system_component.h" />
     <ClInclude Include="input_system.h" />
@@ -278,6 +280,7 @@
     <ClInclude Include="scene_loader.h" />
     <ClInclude Include="shader_group.h" />
     <ClInclude Include="simulation_state.h" />
+    <ClInclude Include="sim_time.h" />
     <ClInclude Include="spatial_query.h" />
     <ClInclude Include="ssbo_manager.h" />
     <ClInclude Include="terrain_mesh_resource.h" />
@@ -306,7 +309,6 @@
     <ClInclude Include="scene_node.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="g_shape.h" />
-    <ClInclude Include="Time.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="transformable.h" />
     <ClInclude Include="unit_system.h" />

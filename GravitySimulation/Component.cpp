@@ -10,6 +10,10 @@ scene_node* component::get_node() const {
 	return owner_node_;
 }
 
+void component::append_association_type_ids(std::vector<type_id_t>& type_ids) const {
+	type_ids.push_back(get_type_id());
+}
+
 void component::attach_to(scene_node* n_node)
 {
 	owner_node_ = n_node;

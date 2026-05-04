@@ -10,7 +10,7 @@
 #include <algorithm>
 
 #include "Camera.h"
-#include "Time.h"
+#include "sim_time.h"
 #include "asset_manager.h"
 #include "physics_system.h"
 #include "scene_loader.h"
@@ -44,7 +44,7 @@ class scene : public i_scene_manager
 	std::vector<renderer*> renderers_;
    std::vector<gpu_fluid_system_component*> gpu_fluid_systems_;
    std::vector<gpu_particle_system_component*> gpu_particle_systems_;
-	sim::time* time_;
+	sim::time_sim* time_;
 	asset_manager asset_manager_;
 	scene_loader scene_loader_;
 
@@ -56,13 +56,14 @@ class scene : public i_scene_manager
 public:
 	virtual ~scene();
 	scene();
-	scene(sim::time* time);
+	scene(sim::time_sim* time);
 
 	void init();
 
 	virtual void update();
 	virtual void draw();
 	void sync_render() const;
+    [[nodiscard]] virtual bool requires_scene_graph_update() const { return false; }
   virtual void initialize_runtime_resources() {}
 	virtual void release_runtime_resources() {}
     virtual void handle_input(engine& engine, float dt) { (void)engine; (void)dt; }
@@ -109,3 +110,4 @@ public:
 };
 
 #endif // !SCENE_H_
+

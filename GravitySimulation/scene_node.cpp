@@ -24,6 +24,34 @@ scene_node::scene_node(const std::string& name, scene_node* parent, i_scene_mana
 	: name_(name), parent_(parent), scene_manager_(scene_manager) {
 }
 
+void scene_node::store_component(component* comp) {
+	if (!comp)
+		return;
+
+  component_association_type_ids_cache_.clear();
+	comp->append_association_type_ids(component_association_type_ids_cache_);
+	for (const type_id_t type_id : component_association_type_ids_cache_) {
+		if (type_id >= component_slots_.size())
+			component_slots_.resize(type_id + 1, nullptr);
+
+		component_slots_[type_id] = comp;
+	}
+
+	components_[comp->get_type_id()] = comp;
+}
+
+void scene_node::clear_component_slots(component* comp) {
+	if (!comp)
+		return;
+
+	component_association_type_ids_cache_.clear();
+	comp->append_association_type_ids(component_association_type_ids_cache_);
+	for (const type_id_t type_id : component_association_type_ids_cache_) {
+		if (type_id < component_slots_.size() && component_slots_[type_id] == comp)
+			component_slots_[type_id] = nullptr;
+	}
+}
+
 void scene_node::add_child(scene_node* n_node) {
  if (!n_node)
 		return;
@@ -61,7 +89,7 @@ scene_node* scene_node::get_parent() const {
 }
 bool scene_node::add_component(component* comp) {
 	comp->attach_to(this);
-	components_[comp->get_type_id()] = comp;
+    store_component(comp);
 
 	return comp;
 }
@@ -77,7 +105,9 @@ i_scene_manager* scene_node::get_scene_manager() const {
 
 void scene_node::remove_component(component* component) {
 	component->detach();
-	components_.erase(component->get_type_id());
+    const type_id_t type_id = component->get_type_id();
+  clear_component_slots(component);
+	components_.erase(type_id);
 }
 
 void scene_node::set_collision_layer(collision_layer layer) {
@@ -110,6 +140,22 @@ uint64_t scene_node::get_transform_revision() const {
 
 uint64_t scene_node::get_orientation_revision() const {
 	return orientation_revision_;
+}
+
+scene_node::~scene_node() {
+  for (auto* comp : components_ | std::views::values) {
+		if (comp)
+			comp->detach();
+	}
+
+	for (auto* child : children_ | std::views::values)
+		delete child;
+	children_.clear();
+
+	for (auto* comp : components_ | std::views::values)
+		delete comp;
+	components_.clear();
+	component_slots_.clear();
 }
 
 void scene_node::update() {
@@ -227,6 +273,9 @@ void scene_node::set_global_position(const glm::vec3& n_pos) {
 }
 
 void scene_node::set_position(const glm::vec3& n_pos) {
+  if (glm::all(glm::epsilonEqual(transform_.GetPosition(), n_pos, 0.000001f)))
+		return;
+
 	transform_.setPosition(n_pos);
     set_dirty(false);
 }

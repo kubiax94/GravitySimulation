@@ -141,7 +141,7 @@ class physics_system
 	float simulation_time_ = 0.f;
 
     // async readback control
-    int readback_interval_ = 1;
+    int readback_interval_ = 0;
     int frame_idx_ = 0;
 
 public:

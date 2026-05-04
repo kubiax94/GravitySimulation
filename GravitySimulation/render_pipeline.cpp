@@ -21,6 +21,7 @@ class scene {
 public:
     [[nodiscard]] size_t get_renderer_physics_index(const renderer*) const { return static_cast<size_t>(-1); }
     [[nodiscard]] GLuint get_render_ssbo() const { return 0; }
+    [[nodiscard]] bool supports_gpu_driven_rendering() const { return false; }
 };
 #else
 #include "Scene.h"
@@ -514,6 +515,12 @@ render_pipeline::~render_pipeline() {
 
 void render_pipeline::begin_frame() {
     items_.clear();
+}
+
+void render_pipeline::reset_cache() {
+    items_.clear();
+    cached_submission_.clear();
+    cached_batches_.clear();
 }
 
 void render_pipeline::release_scene_depth_texture() {

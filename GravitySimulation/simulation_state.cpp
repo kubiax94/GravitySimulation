@@ -99,7 +99,7 @@ float damp_factor(float dt, float sharpness) {
     return 1.f - std::exp(-glm::max(dt, 0.f) * sharpness);
 }
 
-std::unique_ptr<scene> create_example_scene(simulation_state::example_scene_kind scene_kind, sim::time* time) {
+std::unique_ptr<scene> create_example_scene(simulation_state::example_scene_kind scene_kind, sim::time_sim* time) {
     switch (scene_kind) {
     case simulation_state::example_scene_kind::fluid:
         return std::make_unique<fluid_scene>(time);
@@ -314,6 +314,57 @@ void orient_camera_towards(Camera& camera, const glm::vec3& target_position) {
     camera.get_node()->set_global_rotation(euler);
 }
 
+std::optional<focus_pick_result> select_focus_pick_from_hits(
+    const std::vector<ray_cast_hit>& hits,
+    const glm::vec2& mouse_position,
+    int window_width,
+    int window_height,
+    const glm::mat4& view,
+    const glm::mat4& projection) {
+    std::optional<focus_pick_result> best_pick;
+    float best_score = std::numeric_limits<float>::max();
+
+    for (const auto& hit : hits) {
+        if (!hit.render)
+            continue;
+
+        const glm::vec3 world_position = hit.bounds.valid
+            ? hit.bounds.get_center()
+            : hit.render->get_node()->get_global_position();
+        const float world_radius = estimate_renderer_radius(*hit.render);
+        const glm::vec4 clip_position = projection * view * glm::vec4(world_position, 1.0f);
+        if (clip_position.w <= 0.0001f)
+            continue;
+
+        const glm::vec3 ndc = glm::vec3(clip_position) / clip_position.w;
+        if (ndc.z < -1.0f || ndc.z > 1.0f)
+            continue;
+
+        const glm::vec2 screen_position(
+            (ndc.x * 0.5f + 0.5f) * static_cast<float>(window_width),
+            (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(window_height));
+        const float screen_distance = glm::length(screen_position - mouse_position);
+
+        const glm::vec4 center_view = view * glm::vec4(world_position, 1.0f);
+        const float view_depth = glm::max(-center_view.z, 0.001f);
+        const float projected_radius = projection[1][1] * world_radius * static_cast<float>(window_height) / view_depth;
+        const float effective_radius = glm::max(projected_radius, 18.0f);
+        const float score = screen_distance / effective_radius + hit.distance * 0.00035f;
+
+        if (score >= best_score)
+            continue;
+
+        best_score = score;
+        best_pick = focus_pick_result{
+            hit.render,
+            world_position,
+            world_radius
+        };
+    }
+
+    return best_pick;
+}
+
 std::optional<focus_pick_result> pick_renderer_from_mouse(const scene& scene_context, Camera& camera) {
     GLFWwindow* window = glfwGetCurrentContext();
     if (!window)
@@ -336,15 +387,13 @@ std::optional<focus_pick_result> pick_renderer_from_mouse(const scene& scene_con
     if (!picker.cast(scene_context))
         return std::nullopt;
 
-    const ray_cast_hit* closest_hit = picker.get_closest_hit();
-    if (!closest_hit || !closest_hit->render)
-        return std::nullopt;
-
-    return focus_pick_result{
-        closest_hit->render,
-        closest_hit->bounds.get_center(),
-        estimate_renderer_radius(*closest_hit->render)
-    };
+    return select_focus_pick_from_hits(
+        picker.get_hits(),
+        glm::vec2(mouse_pos.x, mouse_pos.y),
+        window_width,
+        window_height,
+        view,
+        projection);
 }
 
 float compute_particle_surface_detail_blend(const scene& scene_context, Camera& camera) {
@@ -704,6 +753,8 @@ void simulation_state::on_enter(engine& engine) {
     if (!scene_)
         scene_ = create_example_scene(scene_kind_, &engine.get_time());
 
+    engine.get_time().reset(static_cast<float>(glfwGetTime()));
+
     loading_feedback_presenter_ = create_loading_feedback_presenter(engine);
     loading_feedback_active_ = false;
     scene_->init();
@@ -727,7 +778,13 @@ void simulation_state::on_exit(engine& engine) {
         loading_feedback_presenter_->on_loading_complete(engine, *scene_, scene_->get_scene_loader());
     loading_feedback_presenter_.reset();
     loading_feedback_active_ = false;
+    focus_active_ = false;
+    focus_elapsed_ = 0.f;
+    focus_target_node_ = nullptr;
+    attached_camera_parent_ = nullptr;
     cam_ = nullptr;
+    engine.get_ui().shutdown();
+    render_pipeline_.reset_cache();
     render_pipeline_.release_scene_depth_texture();
     scene_->release_runtime_resources();
     scene_.reset();
@@ -1150,3 +1207,4 @@ void simulation_state::switch_scene(engine& engine, example_scene_kind next_scen
 
     engine.change_state(std::make_unique<simulation_state>(next_scene_kind));
 }
+

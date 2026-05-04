@@ -143,6 +143,7 @@ private:
 
 public:
     void begin_frame();
+    void reset_cache();
     void submit(renderer* render);
     void submit(const render_item& item);
     void flush(Camera* camera, const scene* scene_context, const std::function<void(shader&)>& pre_draw = nullptr);

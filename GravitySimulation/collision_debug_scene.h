@@ -7,7 +7,7 @@ class shader;
 
 class collision_debug_scene final : public scene
 {
-    sim::time* debug_time_ = nullptr;
+    sim::time_sim* debug_time_ = nullptr;
     compute_shader* debug_gravity_compute_shader_ = nullptr;
     Mesh* debug_cube_mesh_ = nullptr;
     shader* debug_cube_shader_ = nullptr;
@@ -23,7 +23,9 @@ class collision_debug_scene final : public scene
     void spawn_crusher_wave();
 
 public:
-    explicit collision_debug_scene(sim::time* time);
+    explicit collision_debug_scene(sim::time_sim* time);
     void update() override;
+    [[nodiscard]] bool requires_scene_graph_update() const override { return true; }
     ~collision_debug_scene() override = default;
 };
+

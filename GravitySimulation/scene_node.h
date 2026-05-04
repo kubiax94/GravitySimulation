@@ -51,6 +51,8 @@ private:
 
 	std::unordered_map<std::string, scene_node*> children_;
 	std::unordered_map<type_id_t, component*> components_;
+ std::vector<component*> component_slots_;
+ std::vector<type_id_t> component_association_type_ids_cache_;
 	collision_mask_t collision_layer_mask_ = to_collision_mask(collision_layer::default_layer);
 	collision_mask_t collision_query_mask_ = collision_mask_all;
 
@@ -65,10 +67,15 @@ private:
 	template <typename T = component>
 	std::vector<T*>& find_component(const search_options& s_options, std::vector<T*>& result, scene_node* last);
 
+	template <typename T = component>
+	T* find_component_first(const search_options& s_options, scene_node* last);
+
 	template <class T = scene_node>
 	std::vector<T*> find_node(const std::string& node_name,
 		search_options s_options, std::vector<T*>& result, const scene_node* last);
 
+   void store_component(component* comp);
+	void clear_component_slots(component* comp);
   void set_dirty(bool affect_non_translation = true);
 
 
@@ -106,6 +113,12 @@ public:
 
 	template <typename T = component>
 	bool has_component();
+
+	template <typename T = component>
+	T* try_get_component();
+
+	template <typename T = component>
+	const T* try_get_component() const;
 
 	virtual void update();
 	virtual void draw();
@@ -159,7 +172,7 @@ public:
 	[[nodiscard]] uint64_t get_transform_revision() const;
   [[nodiscard]] uint64_t get_orientation_revision() const;
 
-	~scene_node() override = default;
+   ~scene_node() override;
 	
 };
 
@@ -168,9 +181,10 @@ template <typename T>
 std::vector<T*>& scene_node::find_component(const search_options& s_options, std::vector<T*>& result, scene_node* last) {
 	static_assert(std::is_base_of_v<component, T>, "T must derive from component");
 
-	if (s_options & search_options::include_self && has_component<T>())
+ if (s_options & search_options::include_self)
 	{
-		result.push_back(static_cast<T*>(components_[get_type_id<T>()]));
+       if (auto* component = try_get_component<T>())
+			result.push_back(component);
 
 		if (s_options & search_options::first)
 			return result;
@@ -183,8 +197,8 @@ std::vector<T*>& scene_node::find_component(const search_options& s_options, std
 
 		if (s_options & search_options::recursive_down)
 		{
-			if (child->has_component<T>()) {
-				result.push_back(static_cast<T*>(child->components_[get_type_id<T>()]));
+            if (auto* component = child->try_get_component<T>()) {
+				result.push_back(component);
 
 				if (s_options & search_options::first)
 					return result;
@@ -198,6 +212,32 @@ std::vector<T*>& scene_node::find_component(const search_options& s_options, std
 		parent_->find_component<T>(search_options::all_node_self, result, this);
 
 	return result;
+}
+
+template <typename T>
+T* scene_node::find_component_first(const search_options& s_options, scene_node* last) {
+	static_assert(std::is_base_of_v<component, T>, "T must derive from component");
+
+	if (s_options & search_options::include_self) {
+		if (auto* component = try_get_component<T>())
+			return component;
+	}
+
+	for (const auto& child : children_ | std::views::values)
+	{
+		if (child == last)
+			continue;
+
+		if (s_options & search_options::recursive_down) {
+			if (auto* component = child->find_component_first<T>(search_options::child_self_first, this))
+				return component;
+		}
+	}
+
+	if (s_options & search_options::search_up && parent_)
+		return parent_->find_component_first<T>(search_options::all_node_self_first, this);
+
+	return nullptr;
 }
 
 template <class T>
@@ -248,7 +288,7 @@ T* scene_node::add_component(Args&&... args) {
 
 	T* comp = new T(std::forward<Args>(args)...);
 	comp->attach_to(this);
-	components_[comp->get_type_id()] = comp;
+    store_component(comp);
 
 	//scene_manager_->register_in(comp);
 
@@ -260,9 +300,10 @@ std::vector<T*> scene_node::find_component(const search_options& s_options) {
 	static_assert(std::is_base_of_v<component, T>, "T must derive from component");
 	std::vector<T*> comps;
 
-	if (s_options & search_options::include_self && has_component<T>())
+ if (s_options & search_options::include_self)
 	{
-		comps.push_back(static_cast<T*>(components_[get_type_id<T>()]));
+        if (auto* component = try_get_component<T>())
+			comps.push_back(component);
 
 		if (s_options & search_options::first)
 			return comps;
@@ -273,8 +314,8 @@ std::vector<T*> scene_node::find_component(const search_options& s_options) {
 
 		if (s_options & search_options::recursive_down)
 		{
-			if (child->has_component<T>()) {
-				comps.push_back(static_cast<T*>(child->components_[get_type_id<T>()]));
+            if (auto* component = child->try_get_component<T>()) {
+				comps.push_back(component);
 
 				if (s_options & search_options::first)
 					return comps;
@@ -292,10 +333,7 @@ std::vector<T*> scene_node::find_component(const search_options& s_options) {
 
 template <typename T>
 T* scene_node::find_component() {
-	std::vector<T*> comp = find_component<T>(search_options::all_node_self_first);
-
-	return comp.empty() ? nullptr : comp[0];
-
+  return find_component_first<T>(search_options::all_node_self_first, nullptr);
 }
 
 template <typename T>
@@ -337,7 +375,26 @@ std::vector<T*> scene_node::find_node(const std::string& node_name, search_optio
 template <typename T>
 bool scene_node::has_component() {
 	static_assert(std::is_base_of_v<component, T>, "T must drive from component");
-	auto id = get_type_id<T>();
+ return try_get_component<T>() != nullptr;
 
-	return components_.contains(id);
+}
+
+template <typename T>
+T* scene_node::try_get_component() {
+	static_assert(std::is_base_of_v<component, T>, "T must derive from component");
+ const type_id_t type_id = get_type_id<T>();
+	if (type_id >= component_slots_.size())
+		return nullptr;
+
+	return static_cast<T*>(component_slots_[type_id]);
+}
+
+template <typename T>
+const T* scene_node::try_get_component() const {
+	static_assert(std::is_base_of_v<component, T>, "T must derive from component");
+ const type_id_t type_id = get_type_id<T>();
+	if (type_id >= component_slots_.size())
+		return nullptr;
+
+	return static_cast<const T*>(component_slots_[type_id]);
 }

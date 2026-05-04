@@ -19,10 +19,11 @@ class galactic_stress_scene final : public scene
     void initialize_scene_content();
 
 public:
-    explicit galactic_stress_scene(sim::time* time);
+    explicit galactic_stress_scene(sim::time_sim* time);
     [[nodiscard]] bool has_primary_light() const override { return true; }
     [[nodiscard]] glm::vec3 get_primary_light_position() const override { return glm::vec3(0.f); }
     [[nodiscard]] glm::vec3 get_primary_light_color() const override { return glm::vec3(1.0f, 0.82f, 0.45f); }
     [[nodiscard]] float get_primary_light_intensity() const override { return 1.2f; }
     ~galactic_stress_scene() override = default;
 };
+

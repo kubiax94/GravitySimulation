@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ray_cast.h"
+#include <cstdint>
 #include "transformable.h"
 #include "bounding_box.h"
 #include "spatial_query.h"
@@ -9,6 +10,8 @@ class collider : public transformable
 {
 protected:
     bounding_box local_bounds_;
+    mutable bounding_box world_bounds_cache_;
+    mutable uint64_t world_bounds_revision_ = 0;
     bool enabled_ = true;
     bool is_trigger_ = false;
     bool auto_generated_ = false;
@@ -25,6 +28,7 @@ public:
     }
 
     type_id_t get_type_id() const override;
+    void append_association_type_ids(std::vector<type_id_t>& type_ids) const override;
     void attach_to(scene_node* n_node) override;
     bool detach() override;
 
@@ -48,6 +52,11 @@ inline type_id_t collider::type_id() {
 
 inline type_id_t collider::get_type_id() const {
     return type_id();
+}
+
+inline void collider::append_association_type_ids(std::vector<type_id_t>& type_ids) const {
+    component::append_association_type_ids(type_ids);
+    type_ids.push_back(collider::type_id());
 }
 
 inline void collider::attach_to(scene_node* n_node) {
@@ -78,7 +87,17 @@ inline bounding_box collider::get_world_bounds() const {
     if (!transform)
         return local_bounds_;
 
-    return transform_bounding_box(local_bounds_, transform->get_global_matrix_model());
+    const auto* node = get_node();
+    if (!node)
+        return local_bounds_;
+
+    const uint64_t revision = node->get_transform_revision();
+    if (world_bounds_revision_ != revision) {
+        world_bounds_cache_ = transform_bounding_box(local_bounds_, transform->get_global_matrix_model());
+        world_bounds_revision_ = revision;
+    }
+
+    return world_bounds_cache_;
 }
 
 inline bool collider::raycast(const world_ray& ray, ray_cast_hit& hit) const {

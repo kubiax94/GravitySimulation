@@ -313,7 +313,7 @@ void log_planetary_wave_texture_stats(
 }
 }
 
-galactic_scene::galactic_scene(sim::time* time)
+galactic_scene::galactic_scene(sim::time_sim* time)
     : scene(time) {
     initialize_scene_content();
 }
@@ -1067,3 +1067,4 @@ void galactic_scene::handle_input(engine& engine, float dt) {
     }
     previous_wave_debug_next_down_ = next_down;
 }
+

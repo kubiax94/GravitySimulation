@@ -1,13 +1,13 @@
 #include "galactic_stress_scene.h"
 
-#include "galactic_simulation_test.h"
+#include "galactic_stress_test.h"
 
 #include "Camera.h"
 #include "Renderer.h"
 #include "g_shape.h"
 
 namespace {
-constexpr int stress_object_count = 1000;
+constexpr int stress_object_count = 5000;
 constexpr float camera_height = 820.f;
 constexpr float camera_distance = 2350.f;
 constexpr float grid_size = 5000.f;
@@ -15,12 +15,14 @@ constexpr float sun_marker_scale = 65.f;
 constexpr float sun_halo_scale_multiplier = 1.08f;
 }
 
-galactic_stress_scene::galactic_stress_scene(sim::time* time)
+galactic_stress_scene::galactic_stress_scene(sim::time_sim* time)
     : scene(time) {
     initialize_scene_content();
 }
 
 void galactic_stress_scene::initialize_scene_content() {
+   set_simulation_speed(3600.f);
+
   auto& assets = get_asset_manager();
 
     auto* cam_node = create_scene_node("galactic_stress_cam");
@@ -51,5 +53,6 @@ void galactic_stress_scene::initialize_scene_content() {
     sun_halo_render->set_depth_write_enabled(false);
     sun_halo_render->set_cull_mode(renderer_cull_mode::front);
 
-    simtest::stress_test(this, planet_renderers_, stress_object_count);
+    galactic_stress_test::initialize_stress_scene(this, planet_renderers_, stress_object_count);
 }
+

@@ -14,7 +14,7 @@ class fluid_scene final : public scene
     Mesh* fluid_mesh_ = nullptr;
     compute_shader* fluid_compute_shader_ = nullptr;
     scene_node* fluid_node_ = nullptr;
-    sim::time* sim_time_ = nullptr;
+    sim::time_sim* sim_time_ = nullptr;
     bool previous_debug_next_down_ = false;
     bool previous_debug_prev_down_ = false;
     gpu_fluid_system_component* fluid_system_ = nullptr;
@@ -22,8 +22,10 @@ class fluid_scene final : public scene
     void initialize_scene_content();
 
 public:
-    explicit fluid_scene(sim::time* time);
+    explicit fluid_scene(sim::time_sim* time);
     void handle_input(engine& engine, float dt) override;
     void update() override;
+    [[nodiscard]] bool requires_scene_graph_update() const override { return true; }
     ~fluid_scene() override = default;
 };
+

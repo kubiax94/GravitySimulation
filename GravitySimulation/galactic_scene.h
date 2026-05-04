@@ -104,7 +104,7 @@ class galactic_scene final : public scene
     void render_planetary_wave_debug_overlay(const scene_render_context& context, const gpu_fluid_system_component& system) const;
 
 public:
-    explicit galactic_scene(sim::time* time);
+    explicit galactic_scene(sim::time_sim* time);
     void initialize_runtime_resources() override;
     void release_runtime_resources() override;
     void handle_input(engine& engine, float dt) override;
@@ -118,3 +118,4 @@ public:
     [[nodiscard]] float get_primary_light_intensity() const override { return 1.2f; }
     ~galactic_scene() override = default;
 };
+

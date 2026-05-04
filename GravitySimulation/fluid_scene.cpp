@@ -51,7 +51,7 @@ std::vector<fluid_particle> create_box_particles() {
 }
 }
 
-fluid_scene::fluid_scene(sim::time* time)
+fluid_scene::fluid_scene(sim::time_sim* time)
     : scene(time), sim_time_(time) {
     initialize_scene_content();
 }
@@ -151,3 +151,4 @@ void fluid_scene::handle_input(engine& engine, float dt) {
         std::cout << "[fluid_debug_mode] " << static_cast<int>(fluid_system_->get_debug_visualization_mode()) << std::endl;
     }
 }
+

@@ -6,7 +6,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include "Time.h"
+#include "sim_time.h"
 #include "engine_ui.h"
 #include "frame_profiler.h"
 
@@ -15,7 +15,7 @@ class engine_state;
 class engine
 {
     GLFWwindow* window_ = nullptr;
-    sim::time time_;
+    sim::time_sim time_;
     std::unique_ptr<engine_state> current_state_;
     std::unique_ptr<engine_state> pending_state_;
     frame_profiler frame_profiler_;
@@ -40,8 +40,8 @@ public:
     void change_state(std::unique_ptr<engine_state> next_state);
 
     GLFWwindow* get_window() const { return window_; }
-    sim::time& get_time() { return time_; }
-    const sim::time& get_time() const { return time_; }
+    sim::time_sim& get_time() { return time_; }
+    const sim::time_sim& get_time() const { return time_; }
     frame_profiler& get_frame_profiler() { return frame_profiler_; }
     const frame_profiler& get_frame_profiler() const { return frame_profiler_; }
     engine_ui& get_ui() { return engine_ui_; }

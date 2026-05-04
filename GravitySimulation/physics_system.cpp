@@ -47,8 +47,8 @@ std::vector<collision_data> physics_system::get_collision_data(const std::vector
         }
 
         auto* node = body->get_node();
-        auto* collider_component = node->find_component<collider>();
-        if (!collider_component) {
+        auto* collider_component = node->try_get_component<collider>();
+      if (!collider_component || collider_component->is_auto_generated()) {
             data.push_back(entry);
             continue;
         }
@@ -155,9 +155,11 @@ void physics_system::enqueue_async_gpu_readback(const uuid& shader_id, compute_s
     if (!compute || !compute->is_vaild() || readback_pending_[shader_id])
         return;
 
-    const int readback_interval = std::max(readback_interval_, 1);
-    if ((frame_idx_ % readback_interval) != 0)
-        return;
+    if (readback_interval_ > 0) {
+        const int readback_interval = std::max(readback_interval_, 1);
+        if ((frame_idx_ % readback_interval) != 0)
+            return;
+    }
 
     const auto indices_it = cpu_readback_indices_cache_.find(shader_id);
     if (indices_it == cpu_readback_indices_cache_.end() || indices_it->second.empty())
@@ -184,9 +186,11 @@ void physics_system::enqueue_async_collision_readback(const uuid& shader_id, com
     if (!compute || !compute->is_vaild() || collision_readback_pending_[shader_id])
         return;
 
-    const int readback_interval = std::max(readback_interval_, 1);
-    if ((frame_idx_ % readback_interval) != 0)
-        return;
+    if (readback_interval_ > 0) {
+        const int readback_interval = std::max(readback_interval_, 1);
+        if ((frame_idx_ % readback_interval) != 0)
+            return;
+    }
 
     compute->enqueue_readback<collision_contact_data>(2);
     collision_readback_pending_[shader_id] = true;
@@ -304,7 +308,7 @@ bool physics_system::requires_cpu_collision_stage(const std::vector<rigid_body*>
     }
 
     for (const auto* collider_component : colliders_) {
-        if (!collider_component || !collider_component->is_enabled() || !collider_component->get_node())
+        if (!collider_component || !collider_component->is_enabled() || !collider_component->get_node() || collider_component->is_auto_generated())
             continue;
 
         if (!body_node_ids.contains(collider_component->get_node()->get_id()))
@@ -349,7 +353,16 @@ void physics_system::update_collision_pairs() {
     collision_pairs_.clear();
     collision_candidate_pairs_.clear();
 
-    const auto proxies = collision_broadphase_.build_proxies(colliders_);
+   std::vector<collider*> physics_colliders;
+    physics_colliders.reserve(colliders_.size());
+    for (auto* collider_component : colliders_) {
+        if (!collider_component || !collider_component->is_enabled() || collider_component->is_auto_generated())
+            continue;
+
+        physics_colliders.push_back(collider_component);
+    }
+
+    const auto proxies = collision_broadphase_.build_proxies(physics_colliders);
     collision_candidate_pairs_ = collision_broadphase_.find_pairs(proxies);
     collision_pairs_.reserve(collision_candidate_pairs_.size());
 

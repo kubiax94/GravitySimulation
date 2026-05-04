@@ -97,9 +97,6 @@
     <ClCompile Include="GravitySimulation.cpp">
       <Filter>Core\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Time.cpp">
-      <Filter>Core\Time</Filter>
-    </ClCompile>
     <ClCompile Include="uuid.cpp">
       <Filter>Core\Utils</Filter>
     </ClCompile>
@@ -230,12 +227,11 @@
     <ClCompile Include="ui_progress_bar_widget.cpp" />
     <ClCompile Include="ui_stack_panel.cpp" />
     <ClCompile Include="ui_metric_row_widget.cpp" />
+    <ClCompile Include="sim_time.cpp" />
+    <ClCompile Include="galactic_stress_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <!-- CORE ENGINE HEADERS -->
-    <ClInclude Include="Time.h">
-      <Filter>Core\Time</Filter>
-    </ClInclude>
     <ClInclude Include="uuid.h">
       <Filter>Core\Utils</Filter>
     </ClInclude>
@@ -390,6 +386,8 @@
     <ClInclude Include="ui_stack_panel.h" />
     <ClInclude Include="ui_loading_feedback_state.h" />
     <ClInclude Include="ui_metric_row_widget.h" />
+    <ClInclude Include="sim_time.h" />
+    <ClInclude Include="galactic_stress_test.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="camera.fs.shader" />

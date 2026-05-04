@@ -13,12 +13,12 @@ void sync_renderer_aabb_collider(renderer& render) {
 	if (!node)
 		return;
 
-	auto* aabb = node->find_component<aabb_collider>();
+ auto* aabb = node->try_get_component<aabb_collider>();
   if (aabb && !aabb->is_auto_generated())
 		return;
 
 	if (!aabb) {
-		auto* existing_collider = node->find_component<collider>();
+     auto* existing_collider = node->try_get_component<collider>();
 		if (existing_collider && !existing_collider->is_auto_generated())
 			return;
 	}
@@ -101,14 +101,18 @@ void scene::add_to_scene(scene_node* n_node) const {
 }
 
 scene::~scene() {
+	delete root_;
+	root_ = nullptr;
 
+	delete unit_sys_;
+	unit_sys_ = nullptr;
 }
 
-scene::scene() : root_(new scene_node("root")), main_camera_(nullptr), time_(new sim::time()),
+scene::scene() : root_(new scene_node("root")), main_camera_(nullptr), time_(new sim::time_sim()),
                  unit_sys_(new unit_system(1e24f, 1e6f, 3.872e6f / 3600.f)), physics_(unit_sys_) {
 }
 
-scene::scene(sim::time* time) : root_(new scene_node("root")), main_camera_(nullptr), time_(time),
+scene::scene(sim::time_sim* time) : root_(new scene_node("root")), main_camera_(nullptr), time_(time),
                                 unit_sys_(new unit_system(1e24f, 1e6f, 3.872e6f / 3600.f)), physics_(unit_sys_) {
 }
 
@@ -143,11 +147,16 @@ void scene::update() {
      if (!render || !render->get_node())
 			continue;
 
-      sync_renderer_aabb_collider(*const_cast<renderer*>(render));
-      if (!render->uses_gpu_driven_positions())
+      auto* mutable_render = const_cast<renderer*>(render);
+	  sync_renderer_aabb_collider(*mutable_render);
+	  if (!render->uses_gpu_driven_positions()) {
+			mutable_render->set_gpu_physics_index(-1);
 			continue;
+		}
 
-		gpu_driven_nodes.insert(render->get_node()->get_id());
+      const uuid node_id = render->get_node()->get_id();
+		mutable_render->set_gpu_physics_index(static_cast<int>(physics_.get_body_index(node_id)));
+		gpu_driven_nodes.insert(node_id);
 	}
 
 	physics_.set_gpu_driven_nodes(gpu_driven_nodes);
@@ -181,7 +190,8 @@ void scene::sync_render() const {
 
 	{
 		auto section = frame_profiler::measure_active("scene_sync_render_scene_graph");
-		root_->update();
+        if (requires_scene_graph_update())
+			root_->update();
 	}
 }
 
@@ -203,3 +213,4 @@ void scene::register_compute_shader(compute_shader* c_shader) {
 void scene::register_compute_shader(compute_shader* c_shader, physics_gpu_stage stage) {
 	physics_.register_in(c_shader, stage);
 }
+

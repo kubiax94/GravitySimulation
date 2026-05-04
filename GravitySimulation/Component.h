@@ -27,6 +27,7 @@ protected:
 
 public:
 	virtual type_id_t get_type_id() const = 0;
+    virtual void append_association_type_ids(std::vector<type_id_t>& type_ids) const;
 	virtual void update() {}
 	virtual void on_collision_enter(const collision_event& event) {}
 	virtual void on_collision_stay(const collision_event& event) {}
