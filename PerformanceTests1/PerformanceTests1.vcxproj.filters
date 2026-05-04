@@ -156,6 +156,9 @@
     <ClCompile Include="..\GravitySimulation\ui_profiler_panel.cpp">
       <Filter>External</Filter>
     </ClCompile>
+    <ClCompile Include="SceneNodeComponentLookupPerfTest.cpp">
+      <Filter>Pliki źródłowe</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">

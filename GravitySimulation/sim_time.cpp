@@ -25,3 +25,10 @@ float sim::time_sim::interpolation_alpha() const {
 void sim::time_sim::reduce_accumulator() {
     accumulator_ -= fixed_delta_time;
 }
+
+void sim::time_sim::reset(const float current_time) {
+    current = current_time;
+    delta_time = 0.0f;
+    accumulator_ = 0.0f;
+    last_frame_ = current_time;
+}

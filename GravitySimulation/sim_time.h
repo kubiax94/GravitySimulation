@@ -16,5 +16,6 @@ public:
     [[nodiscard]] float interpolation_alpha() const;
     void reduce_accumulator();
     void update_time(float new_frame_time);
+    void reset(float current_time = 0.0f);
 };
 }
