@@ -68,7 +68,7 @@ MeshData create_cube_line_mesh() {
 }
 }
 
-collision_debug_scene::collision_debug_scene(sim::time* time)
+collision_debug_scene::collision_debug_scene(sim::time_sim* time)
     : scene(time), debug_time_(time) {
     initialize_scene_content();
 }
@@ -341,3 +341,4 @@ void collision_debug_scene::initialize_scene_content() {
         }
     }
 }
+

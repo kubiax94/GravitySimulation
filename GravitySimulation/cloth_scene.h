@@ -17,6 +17,7 @@ class cloth_scene final : public scene
     void initialize_scene_content();
 
 public:
-    explicit cloth_scene(sim::time* time);
+    explicit cloth_scene(sim::time_sim* time);
     ~cloth_scene() override = default;
 };
+

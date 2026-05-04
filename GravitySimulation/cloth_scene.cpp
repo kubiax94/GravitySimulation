@@ -94,7 +94,7 @@ MeshData create_spring_segment_mesh() {
 
 }
 
-cloth_scene::cloth_scene(sim::time* time)
+cloth_scene::cloth_scene(sim::time_sim* time)
     : scene(time) {
     initialize_scene_content();
 }
@@ -261,3 +261,4 @@ void cloth_scene::initialize_scene_content() {
     cloth_compute_shader_->set_uni_float("windPulseFrequency", 1.8f);
     cloth_compute_shader_->set_uni_float("windTurbulence", 18.f);
 }
+
