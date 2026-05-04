@@ -362,3 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /.github/copilot-instructions.md
+
+# Bundled third-party libraries (install via vcpkg)
+GravitySimulation/glfw-3.4/
